@@ -89,6 +89,149 @@ def compute_indicators(df: pd.DataFrame) -> dict | None:
 # ─── Scoring (기본 100점 만점 + R:R 보너스 최대 5점) ──────────────────────────
 # 배점: trend 25 / golden_cross 20 / momentum 20 / volume 20 / support 10 / bollinger 10
 
+def detect_chart_patterns(df: pd.DataFrame) -> tuple[int, list[str]]:
+    """유명 차트 패턴 감지 → (보너스 점수, 시그널 목록)"""
+    c = df['Close'].values
+    h = df['High'].values
+    l_arr = df['Low'].values
+    n = len(c)
+    if n < 60:
+        return 0, []
+
+    bonus = 0
+    patterns_found = []
+
+    def local_minima(arr, order=3):
+        result = []
+        for i in range(order, len(arr) - order):
+            if arr[i] == min(arr[i-order:i+order+1]):
+                result.append((i, arr[i]))
+        return result
+
+    def local_maxima(arr, order=3):
+        result = []
+        for i in range(order, len(arr) - order):
+            if arr[i] == max(arr[i-order:i+order+1]):
+                result.append((i, arr[i]))
+        return result
+
+    # ── 1. 컵앤핸들 (Cup & Handle) — 최대 15점 ──────────────────────────────
+    try:
+        # 50일 컵 구간 + 최근 10일 핸들
+        if n >= 65:
+            cup = c[-65:-10]
+            handle = c[-10:]
+            cup_left_high = cup[:20].max()
+            cup_low = cup[10:40].min()
+            cup_right_high = cup[35:].max()
+            handle_low = handle.min()
+            handle_high = handle.max()
+            cur = c[-1]
+
+            cup_depth = (cup_left_high - cup_low) / (cup_left_high + 1e-10)
+            recovery = (cup_right_high - cup_low) / (cup_left_high - cup_low + 1e-10)
+            handle_drop = (cup_right_high - handle_low) / (cup_right_high + 1e-10)
+
+            if (0.12 <= cup_depth <= 0.55
+                    and recovery >= 0.80
+                    and 0.02 <= handle_drop <= 0.20
+                    and cur >= handle_high * 0.97):
+                bonus += 15
+                patterns_found.append('컵앤핸들 패턴 🏆')
+    except Exception:
+        pass
+
+    # ── 2. 더블바텀 (Double Bottom) — 최대 12점 ────────────────────────────
+    try:
+        p60 = c[-60:]
+        lows = local_minima(p60, order=4)
+        if len(lows) >= 2:
+            low1, low2 = lows[-2], lows[-1]
+            gap = low2[0] - low1[0]
+            price_diff = abs(low1[1] - low2[1]) / (low1[1] + 1e-10)
+            if gap >= 12 and price_diff <= 0.06:
+                seg = p60[low1[0]:low2[0]+1]
+                neckline = seg.max() if len(seg) > 0 else 0
+                cur = p60[-1]
+                if neckline > 0 and cur >= neckline * 0.96:
+                    bonus += 12
+                    patterns_found.append('더블바텀 패턴 🔄')
+    except Exception:
+        pass
+
+    # ── 3. 역헤드앤숄더 (Inverse H&S) — 최대 12점 ─────────────────────────
+    try:
+        p60 = c[-60:]
+        lows = local_minima(p60, order=4)
+        if len(lows) >= 3:
+            ls, hd, rs = lows[-3], lows[-2], lows[-1]
+            # 헤드가 가장 낮고, 양 어깨가 비슷한 높이
+            if hd[1] < ls[1] and hd[1] < rs[1]:
+                shoulder_sym = abs(ls[1] - rs[1]) / (ls[1] + 1e-10)
+                if shoulder_sym <= 0.08:
+                    seg1 = p60[ls[0]:hd[0]+1] if hd[0] > ls[0] else np.array([0])
+                    seg2 = p60[hd[0]:rs[0]+1] if rs[0] > hd[0] else np.array([0])
+                    neckline = max(seg1.max(), seg2.max())
+                    cur = p60[-1]
+                    if cur >= neckline * 0.97:
+                        bonus += 12
+                        patterns_found.append('역헤드앤숄더 🎯')
+    except Exception:
+        pass
+
+    # ── 4. 불플래그 (Bull Flag) — 최대 10점 ──────────────────────────────────
+    try:
+        if n >= 30:
+            p30 = c[-30:]
+            pole_gain = (p30[9] - p30[0]) / (p30[0] + 1e-10)
+            flag = p30[9:]
+            flag_range = (flag.max() - flag.min()) / (flag.max() + 1e-10)
+            flag_slope = (flag[-1] - flag[0]) / (flag[0] + 1e-10)
+            cur = c[-1]
+            if (pole_gain >= 0.07
+                    and 0.02 <= flag_range <= 0.18
+                    and -0.12 <= flag_slope <= 0.03
+                    and cur >= flag.max() * 0.97):
+                bonus += 10
+                patterns_found.append('불플래그 패턴 🚩')
+    except Exception:
+        pass
+
+    # ── 5. VCP (변동성 수축 패턴) — 최대 8점 ────────────────────────────────
+    try:
+        if n >= 60:
+            segs = [c[-60:-45], c[-45:-30], c[-30:-15], c[-15:]]
+            ranges = [(s.max()-s.min())/(s.mean()+1e-10) for s in segs if len(s) > 0]
+            if len(ranges) == 4:
+                contracting = all(ranges[i] > ranges[i+1] * 0.9 for i in range(3))
+                if contracting and ranges[-1] < 0.06:
+                    bonus += 8
+                    patterns_found.append('변동성 수축 (VCP) 📐')
+    except Exception:
+        pass
+
+    # ── 6. 상승삼각형 (Ascending Triangle) — 최대 8점 ───────────────────────
+    try:
+        if n >= 30:
+            h30 = h[-30:]
+            l30 = l_arr[-30:]
+            top_highs = sorted(h30)[-6:]
+            resistance_std = float(np.std(top_highs)) / (float(np.mean(top_highs)) + 1e-10)
+            lows_early = l30[:10].min()
+            lows_mid   = l30[10:20].min()
+            lows_late  = l30[20:].min()
+            rising_support = lows_late > lows_mid > lows_early * 0.99
+            resistance = float(np.mean(top_highs))
+            cur = c[-1]
+            if resistance_std < 0.025 and rising_support and cur >= resistance * 0.97:
+                bonus += 8
+                patterns_found.append('상승삼각형 패턴 △')
+    except Exception:
+        pass
+
+    return min(bonus, 20), patterns_found
+
+
 def score_stock(df: pd.DataFrame, ind: dict) -> dict | None:
     close = float(df['Close'].iloc[-1])
     prev  = float(df['Close'].iloc[-2])
@@ -264,11 +407,15 @@ def score_stock(df: pd.DataFrame, ind: dict) -> dict | None:
 
     bd['bollinger'] = min(bd['bollinger'], 10)
 
-    total = sum(bd.values())
+    # ── 차트 패턴 보너스 ──────────────────────────────────────────────────────
+    pattern_bonus, pattern_sigs = detect_chart_patterns(df)
+    total = sum(bd.values()) + pattern_bonus
+    signals = (pattern_sigs + signals)[:6]  # 패턴 시그널 앞에 배치
+
     return {
         'total':     total,
         'breakdown': bd,
-        'signals':   signals[:6],
+        'signals':   signals,
         'vol_ratio': vol_ratio,
     }
 
@@ -342,6 +489,15 @@ def analyze(info: dict, is_kr: bool, min_avg_vol: float, min_price: float) -> di
 
         close_last = float(df['Close'].iloc[-1])
         avg_vol_20 = float(df['Volume'].iloc[-21:-1].mean())  # 최근 완료일 제외 20일
+
+        # 최소 거래대금 필터 (미세주 제외)
+        daily_dollar_vol = avg_vol_20 * close_last
+        if is_kr:
+            if daily_dollar_vol < 5_000_000_000:  # ₩50억/일 이상
+                return None
+        else:
+            if daily_dollar_vol < 5_000_000:  # $500만/일 이상
+                return None
 
         # ── 필터 ──────────────────────────────────────────────────────────────
         if avg_vol_20 < min_avg_vol:
@@ -599,7 +755,7 @@ US_GROWTH_EXTENDED = [
     {'ticker': 'HUT',   'name': 'Hut 8 Corp',           'market': 'NASDAQ', 'sector': 'Technology'},
     {'ticker': 'BTBT',  'name': 'Bit Digital',          'market': 'NASDAQ', 'sector': 'Technology'},
     {'ticker': 'CRCL',  'name': 'Circle Internet',      'market': 'NYSE',   'sector': 'Financials'},
-    {'ticker': 'BITM',  'name': 'Bitmine Immersion',    'market': 'NASDAQ', 'sector': 'Technology'},
+    # BITM delisted
     {'ticker': 'CIFR',  'name': 'Cipher Mining',        'market': 'NASDAQ', 'sector': 'Technology'},
     # EV / Clean Energy
     {'ticker': 'RIVN',  'name': 'Rivian',               'market': 'NASDAQ', 'sector': 'Consumer Discretionary'},
@@ -662,7 +818,7 @@ US_TEST = US_LARGE_CAP + [
         'PLTR', 'MSTR', 'MARA', 'RIOT', 'COIN', 'RIVN', 'RKLB', 'ASTS',
         'MRNA', 'AFRM', 'HOOD', 'SOFI', 'SNOW', 'DDOG', 'CRWD', 'SOUN',
         'AMD',  'MU',   'SMCI', 'SHOP', 'UBER', 'GME',  'NET',  'BBAI',
-        'IREN', 'CLSK', 'HUT',  'JOBY', 'ACHR', 'IONQ', 'CRCL', 'BITM',
+        'IREN', 'CLSK', 'HUT',  'JOBY', 'ACHR', 'IONQ', 'CRCL',
         'RGTI', 'QUBT', 'ARM',  'PANW', 'UPST',
     }
 ]
