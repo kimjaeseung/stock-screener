@@ -899,7 +899,7 @@ def main():
                     f"vol={r['technicals']['volume_ratio']:.1f}x  "
                     f"R:R={r['risk_reward']['ratio']:.2f}"
                 )
-            time.sleep(0.3)
+            time.sleep(0.15)
         print(f"\n  통과: {passed}/{len(kr_list)}종목")
         # MIN_SCORE 이상인 종목만 포함, 미달시 있는 만큼 표시
         kr_filtered = [s for s in kr_cands if s['score'] >= MIN_SCORE]
@@ -931,7 +931,7 @@ def main():
                     f"vol={r['technicals']['volume_ratio']:.1f}x  "
                     f"R:R={r['risk_reward']['ratio']:.2f}"
                 )
-            time.sleep(0.3)
+            time.sleep(0.15)
         print(f"\n  통과: {passed}/{len(us_list)}종목")
         us_filtered = [s for s in us_cands if s['score'] >= MIN_SCORE]
         if len(us_filtered) < 5:
