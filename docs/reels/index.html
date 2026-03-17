@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>TopStockDaily — Reels</title>
+<!-- Three.js r128 (global THREE) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- Motion.js (vanilla Framer-Motion, global Motion) -->
+<script src="https://cdn.jsdelivr.net/npm/motion@11/dist/motion.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060608;font-family:'SF Pro Display',system-ui,sans-serif;color:#fff;
+     display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:16px 0 32px}
+h1{font-size:1.15rem;letter-spacing:0.14em;padding:12px 0 4px;
+   background:linear-gradient(90deg,#f59e0b,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+#subtitle{font-size:0.66rem;color:#444;letter-spacing:0.1em;margin-bottom:10px}
+#tickerPicker{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;justify-content:center;max-width:400px}
+.tpBtn{padding:3px 10px;border-radius:12px;font-size:0.68rem;cursor:pointer;
+       border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);
+       color:#666;transition:all .2s}
+.tpBtn.active{border-color:#f59e0b;color:#f59e0b;background:rgba(245,158,11,0.08)}
+
+/* ── Phone Frame ── */
+#phone{position:relative;width:360px;height:640px;border-radius:36px;overflow:hidden;
+       box-shadow:0 0 0 2px #1a1a1a, 0 0 60px rgba(245,158,11,0.12), 0 32px 64px rgba(0,0,0,0.7)}
+#phone canvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block}
+#mainCanvas{z-index:1}
+#threeCanvas{z-index:2;pointer-events:none}
+
+/* ── Scene badge (Framer Motion target) ── */
+#sceneBadge{position:absolute;top:10px;right:12px;z-index:10;
+            background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);
+            border-radius:20px;padding:3px 10px;font-size:10px;color:#f59e0b;
+            letter-spacing:.06em;opacity:0;pointer-events:none}
+
+/* ── Progress ── */
+#progressWrap{width:360px;height:3px;background:rgba(255,255,255,0.06);border-radius:2px;margin:8px 0 4px}
+#progressFill{height:100%;background:linear-gradient(90deg,#f59e0b,#ffd700);border-radius:2px;width:0%;transition:width .08s linear}
+#statusBar{font-size:0.6rem;color:#333;letter-spacing:.05em;margin-bottom:10px}
+
+/* ── Controls ── */
+#controls{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+button{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+       color:#aaa;padding:5px 14px;border-radius:20px;cursor:pointer;font-size:.72rem;transition:all .2s}
+button:hover{background:rgba(245,158,11,0.12);border-color:#f59e0b;color:#f59e0b}
+
+/* ── Record button ── */
+#recordBtn{position:fixed;bottom:28px;right:20px;background:#ef4444;color:#fff;
+           border:none;border-radius:50px;padding:11px 18px;font-size:13px;font-weight:700;
+           cursor:pointer;z-index:999;box-shadow:0 0 20px rgba(239,68,68,0.45);transition:all .2s}
+#recordBtn:hover{transform:scale(1.05);box-shadow:0 0 30px rgba(239,68,68,0.6)}
+#recordBtn.recording{background:#374151;box-shadow:none}
+
+/* ── Toast ── */
+#toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);
+       background:rgba(0,0,0,0.9);border:1px solid #333;border-radius:12px;
+       padding:10px 20px;font-size:12px;color:#fff;z-index:9999;opacity:0;
+       transition:opacity .3s;pointer-events:none;white-space:nowrap}
+</style>
+</head>
+<body>
+<h1>TopStockDaily</h1>
+<div id="subtitle">REELS · NASDAQ TOP PICKS</div>
+
+<div id="tickerPicker"></div>
+
+<div id="phone">
+  <canvas id="mainCanvas" width="720" height="1280"></canvas>
+  <canvas id="threeCanvas" width="720" height="1280"></canvas>
+  <div id="sceneBadge">INTRO</div>
+</div>
+
+<div id="progressWrap"><div id="progressFill"></div></div>
+<div id="statusBar">Loading...</div>
+
+<div id="controls">
+  <button id="btnPrev">◀</button>
+  <button id="btnPlay">⏸</button>
+  <button id="btnNext">▶</button>
+  <button onclick="loadData()">↺</button>
+</div>
+
+<button id="recordBtn" onclick="startRecord()">⏺ MP4 저장</button>
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════════════════
+const W = 720, H = 1280;
+const API = '../data.json';
+const SCENE_DUR = 3000;
+const TOTAL_SCENES = 18;
+const SCENE_NAMES = [
+  'INTRO','SCORE','PRICE','CANDLE','BOLLINGER','VOLUME',
+  'RSI','MACD','STOCH','GOLDEN X','MOMENTUM',
+  'SIGNAL 1','SIGNAL 2','SIGNAL 3','REL STR','SUMMARY',
+  'FINALE','COMPARE'
+];
+
+const SIGNAL_LABELS = {
+  golden_cross:'단기 상승 모멘텀 켜짐',volume_confirm:'거래량 폭증',
+  rsi_signal:'아직 과열 아님',rsi_divergence:'매수세 증가 중',
+  bollinger_break:'변동성 폭발',macd_cross:'매수세 우위',
+  stoch_signal:'과매도 탈출',ma_alignment:'모든 추세 상향',
+  relative_strength:'나스닥 하락 시 방어',fib_support:'피보나치 지지선 반등',
+  ichimoku_bull:'구름 위 강세 구간',poc_above:'핵심 거래가 위',
+  rr_valid:'손익비 2:1 이상'
+};
+
+// ══════════════════════════════════════════════════════════
+//  GLOBALS
+// ══════════════════════════════════════════════════════════
+const mainCanvas = document.getElementById('mainCanvas');
+const ctx = mainCanvas.getContext('2d');
+const threeCanvas = document.getElementById('threeCanvas');
+
+let stocks = [], currentStockIdx = 0, currentScene = 0;
+let isPlaying = true, sceneTimer = null, sceneStart = 0, animFrame = null;
+let particles = [], comets = [];
+let lastTimestamp = 0;
+
+// Three.js
+let threeRenderer, threeScene, threeCamera, activeEffects = [], ambientNebula;
+
+// WebCodecs
+let recorder = null;
+
+// Motion.js
+const { animate, stagger } = window.Motion || {};
+
+// ══════════════════════════════════════════════════════════
+//  THREE.JS INIT
+// ══════════════════════════════════════════════════════════
+function initThree() {
+  threeRenderer = new THREE.WebGLRenderer({
+    canvas: threeCanvas, alpha: true, antialias: true, premultipliedAlpha: false
+  });
+  threeRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  threeRenderer.setSize(W, H);
+  threeRenderer.setClearColor(0x000000, 0);
+
+  threeScene = new THREE.Scene();
+  // Orthographic: canvas pixel (px,py) → world (px-W/2, H/2-py)
+  threeCamera = new THREE.OrthographicCamera(-W/2, W/2, H/2, -H/2, 0.1, 1000);
+  threeCamera.position.z = 100;
+
+  createAmbientNebula();
+}
+
+// Canvas pixel coords → Three.js world coords
+function toWorld(px, py) { return { x: px - W/2, y: H/2 - py }; }
+
+// ── Ambient Nebula (always flowing) ───────────────────────
+function createAmbientNebula() {
+  const COUNT = 500;
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(COUNT * 3);
+  const vel = [];
+  const col = new Float32Array(COUNT * 3);
+
+  for (let i = 0; i < COUNT; i++) {
+    pos[i*3]   = (Math.random() - .5) * W;
+    pos[i*3+1] = (Math.random() - .5) * H;
+    pos[i*3+2] = 0;
+    vel.push({ x: (Math.random()-.5)*.4, y: (Math.random()-.5)*.3 });
+    col[i*3] = .96; col[i*3+1] = .62; col[i*3+2] = .04; // gold, very dim
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+
+  const mat = new THREE.PointsMaterial({
+    size: 1.8, vertexColors: true, transparent: true, opacity: .07, sizeAttenuation: false
+  });
+  const pts = new THREE.Points(geo, mat);
+  threeScene.add(pts);
+
+  ambientNebula = { pts, vel, geo,
+    update() {
+      const p = geo.attributes.position.array;
+      for (let i = 0; i < COUNT; i++) {
+        p[i*3]   += vel[i].x;
+        p[i*3+1] += vel[i].y;
+        if (p[i*3]   >  W/2) p[i*3]   = -W/2;
+        if (p[i*3]   < -W/2) p[i*3]   =  W/2;
+        if (p[i*3+1] >  H/2) p[i*3+1] = -H/2;
+        if (p[i*3+1] < -H/2) p[i*3+1] =  H/2;
+      }
+      geo.attributes.position.needsUpdate = true;
+    }
+  };
+}
+
+// ── Golden Cross Burst ─────────────────────────────────────
+function createGoldenCrossBurst(wx, wy) {
+  const COUNT = 200;
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(COUNT * 3);
+  const col = new Float32Array(COUNT * 3);
+  const vel = [];
+
+  for (let i = 0; i < COUNT; i++) {
+    pos[i*3] = wx; pos[i*3+1] = wy; pos[i*3+2] = 0;
+    const angle = (i / COUNT) * Math.PI * 2;
+    const speed = .8 + Math.random() * 2.8;
+    vel.push({
+      x: Math.cos(angle) * speed * (.5 + Math.random()),
+      y: Math.sin(angle) * speed * (.5 + Math.random()),
+      decay: .92 + Math.random() * .05
+    });
+    const t = Math.random();
+    col[i*3]   = .96 + t*.04;
+    col[i*3+1] = .62 + t*.33;
+    col[i*3+2] = .04 + t*.76;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+  const mat = new THREE.PointsMaterial({
+    size: 4, vertexColors: true, transparent: true, opacity: 1, sizeAttenuation: false
+  });
+  const pts = new THREE.Points(geo, mat);
+  threeScene.add(pts);
+
+  // Expanding rings
+  const rings = [];
+  for (let r = 0; r < 3; r++) {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(.1, 3, 64),
+      new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: .9, side: THREE.DoubleSide })
+    );
+    ring.position.set(wx, wy, 0);
+    ring.userData.delay = r * .1;
+    threeScene.add(ring);
+    rings.push(ring);
+  }
+
+  let age = 0;
+  return {
+    update(dt) {
+      age += dt;
+      const p = geo.attributes.position.array;
+      for (let i = 0; i < COUNT; i++) {
+        const v = vel[i];
+        p[i*3] += v.x; p[i*3+1] += v.y;
+        v.x *= v.decay; v.y *= v.decay;
+      }
+      geo.attributes.position.needsUpdate = true;
+      mat.opacity = Math.max(0, 1 - age / 1.8);
+
+      rings.forEach(ring => {
+        const t = Math.max(0, age - ring.userData.delay);
+        const s = easeOutCubic(Math.min(t / .6, 1)) * 60;
+        ring.scale.set(s, s, 1);
+        ring.material.opacity = Math.max(0, 1 - t / .7) * .8;
+      });
+      return age < 2.2;
+    },
+    dispose() {
+      threeScene.remove(pts); rings.forEach(r => threeScene.remove(r));
+      geo.dispose(); mat.dispose();
+    }
+  };
+}
+
+// ── Volume Fountain ────────────────────────────────────────
+function createVolumeFountain(wx, wy) {
+  const COUNT = 80;
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(COUNT * 3);
+  const col = new Float32Array(COUNT * 3);
+  const vel = [];
+
+  for (let i = 0; i < COUNT; i++) {
+    pos[i*3] = wx + (Math.random()-.5)*30; pos[i*3+1] = wy; pos[i*3+2] = 0;
+    vel.push({
+      x: (Math.random()-.5) * 1.5,
+      y: 1.5 + Math.random() * 3.5,
+      decay: .94 + Math.random() * .04
+    });
+    const t = Math.random();
+    col[i*3] = .06 + t*.1; col[i*3+1] = .72 + t*.22; col[i*3+2] = .5 + t*.3;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+  const mat = new THREE.PointsMaterial({
+    size: 3.5, vertexColors: true, transparent: true, opacity: 1, sizeAttenuation: false
+  });
+  const pts = new THREE.Points(geo, mat);
+  threeScene.add(pts);
+
+  let age = 0;
+  return {
+    update(dt) {
+      age += dt;
+      const p = geo.attributes.position.array;
+      for (let i = 0; i < COUNT; i++) {
+        const v = vel[i];
+        p[i*3] += v.x; p[i*3+1] += v.y;
+        v.y -= .1; // gravity
+        v.x *= v.decay;
+      }
+      geo.attributes.position.needsUpdate = true;
+      mat.opacity = Math.max(0, 1 - age / 1.4);
+      return age < 1.6;
+    },
+    dispose() { threeScene.remove(pts); geo.dispose(); mat.dispose(); }
+  };
+}
+
+function triggerEffect(type, canvasPx, canvasPy) {
+  const { x, y } = toWorld(canvasPx, canvasPy);
+  if (type === 'golden_cross') activeEffects.push(createGoldenCrossBurst(x, y));
+  else if (type === 'volume')  activeEffects.push(createVolumeFountain(x, y));
+}
+
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+// ══════════════════════════════════════════════════════════
+//  WEBCODES RECORDER
+// ══════════════════════════════════════════════════════════
+class ReelsRecorder {
+  constructor() { this.enc = null; this.muxer = null; this.recording = false; }
+
+  async init() {
+    if (!('VideoEncoder' in window)) { this._useFallback(); return; }
+
+    const { Muxer, ArrayBufferTarget } = await import(
+      'https://cdn.jsdelivr.net/npm/mp4-muxer@4/build/mp4-muxer.js'
+    );
+    this.target = new ArrayBufferTarget();
+    this.muxer = new Muxer({
+      target: this.target,
+      video: { codec: 'avc', width: 390, height: 844 },
+      fastStart: 'in-memory'
+    });
+
+    this.enc = new VideoEncoder({
+      output: (chunk, meta) => this.muxer.addVideoChunk(chunk, meta),
+      error:  e => console.error('VideoEncoder:', e)
+    });
+    await this.enc.configure({
+      codec: 'avc1.4d0034', width: 390, height: 844,
+      bitrate: 8_000_000, framerate: 60, latencyMode: 'realtime'
+    });
+
+    this.startMs = performance.now();
+    this.frameN  = 0;
+    this.recording = true;
+    this._usedWebCodecs = true;
+  }
+
+  captureFrame() {
+    if (!this.recording || !this._usedWebCodecs) return;
+    // Composite mainCanvas + threeCanvas → 390x844
+    const off = new OffscreenCanvas(390, 844);
+    const oc  = off.getContext('2d');
+    oc.fillStyle = '#050505';
+    oc.fillRect(0, 0, 390, 844);
+    oc.drawImage(mainCanvas,  0, 0, 390, 844);
+    oc.drawImage(threeCanvas, 0, 0, 390, 844);
+
+    const ts = Math.round((performance.now() - this.startMs) * 1000);
+    const frame = new VideoFrame(off, { timestamp: ts });
+    this.enc.encode(frame, { keyFrame: this.frameN % 60 === 0 });
+    frame.close();
+    this.frameN++;
+  }
+
+  async finish() {
+    this.recording = false;
+    if (!this._usedWebCodecs) { this._stopFallback(); return; }
+    await this.enc.flush();
+    this.muxer.finalize();
+    const blob = new Blob([this.target.buffer], { type: 'video/mp4' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `TopStockDaily_${new Date().toISOString().slice(0,10)}.mp4`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`✅ MP4 저장 완료 (${(blob.size/1024/1024).toFixed(1)}MB)`);
+  }
+
+  _useFallback() {
+    const stream = mainCanvas.captureStream(60);
+    this._mr = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 8_000_000 });
+    const chunks = [];
+    this._mr.ondataavailable = e => chunks.push(e.data);
+    this._mr.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a'); a.href = url;
+      a.download = `TopStockDaily_${new Date().toISOString().slice(0,10)}.webm`;
+      a.click(); URL.revokeObjectURL(url);
+      showToast('✅ WebM 저장 (이 브라우저는 MP4 미지원)');
+    };
+    this._mr.start();
+    this.recording = true;
+  }
+  _stopFallback() { this._mr?.stop(); }
+}
+
+// ══════════════════════════════════════════════════════════
+//  DATA LOADING
+// ══════════════════════════════════════════════════════════
+async function loadData() {
+  document.getElementById('statusBar').textContent = 'Loading...';
+  drawLoading();
+  try {
+    const r = await fetch(API + '?t=' + Date.now());
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const json = await r.json();
+    stocks = json.stocks || [];
+    if (!stocks.length) throw new Error('No stocks in data.json');
+    document.getElementById('statusBar').textContent =
+      `${json.updated_at} · SPY 20d: ${json.spy_20d >= 0 ? '+' : ''}${json.spy_20d}%`;
+    buildPicker();
+    startReels(0);
+  } catch(e) {
+    document.getElementById('statusBar').textContent = 'Error: ' + e.message;
+    drawError(e.message);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  TICKER PICKER
+// ══════════════════════════════════════════════════════════
+function buildPicker() {
+  const el = document.getElementById('tickerPicker');
+  el.innerHTML = '';
+  stocks.slice(0, 8).forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tpBtn' + (i === 0 ? ' active' : '');
+    btn.textContent = `#${i+1} ${s.ticker}`;
+    btn.onclick = () => startReels(i);
+    el.appendChild(btn);
+  });
+}
+
+function updatePicker() {
+  document.querySelectorAll('.tpBtn').forEach((b, i) =>
+    b.classList.toggle('active', i === currentStockIdx));
+}
+
+// ══════════════════════════════════════════════════════════
+//  REELS ENGINE
+// ══════════════════════════════════════════════════════════
+function startReels(idx) {
+  cancelAnimationFrame(animFrame);
+  clearTimeout(sceneTimer);
+  currentStockIdx = idx;
+  currentScene = 0;
+  particles = []; comets = [];
+  activeEffects = [];
+  updatePicker();
+  playScene();
+}
+
+function nextScene() {
+  currentScene++;
+  if (currentScene >= TOTAL_SCENES) {
+    const next = (currentStockIdx + 1) % Math.min(stocks.length, 2);
+    if (next !== currentStockIdx) startReels(next);
+    else { currentScene = 0; playScene(); }
+    return;
+  }
+  playScene();
+}
+
+function playScene() {
+  if (!stocks[currentStockIdx]) return;
+  sceneStart = performance.now();
+  clearTimeout(sceneTimer);
+  particles = []; comets = [];
+  if (isPlaying) sceneTimer = setTimeout(nextScene, SCENE_DUR);
+  // Motion.js: animate scene badge
+  animSceneBadge(SCENE_NAMES[currentScene] || '');
+  renderLoop();
+}
+
+function animSceneBadge(name) {
+  const badge = document.getElementById('sceneBadge');
+  badge.textContent = name;
+  if (animate) {
+    animate(badge, { opacity: [0, 1, 1, 0], y: [-6, 0, 0, -4] },
+      { duration: 1.6, times: [0, .15, .7, 1], easing: 'ease-out' });
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  MASTER RENDER LOOP
+// ══════════════════════════════════════════════════════════
+function renderLoop(ts = 0) {
+  const dt = Math.min((ts - lastTimestamp) / 1000, .05);
+  lastTimestamp = ts;
+
+  const s = stocks[currentStockIdx];
+  if (!s) return;
+
+  const elapsed  = performance.now() - sceneStart;
+  const progress = Math.min(elapsed / SCENE_DUR, 1);
+
+  // Progress bar
+  const global = (currentStockIdx * TOTAL_SCENES + currentScene) /
+                 (Math.min(stocks.length, 2) * TOTAL_SCENES);
+  document.getElementById('progressFill').style.width = (global * 100) + '%';
+
+  // 2D scene
+  ctx.clearRect(0, 0, W, H);
+  drawScene(s, currentScene, elapsed, progress);
+  updateParticles(); drawParticles(); drawComets();
+
+  // Three.js particle trigger
+  triggerSceneEffects(currentScene, elapsed, s);
+
+  // Three.js render
+  if (ambientNebula) ambientNebula.update();
+  activeEffects = activeEffects.filter(e => {
+    const alive = e.update(dt);
+    if (!alive) e.dispose();
+    return alive;
+  });
+  threeRenderer.render(threeScene, threeCamera);
+
+  // WebCodecs capture
+  recorder?.captureFrame();
+
+  if (isPlaying || elapsed < SCENE_DUR) {
+    animFrame = requestAnimationFrame(renderLoop);
+  }
+}
+
+// ── Per-scene Three.js effect triggers ───────────────────
+const _triggered = {};
+function triggerSceneEffects(scene, elapsed, s) {
+  const key = `${currentStockIdx}_${scene}`;
+  if (!_triggered[key]) _triggered[key] = {};
+
+  // Scene 9: Golden Cross — trigger burst at ~600ms
+  if (scene === 9 && elapsed > 600 && !_triggered[key].gc) {
+    _triggered[key].gc = true;
+    if (s.details?.golden_cross) triggerEffect('golden_cross', W/2, H/2 - 60);
+  }
+  // Scene 5: Volume — trigger fountain at bar end (~1000ms)
+  if (scene === 5 && elapsed > 1000 && !_triggered[key].vol) {
+    _triggered[key].vol = true;
+    if (s.vol_ratio >= 1.5) {
+      // approximate last bar position
+      const margin = { l: 60, r: 40, t: 290, b: 200 };
+      const cw = W - margin.l - margin.r;
+      triggerEffect('volume', margin.l + cw - 10, margin.t + 100);
+    }
+  }
+  // Scene 16: Finale — burst
+  if (scene === 16 && elapsed > 400 && elapsed < 450 && !_triggered[key].fin) {
+    _triggered[key].fin = true;
+    triggerEffect('golden_cross', W/2, H/2);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  2D SCENE ROUTER
+// ══════════════════════════════════════════════════════════
+function drawScene(s, scene, t, p) {
+  switch(scene) {
+    case 0:  drawIntro(s,t,p); break;
+    case 1:  drawScoreReveal(s,t,p); break;
+    case 2:  drawPriceAction(s,t,p); break;
+    case 3:  drawCandleChart(s,t,p); break;
+    case 4:  drawBollingerScene(s,t,p); break;
+    case 5:  drawVolumeScene(s,t,p); break;
+    case 6:  drawRSIScene(s,t,p); break;
+    case 7:  drawMACDScene(s,t,p); break;
+    case 8:  drawStochScene(s,t,p); break;
+    case 9:  drawGoldenCrossScene(s,t,p); break;
+    case 10: drawMomentumScene(s,t,p); break;
+    case 11: drawSignalScene(s,t,p,0); break;
+    case 12: drawSignalScene(s,t,p,1); break;
+    case 13: drawSignalScene(s,t,p,2); break;
+    case 14: drawRSBonusScene(s,t,p); break;
+    case 15: drawSummaryScene(s,t,p); break;
+    case 16: drawFinaleScene(s,t,p); break;
+    case 17: drawCompareScene(t,p); break;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  BACKGROUND HELPERS
+// ══════════════════════════════════════════════════════════
+function drawBg(c1='#04060a', c2='#0c1020') {
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, c1); g.addColorStop(1, c2);
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+}
+function drawGrid(a=.04) {
+  ctx.save(); ctx.strokeStyle = `rgba(245,158,11,${a})`; ctx.lineWidth = 1;
+  for (let x=0; x<W; x+=60) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y=0; y<H; y+=60) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.restore();
+}
+function gradText(text, x, y, size, c1, c2, align='center') {
+  ctx.save();
+  ctx.font = `900 ${size}px "SF Pro Display",system-ui`;
+  ctx.textAlign = align;
+  const g = ctx.createLinearGradient(x-240,0,x+240,0);
+  g.addColorStop(0,c1); g.addColorStop(1,c2);
+  ctx.fillStyle = g; ctx.fillText(text,x,y);
+  ctx.restore();
+}
+function easeOut(t) { return 1 - Math.pow(1-t,3); }
+function fadeIn(t, d=400) { return Math.min(1, t/d); }
+function scoreColor(s) {
+  if (s >= 80) return '#f59e0b';
+  if (s >= 60) return '#00d4ff';
+  if (s >= 40) return '#ffaa00';
+  return '#ff4444';
+}
+function rsiColor(r) {
+  if (r > 70) return '#ff4444';
+  if (r >= 55) return '#f59e0b';
+  if (r >= 45) return '#00d4ff';
+  return '#00ff88';
+}
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r);
+  c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r);
+  c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y); c.closePath();
+}
+function wrapText(c, text, x, y, mw, lh) {
+  const words = text.split(' '); let line='', cy=y;
+  words.forEach(w => {
+    const t = line+w+' ';
+    if (c.measureText(t).width > mw && line.length > 0) {
+      c.fillText(line.trim(),x,cy); line=w+' '; cy+=lh;
+    } else line=t;
+  });
+  c.fillText(line.trim(),x,cy);
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 0 — INTRO (Hook)
+// ══════════════════════════════════════════════════════════
+function drawIntro(s, t, p) {
+  drawBg('#03040a','#080b18');
+  drawGrid(.025);
+  spawnComet();
+
+  const a = easeOut(Math.min(1, t/600));
+  const rank = stocks.indexOf(s) + 1;
+  ctx.save(); ctx.globalAlpha = a;
+
+  // Rank
+  const rankColor = rank===1?'#ffd700':rank===2?'#c0c0c0':'#cd7f32';
+  ctx.fillStyle = rankColor;
+  ctx.font = '600 30px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText(`#${rank} 오늘의 스윙 픽`, W/2, 190);
+
+  // Ticker — character pop
+  const chars = [...s.ticker];
+  chars.forEach((ch, i) => {
+    const delay = 300 + i * 80;
+    const ca = easeOut(Math.min(1, Math.max(0, (t-delay)/200)));
+    const scale = .3 + ca * .7;
+    const cx = W/2 + (i - chars.length/2 + .5) * 96;
+    ctx.save();
+    ctx.globalAlpha = a * ca;
+    ctx.translate(cx, 340);
+    ctx.scale(scale, scale);
+    const g = ctx.createLinearGradient(-60,0,60,0);
+    g.addColorStop(0,'#f59e0b'); g.addColorStop(1,'#ffd700');
+    ctx.fillStyle = g;
+    ctx.font = '900 130px "SF Pro Display",system-ui';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(ch, 0, 0);
+    ctx.restore();
+  });
+  ctx.textBaseline = 'alphabetic';
+
+  // Price
+  const retPct = s.details?.ret_20d || 0;
+  const retColor = retPct >= 0 ? '#00ff88' : '#ff4444';
+  ctx.fillStyle = 'rgba(255,255,255,.6)';
+  ctx.font = '400 38px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText(`$${s.price}`, W/2, 430);
+
+  // Return badge
+  if (retPct !== 0) {
+    const ba = easeOut(Math.min(1, Math.max(0,(t-600)/300)));
+    ctx.globalAlpha = a * ba;
+    ctx.fillStyle = retColor+'22';
+    roundRect(ctx, W/2-100, 460, 200, 60, 30); ctx.fill();
+    ctx.strokeStyle = retColor+'66'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle = retColor; ctx.font = '700 28px system-ui';
+    ctx.fillText(`4주 ${retPct>=0?'+':''}${retPct.toFixed(1)}%`, W/2, 499);
+    ctx.globalAlpha = a;
+  }
+
+  // Score circle
+  drawScoreCircle(W/2, 680, 88, s.score, scoreColor(s.score), a);
+
+  // Swing entry box (if swing data available)
+  if (s.swing) drawSwingBadge(s.swing, t, a);
+
+  ctx.restore();
+}
+
+function drawSwingBadge(sw, t, a) {
+  const ba = easeOut(Math.min(1, Math.max(0,(t-800)/400)));
+  ctx.globalAlpha = a * ba;
+  ctx.fillStyle = 'rgba(245,158,11,.08)';
+  roundRect(ctx, 80, 840, W-160, 120, 18); ctx.fill();
+  ctx.strokeStyle = 'rgba(245,158,11,.3)'; ctx.lineWidth=1; ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f59e0b'; ctx.font = '600 22px system-ui';
+  ctx.fillText(`진입 $${sw.entry_low}~$${sw.entry_high}`, W/2, 882);
+  ctx.fillStyle = '#00ff88'; ctx.font = '600 22px system-ui';
+  ctx.fillText(`목표 +${sw.target1_pct}%  손익비 ${sw.rr_ratio}:1`, W/2, 922);
+  ctx.fillStyle = '#ff4444'; ctx.font = '400 20px system-ui';
+  ctx.fillText(`손절 $${sw.stop_loss} (${sw.stop_pct}%)`, W/2, 958);
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCORE CIRCLE
+// ══════════════════════════════════════════════════════════
+function drawScoreCircle(cx, cy, r, score, color, alpha=1) {
+  ctx.save(); ctx.globalAlpha = alpha;
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.strokeStyle='rgba(255,255,255,.07)'; ctx.lineWidth=10; ctx.stroke();
+  const pct = Math.min(score,100)/100;
+  ctx.beginPath(); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);
+  ctx.strokeStyle=color; ctx.lineWidth=10; ctx.lineCap='round'; ctx.stroke();
+  ctx.fillStyle=color; ctx.font='900 50px system-ui';
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(score,cx,cy);
+  ctx.fillStyle='rgba(255,255,255,.35)'; ctx.font='400 20px system-ui';
+  ctx.fillText('SCORE',cx,cy+38); ctx.textBaseline='alphabetic';
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 1 — SCORE REVEAL
+// ══════════════════════════════════════════════════════════
+function drawScoreReveal(s, t, p) {
+  drawBg('#050812','#0a1025');
+  const a = easeOut(Math.min(1,t/500));
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle='rgba(255,255,255,.4)'; ctx.font='500 28px system-ui'; ctx.textAlign='center';
+  ctx.fillText('SIGNAL SCORE', W/2, 150);
+  gradText(s.ticker, W/2, 230, 72, '#f59e0b','#ffd700');
+  const displayScore = Math.round(easeOut(p)*s.score);
+  ctx.fillStyle=scoreColor(displayScore); ctx.font='900 150px system-ui';
+  ctx.fillText(displayScore, W/2, 440);
+  ctx.fillStyle='rgba(255,255,255,.3)'; ctx.font='400 22px system-ui';
+  ctx.fillText('/ 100', W/2+110, 450);
+  const sigs = s.signals||[];
+  sigs.slice(0,4).forEach((sig,i) => {
+    const y = 530+i*72, fade=Math.min(1,Math.max(0,(t-400-i*100)/300));
+    ctx.globalAlpha=a*fade;
+    ctx.fillStyle='rgba(245,158,11,.07)';
+    roundRect(ctx,80,y-34,W-160,54,14); ctx.fill();
+    ctx.fillStyle='#f59e0b'; ctx.font='500 22px system-ui'; ctx.textAlign='center';
+    const label = SIGNAL_LABELS[sig] || sig;
+    ctx.fillText(label, W/2, y);
+  });
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 2 — PRICE ACTION
+// ══════════════════════════════════════════════════════════
+function drawPriceAction(s, t, p) {
+  drawBg('#040810','#0c1020');
+  const a = easeOut(Math.min(1,t/500));
+  ctx.save(); ctx.globalAlpha=a;
+  gradText(s.ticker, W/2, 160, 62, '#f59e0b','#ffd700');
+  const det=s.details||{};
+  const rows=[
+    ['가격','$'+s.price,'#fff'],
+    ['5일 수익률',`${(det.ret_5d||0)>=0?'+':''}${(det.ret_5d||0).toFixed(1)}%`,(det.ret_5d||0)>=0?'#00ff88':'#ff4444'],
+    ['20일 수익률',`${(det.ret_20d||0)>=0?'+':''}${(det.ret_20d||0).toFixed(1)}%`,(det.ret_20d||0)>=0?'#00ff88':'#ff4444'],
+    ['거래량 비율',`${s.vol_ratio}×`,s.vol_ratio>=2?'#f59e0b':s.vol_ratio>=1.2?'#00d4ff':'#888'],
+    ['RSI',`${(det.rsi||0).toFixed(0)}`,rsiColor(det.rsi||50)],
+    ['vs SPY',`${(s.rs_diff||0)>=0?'+':''}${(s.rs_diff||0).toFixed(1)}%`,(s.rs_diff||0)>=0?'#00ff88':'#ff4444'],
+  ];
+  rows.forEach(([label,val,color],i) => {
+    const y=270+i*112, delay=200+i*80;
+    const ra=Math.min(1,Math.max(0,(t-delay)/300));
+    ctx.globalAlpha=a*ra;
+    ctx.fillStyle='rgba(255,255,255,.04)';
+    roundRect(ctx,60,y-46,W-120,82,18); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.38)'; ctx.font='400 24px system-ui'; ctx.textAlign='left';
+    ctx.fillText(label, 100, y);
+    ctx.fillStyle=color; ctx.font='700 30px system-ui'; ctx.textAlign='right';
+    ctx.fillText(val, W-100, y);
+  });
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 3 — CANDLE CHART
+// ══════════════════════════════════════════════════════════
+function drawCandleChart(s, t, p) {
+  drawBg('#030608','#070e18');
+  const chart=s.chart;
+  if (!chart?.close?.length) { drawChartNA(s,t); return; }
+  const a=easeOut(Math.min(1,t/400));
+  ctx.save(); ctx.globalAlpha=a;
+  ctx.fillStyle='rgba(255,255,255,.55)'; ctx.font='600 30px system-ui'; ctx.textAlign='center';
+  ctx.fillText(`${s.ticker} — 가격 추이`, W/2, 100);
+  const n=chart.close.length, cnt=Math.min(n,40), si=n-cnt;
+  const mg={l:60,r:40,t:150,b:220};
+  const cw=W-mg.l-mg.r, ch=H-mg.t-mg.b;
+  const sl={open:chart.open.slice(si),high:chart.high.slice(si),low:chart.low.slice(si),
+             close:chart.close.slice(si),ma20:chart.ma20?.slice(si)||[],ma60:chart.ma60?.slice(si)||[]};
+  const allV=[...sl.high,...sl.low].filter(Boolean);
+  const minY=Math.min(...allV)*.998, maxY=Math.max(...allV)*1.002;
+  const toY=v=>mg.t+ch-((v-minY)/(maxY-minY))*ch;
+  const barW=cw/cnt*.65, rev=Math.round(easeOut(p)*cnt);
+  for (let i=0;i<rev;i++) {
+    const x=mg.l+(i+.5)*(cw/cnt);
+    const {open:o,high:h,low:l,close:c}={open:sl.open[i],high:sl.high[i],low:sl.low[i],close:sl.close[i]};
+    if (!o||!h||!l||!c) continue;
+    const bull=c>=o;
+    ctx.strokeStyle=bull?'#00ff88':'#ff4444';
+    ctx.fillStyle=bull?'rgba(0,255,136,.25)':'rgba(255,68,68,.25)';
+    ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(x,toY(h)); ctx.lineTo(x,toY(l)); ctx.stroke();
+    const bt=toY(Math.max(o,c)), bh=Math.abs(toY(o)-toY(c))||1;
+    ctx.fillRect(x-barW/2,bt,barW,bh); ctx.strokeRect(x-barW/2,bt,barW,bh);
+  }
+  [[sl.ma20,'rgba(0,212,255,.8)'],[sl.ma60,'rgba(245,158,11,.7)']].forEach(([arr,color]) => {
+    ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=2.5; let st=false;
+    arr.slice(0,rev).forEach((v,i) => {
+      if (!v) return;
+      const x=mg.l+(i+.5)*(cw/cnt), y=toY(v);
+      if (!st){ctx.moveTo(x,y);st=true;}else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  });
+  ctx.font='400 20px system-ui'; ctx.textAlign='left';
+  ctx.fillStyle='rgba(0,212,255,.8)'; ctx.fillText('MA20', mg.l, H-170);
+  ctx.fillStyle='rgba(245,158,11,.8)'; ctx.fillText('MA60', mg.l+90, H-170);
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 4 — BOLLINGER
+// ══════════════════════════════════════════════════════════
+function drawBollingerScene(s, t, p) {
+  drawBg('#030810','#070f1c');
+  const chart=s.chart;
+  if (!chart?.bb_upper) { drawChartNA(s,t); return; }
+  const a=easeOut(Math.min(1,t/400));
+  ctx.save(); ctx.globalAlpha=a;
+  ctx.fillStyle='rgba(255,255,255,.55)'; ctx.font='600 30px system-ui'; ctx.textAlign='center';
+  ctx.fillText(`${s.ticker} — 볼린저 밴드`, W/2, 100);
+  const sq=s.details?.bb_squeeze||1, isSq=sq<.85;
+  if(isSq){ctx.fillStyle='#00d4ff';ctx.font='600 24px system-ui';ctx.fillText('⚡ 볼린저 스퀴즈 감지됨',W/2,148);}
+  const n=chart.close.length,cnt=Math.min(n,50),si=n-cnt;
+  const mg={l:60,r:40,t:190,b:220};
+  const cw=W-mg.l-mg.r,ch=H-mg.t-mg.b;
+  const cl=chart.close.slice(si),up=chart.bb_upper.slice(si),lo=chart.bb_lower.slice(si);
+  const allV=[...cl,...up,...lo].filter(Boolean);
+  const minY=Math.min(...allV)*.998,maxY=Math.max(...allV)*1.002;
+  const toY=v=>mg.t+ch-((v-minY)/(maxY-minY))*ch;
+  const toX=i=>mg.l+(i/(cnt-1))*cw;
+  const rev=Math.round(easeOut(p)*cnt);
+  ctx.beginPath();
+  up.slice(0,rev).forEach((v,i)=>{if(!v)return;i===0?ctx.moveTo(toX(i),toY(v)):ctx.lineTo(toX(i),toY(v));});
+  for(let i=Math.min(rev,cnt)-1;i>=0;i--){const v=lo[i];if(v)ctx.lineTo(toX(i),toY(v));}
+  ctx.closePath(); ctx.fillStyle='rgba(0,212,255,.05)'; ctx.fill();
+  [up,lo].forEach(arr=>{
+    ctx.beginPath();ctx.strokeStyle='rgba(0,212,255,.45)';ctx.lineWidth=1.5;ctx.setLineDash([5,4]);
+    let st=false;arr.slice(0,rev).forEach((v,i)=>{if(!v)return;if(!st){ctx.moveTo(toX(i),toY(v));st=true;}else ctx.lineTo(toX(i),toY(v));});
+    ctx.stroke();ctx.setLineDash([]);
+  });
+  ctx.beginPath();ctx.strokeStyle='#fff';ctx.lineWidth=3;let s2=false;
+  cl.slice(0,rev).forEach((v,i)=>{if(!v)return;if(!s2){ctx.moveTo(toX(i),toY(v));s2=true;}else ctx.lineTo(toX(i),toY(v));});
+  ctx.stroke();
+  ctx.fillStyle=isSq?'#00d4ff':'#888';ctx.font='500 22px system-ui';ctx.textAlign='center';
+  ctx.fillText(`밴드 폭 비율: ${(sq*100).toFixed(0)}%`,W/2,H-170);
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 5 — VOLUME
+// ══════════════════════════════════════════════════════════
+function drawVolumeScene(s, t, p) {
+  drawBg('#03080c','#070f14');
+  const chart=s.chart;
+  if(!chart){drawChartNA(s,t);return;}
+  const a=easeOut(Math.min(1,t/400));
+  ctx.save();ctx.globalAlpha=a;
+  ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='600 30px system-ui';ctx.textAlign='center';
+  ctx.fillText(`${s.ticker} — 거래량 분석`,W/2,100);
+  const vr=s.vol_ratio, vrC=vr>=2?'#f59e0b':vr>=1.5?'#00d4ff':'#888';
+  ctx.fillStyle=vrC;ctx.font='900 56px system-ui';ctx.fillText(`${vr}×`,W/2,200);
+  ctx.fillStyle='rgba(255,255,255,.35)';ctx.font='400 22px system-ui';
+  ctx.fillText('20일 평균 대비 거래량',W/2,248);
+  const n=chart.volume.length,cnt=Math.min(n,40),si=n-cnt;
+  const vol=chart.volume.slice(si),cl=chart.close.slice(si);
+  const mg={l:60,r:40,t:290,b:220};
+  const cw=W-mg.l-mg.r,ch=H-mg.t-mg.b;
+  const maxV=Math.max(...vol.filter(Boolean));
+  const barW=cw/cnt*.75,rev=Math.round(easeOut(p)*cnt);
+  vol.slice(0,rev).forEach((v,i)=>{
+    if(!v)return;
+    const x=mg.l+(i+.5)*(cw/cnt);
+    const bh=(v/maxV)*ch;
+    const bull=(cl[i]>=(i>0?cl[i-1]:cl[i]));
+    const isLast=i===rev-1;
+    ctx.fillStyle=isLast?(vr>=2?'#f59e0b':vr>=1.5?'#00d4ff':'#888'):(bull?'rgba(0,255,136,.4)':'rgba(255,68,68,.4)');
+    ctx.fillRect(x-barW/2,mg.t+ch-bh,barW,bh);
+  });
+  const avgV=vol.reduce((a,b)=>a+(b||0),0)/cnt;
+  const avgY=mg.t+ch-(avgV/maxV)*ch;
+  ctx.setLineDash([8,5]);ctx.strokeStyle='rgba(245,158,11,.6)';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(mg.l,avgY);ctx.lineTo(mg.l+cw,avgY);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 6 — RSI
+// ══════════════════════════════════════════════════════════
+function drawRSIScene(s, t, p) {
+  drawBg('#040a0c','#081018');
+  const chart=s.chart;
+  if(!chart?.rsi){drawChartNA(s,t);return;}
+  const a=easeOut(Math.min(1,t/400));
+  ctx.save();ctx.globalAlpha=a;
+  ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='600 30px system-ui';ctx.textAlign='center';
+  ctx.fillText(`${s.ticker} — RSI (14)`,W/2,100);
+  const rv=s.details?.rsi||0;
+  ctx.fillStyle=rsiColor(rv);ctx.font='900 88px system-ui';ctx.fillText(rv.toFixed(0),W/2,220);
+  ctx.fillStyle='rgba(255,255,255,.35)';ctx.font='400 22px system-ui';
+  const zone=rv>70?'과매수 구간':rv>=55?'강세 구간':rv>=45?'중립':'과매도 — 반등 가능';
+  ctx.fillText(zone,W/2,262);
+  const n=chart.rsi.length,cnt=Math.min(n,50),si=n-cnt;
+  const rs=chart.rsi.slice(si);
+  const mg={l:60,r:40,t:320,b:220};
+  const cw=W-mg.l-mg.r,ch=H-mg.t-mg.b;
+  const toY=v=>mg.t+ch-(v/100)*ch;
+  const toX=i=>mg.l+(i/(cnt-1))*cw;
+  const rev=Math.round(easeOut(p)*cnt);
+  ctx.fillStyle='rgba(255,68,68,.05)';ctx.fillRect(mg.l,mg.t,cw,toY(70)-mg.t);
+  ctx.fillStyle='rgba(0,212,255,.05)';ctx.fillRect(mg.l,toY(30),cw,mg.t+ch-toY(30));
+  [30,50,70].forEach(lv=>{
+    const ly=toY(lv);ctx.setLineDash([4,4]);
+    ctx.strokeStyle=lv===50?'rgba(255,255,255,.18)':'rgba(255,255,255,.1)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(mg.l,ly);ctx.lineTo(mg.l+cw,ly);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(255,255,255,.25)';ctx.font='400 18px system-ui';ctx.textAlign='left';
+    ctx.fillText(lv,mg.l-44,ly+5);
+  });
+  ctx.beginPath();ctx.lineWidth=3;let st=false;
+  rs.slice(0,rev).forEach((v,i)=>{
+    if(v==null)return;const x=toX(i),y=toY(v);
+    if(!st){ctx.moveTo(x,y);st=true;}else ctx.lineTo(x,y);
+  });
+  const gr=ctx.createLinearGradient(0,mg.t,0,mg.t+ch);
+  gr.addColorStop(0,'#ff4444');gr.addColorStop(.5,'#00d4ff');gr.addColorStop(1,'#00ff88');
+  ctx.strokeStyle=gr;ctx.stroke();
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 7 — MACD
+// ══════════════════════════════════════════════════════════
+function drawMACDScene(s, t, p) {
+  drawBg('#030810','#06101a');
+  const chart=s.chart;
+  if(!chart?.macd_hist){drawChartNA(s,t);return;}
+  const a=easeOut(Math.min(1,t/400));
+  ctx.save();ctx.globalAlpha=a;
+  ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='600 30px system-ui';ctx.textAlign='center';
+  ctx.fillText(`${s.ticker} — MACD`,W/2,100);
+  const md=s.details?.macd||0,bull=md>0;
+  ctx.fillStyle=bull?'#00ff88':'#ff4444';ctx.font='900 56px system-ui';
+  ctx.fillText(bull?'강세 (BULLISH)':'약세 (BEARISH)',W/2,210);
+  ctx.fillStyle='rgba(255,255,255,.35)';ctx.font='400 22px system-ui';
+  ctx.fillText(`MACD − Signal: ${md>0?'+':''}${md.toFixed(4)}`,W/2,260);
+  const n=chart.macd_hist.length,cnt=Math.min(n,50),si=n-cnt;
+  const hist=chart.macd_hist.slice(si);
+  const mg={l:60,r:40,t:310,b:220};
+  const cw=W-mg.l-mg.r,ch=H-mg.t-mg.b;
+  const vals=hist.filter(Boolean);
+  const maxH=Math.max(...vals.map(Math.abs))||1;
+  const midY=mg.t+ch/2,barW=cw/cnt*.75;
+  const rev=Math.round(easeOut(p)*cnt);
+  ctx.strokeStyle='rgba(255,255,255,.14)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(mg.l,midY);ctx.lineTo(mg.l+cw,midY);ctx.stroke();
+  hist.slice(0,rev).forEach((v,i)=>{
+    if(v==null)return;const x=mg.l+(i+.5)*(cw/cnt);
+    const bh=(Math.abs(v)/maxH)*(ch/2);
+    ctx.fillStyle=v>=0?'rgba(0,255,136,.65)':'rgba(255,68,68,.65)';
+    ctx.fillRect(x-barW/2,v>=0?midY-bh:midY,barW,bh);
+  });
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 8 — STOCHASTIC
+// ══════════════════════════════════════════════════════════
+function drawStochScene(s, t, p) {
+  drawBg('#040a08','#08140c');
+  const chart=s.chart;
+  if(!chart?.stoch_k){drawChartNA(s,t);return;}
+  const a=easeOut(Math.min(1,t/400));
+  ctx.save();ctx.globalAlpha=a;
+  ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='600 30px system-ui';ctx.textAlign='center';
+  ctx.fillText(`${s.ticker} — 스토캐스틱`,W/2,100);
+  const stk=s.details?.stoch_k||50;
+  ctx.fillStyle=stk<30?'#00d4ff':stk>70?'#ff4444':'#00ff88';
+  ctx.font='900 88px system-ui';ctx.fillText(stk.toFixed(0),W/2,220);
+  ctx.fillStyle='rgba(255,255,255,.35)';ctx.font='400 22px system-ui';
+  ctx.fillText(stk<30?'과매도 — 반등 시작 🔄':stk>70?'과매수':'중립 구간',W/2,262);
+  const n=chart.stoch_k.length,cnt=Math.min(n,50),si=n-cnt;
+  const ks=chart.stoch_k.slice(si),ds=chart.stoch_d.slice(si);
+  const mg={l:60,r:40,t:320,b:220};
+  const cw=W-mg.l-mg.r,ch=H-mg.t-mg.b;
+  const toY=v=>mg.t+ch-(v/100)*ch,toX=i=>mg.l+(i/(cnt-1))*cw;
+  const rev=Math.round(easeOut(p)*cnt);
+  ctx.fillStyle='rgba(255,68,68,.05)';ctx.fillRect(mg.l,mg.t,cw,ch*.3);
+  ctx.fillStyle='rgba(0,212,255,.05)';ctx.fillRect(mg.l,mg.t+ch*.7,cw,ch*.3);
+  const drawL=(arr,color,w=2.5)=>{
+    ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=w;let st=false;
+    arr.slice(0,rev).forEach((v,i)=>{if(v==null)return;if(!st){ctx.moveTo(toX(i),toY(v));st=true;}else ctx.lineTo(toX(i),toY(v));});
+    ctx.stroke();
+  };
+  drawL(ks,'#00d4ff');drawL(ds,'rgba(245,158,11,.7)',2);
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 9 — GOLDEN CROSS
+// ══════════════════════════════════════════════════════════
+function drawGoldenCrossScene(s, t, p) {
+  drawBg('#060808','#0d1010');
+  const a=easeOut(Math.min(1,t/400));
+  ctx.save();ctx.globalAlpha=a;
+  const hasGC=s.details?.golden_cross;
+  ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='600 30px system-ui';ctx.textAlign='center';
+  ctx.fillText(`${s.ticker} — 골든크로스`,W/2,130);
+  ctx.font='900 96px system-ui';ctx.fillStyle=hasGC?'#ffd700':'#333';
+  ctx.fillText(hasGC?'✨':'—',W/2,320);
+  ctx.font=hasGC?'700 46px system-ui':'400 34px system-ui';
+  ctx.fillStyle=hasGC?'#ffd700':'#555';
+  ctx.fillText(hasGC?'골든크로스 발생':'골든크로스 없음',W/2,410);
+  ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='400 24px system-ui';
+  ctx.fillText('MA20이 MA60을 상향 돌파',W/2,480);
+  ctx.fillText('— 중기 강세 신호',W/2,518);
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 10 — MOMENTUM
+// ══════════════════════════════════════════════════════════
+function drawMomentumScene(s, t, p) {
+  drawBg('#030a06','#060f08');
+  const a=easeOut(Math.min(1,t/400));
+  ctx.save();ctx.globalAlpha=a;
+  const ret5=s.details?.ret_5d||0,ret20=s.details?.ret_20d||0;
+  ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='600 30px system-ui';ctx.textAlign='center';
+  ctx.fillText(`${s.ticker} — 모멘텀`,W/2,130);
+  const gy=420;
+  drawGauge(W/2,gy,170,Math.min(Math.max(ret5/20,-1),1),'#f59e0b',a);
+  ctx.fillStyle=ret5>=0?'#00ff88':'#ff4444';ctx.font='900 72px system-ui';
+  ctx.fillText(`${ret5>=0?'+':''}${ret5.toFixed(1)}%`,W/2,gy+26);
+  ctx.fillStyle='rgba(255,255,255,.35)';ctx.font='400 24px system-ui';
+  ctx.fillText('5일 수익률',W/2,gy+72);
+  ctx.fillStyle='rgba(255,255,255,.25)';ctx.font='400 22px system-ui';
+  ctx.fillText(`20일: ${ret20>=0?'+':''}${ret20.toFixed(1)}%`,W/2,gy+118);
+  ctx.restore();
+}
+function drawGauge(cx,cy,r,pct,color,alpha){
+  ctx.save();ctx.globalAlpha=alpha*.3;
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0);
+  ctx.strokeStyle='rgba(255,255,255,.1)';ctx.lineWidth=14;ctx.stroke();
+  ctx.globalAlpha=alpha;const angle=Math.PI+pct*Math.PI;
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,angle);
+  ctx.strokeStyle=color;ctx.lineWidth=14;ctx.lineCap='round';ctx.stroke();
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENES 11-13 — SIGNAL CARDS
+// ══════════════════════════════════════════════════════════
+function drawSignalScene(s, t, p, idx) {
+  drawBg('#040610','#080c1a');
+  const sigKey=(s.signals||[])[idx];
+  const sigLabel=sigKey?SIGNAL_LABELS[sigKey]||sigKey:null;
+  if(!sigLabel){drawChartNA(s,t);return;}
+  const a=easeOut(Math.min(1,t/400));
+  ctx.save();ctx.globalAlpha=a;
+  ctx.fillStyle='rgba(255,255,255,.28)';ctx.font='500 24px system-ui';ctx.textAlign='center';
+  ctx.fillText(`신호 ${idx+1} / ${(s.signals||[]).length}`,W/2,170);
+  gradText(s.ticker,W/2,280,66,'#f59e0b','#ffd700');
+  const ca=easeOut(Math.min(1,Math.max(0,(t-200)/400)));
+  ctx.globalAlpha=a*ca;
+  ctx.fillStyle='rgba(245,158,11,.06)';roundRect(ctx,60,320,W-120,150,22);ctx.fill();
+  ctx.strokeStyle='rgba(245,158,11,.28)';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.globalAlpha=a;ctx.fillStyle='#f59e0b';ctx.font='600 28px system-ui';ctx.textAlign='center';
+  wrapText(ctx,sigLabel,W/2,420,W-160,38);
+  ctx.fillStyle='rgba(255,255,255,.08)';roundRect(ctx,W/2-90,520,180,54,27);ctx.fill();
+  ctx.fillStyle='#00ff88';ctx.font='600 24px system-ui';
+  ctx.fillText(`총점: ${s.score}`,W/2,555);
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 14 — RELATIVE STRENGTH
+// ══════════════════════════════════════════════════════════
+function drawRSBonusScene(s, t, p) {
+  drawBg('#030a10','#060f18');
+  const a=easeOut(Math.min(1,t/400));
+  ctx.save();ctx.globalAlpha=a;
+  ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='600 30px system-ui';ctx.textAlign='center';
+  ctx.fillText(`${s.ticker} — 상대 강도`,W/2,130);
+  const rsd=s.rs_diff||0,rsb=s.rs_bonus||0;
+  ctx.fillStyle=rsd>=0?'#00ff88':'#ff4444';ctx.font='900 88px system-ui';
+  ctx.fillText(`${rsd>=0?'+':''}${rsd.toFixed(1)}%`,W/2,330);
+  ctx.fillStyle='rgba(255,255,255,.35)';ctx.font='400 24px system-ui';
+  ctx.fillText('vs SPY 20일 수익률',W/2,380);
+  ctx.fillStyle='#ffd700';ctx.font='700 44px system-ui';
+  ctx.fillText(`+${rsb}점 보너스`,W/2,460);
+  const ba=easeOut(Math.min(1,Math.max(0,(t-400)/500)));
+  ctx.globalAlpha=a*ba;
+  ctx.fillStyle='rgba(255,255,255,.07)';roundRect(ctx,100,520,W-200,44,22);ctx.fill();
+  const fw=Math.min(Math.max(rsd/30,0),1)*(W-200);
+  const bg=ctx.createLinearGradient(100,0,100+fw,0);
+  bg.addColorStop(0,'#00d4ff');bg.addColorStop(1,'#00ff88');
+  ctx.fillStyle=bg;roundRect(ctx,100,520,fw,44,22);ctx.fill();
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 15 — SUMMARY
+// ══════════════════════════════════════════════════════════
+function drawSummaryScene(s, t, p) {
+  drawBg('#03050f','#08091e');
+  drawGrid(.018);
+  const a=easeOut(Math.min(1,t/500));
+  ctx.save();ctx.globalAlpha=a;
+  gradText(`#${stocks.indexOf(s)+1} ${s.ticker}`,W/2,170,68,'#f59e0b','#ffd700');
+  ctx.fillStyle='rgba(255,255,255,.45)';ctx.font='400 26px system-ui';ctx.textAlign='center';
+  ctx.fillText(`$${s.price}`,W/2,222);
+  drawScoreCircle(W/2,400,118,s.score,scoreColor(s.score),a);
+  const sigs=(s.signals||[]).slice(0,4);
+  sigs.forEach((sig,i)=>{
+    const delay=600+i*100,ra=easeOut(Math.min(1,Math.max(0,(t-delay)/300)));
+    ctx.globalAlpha=a*ra;
+    ctx.fillStyle='rgba(245,158,11,.06)';roundRect(ctx,80,568+i*70,W-160,56,14);ctx.fill();
+    ctx.fillStyle='#f59e0b';ctx.font='500 22px system-ui';ctx.textAlign='center';
+    ctx.fillText(SIGNAL_LABELS[sig]||sig,W/2,606+i*70);
+  });
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 16 — FINALE
+// ══════════════════════════════════════════════════════════
+function drawFinaleScene(s, t, p) {
+  drawBg('#03050a','#080c18');
+  const a=easeOut(Math.min(1,t/400));
+  ctx.save();ctx.globalAlpha=a;
+  ctx.fillStyle='#ffd700';ctx.font='700 38px system-ui';ctx.textAlign='center';
+  ctx.fillText("오늘의 TOP PICK",W/2,220);
+  gradText(s.ticker,W/2,400,148,'#f59e0b','#ffd700');
+  ctx.fillStyle='rgba(255,255,255,.65)';ctx.font='400 40px system-ui';
+  ctx.fillText(`$${s.price}`,W/2,472);
+  drawScoreCircle(W/2,640,108,s.score,scoreColor(s.score),a);
+  if(s.swing){
+    ctx.globalAlpha=a*easeOut(Math.min(1,Math.max(0,(t-600)/400)));
+    ctx.fillStyle='rgba(0,255,136,.09)';roundRect(ctx,80,820,W-160,140,20);ctx.fill();
+    ctx.strokeStyle='rgba(0,255,136,.25)';ctx.lineWidth=1;ctx.stroke();
+    ctx.fillStyle='#00ff88';ctx.font='700 28px system-ui';ctx.textAlign='center';
+    ctx.fillText(`목표 +${s.swing.target1_pct}%  손익비 ${s.swing.rr_ratio}:1`,W/2,872);
+    ctx.fillStyle='#f59e0b';ctx.font='600 24px system-ui';
+    ctx.fillText(`진입 $${s.swing.entry_low}~$${s.swing.entry_high}`,W/2,916);
+    ctx.fillStyle='#ff4444';ctx.font='400 22px system-ui';
+    ctx.fillText(`손절 $${s.swing.stop_loss}`,W/2,956);
+  }
+  ctx.globalAlpha=a*.22;ctx.fillStyle='#fff';ctx.font='400 18px system-ui';
+  ctx.fillText('TopStockDaily — NASDAQ Screener',W/2,1160);
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SCENE 17 — COMPARE
+// ══════════════════════════════════════════════════════════
+function drawCompareScene(t, p) {
+  drawBg('#030508','#060810');
+  if(stocks.length<2){drawChartNA(stocks[0]||{ticker:'N/A'},t);return;}
+  const s1=stocks[0],s2=stocks[1],a=easeOut(Math.min(1,t/500));
+  ctx.save();ctx.globalAlpha=a;
+  ctx.fillStyle='rgba(255,255,255,.45)';ctx.font='600 28px system-ui';ctx.textAlign='center';
+  ctx.fillText('오늘의 스윙 픽 TOP 2',W/2,130);
+  const col1=W*.27,col2=W*.73;
+  ctx.fillStyle='rgba(245,158,11,.05)';
+  roundRect(ctx,30,160,W/2-50,H-370,22);ctx.fill();
+  roundRect(ctx,W/2+20,160,W/2-50,H-370,22);ctx.fill();
+  const drawCol=(s,cx,rank)=>{
+    ctx.textAlign='center';
+    ctx.fillStyle=rank===1?'#ffd700':'#c0c0c0';ctx.font='700 24px system-ui';
+    ctx.fillText(`#${rank}`,cx,210);
+    gradText(s.ticker,cx,278,56,'#f59e0b','#ffd700');
+    ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='400 24px system-ui';
+    ctx.fillText(`$${s.price}`,cx,328);
+    ctx.fillStyle=scoreColor(s.score);ctx.font='900 64px system-ui';
+    ctx.fillText(s.score,cx,420);
+    ctx.fillStyle='rgba(255,255,255,.28)';ctx.font='400 18px system-ui';
+    ctx.fillText('SCORE',cx,450);
+    if(s.swing){
+      ctx.fillStyle='#00ff88';ctx.font='600 20px system-ui';
+      ctx.fillText(`+${s.swing.target1_pct}%`,cx,510);
+      ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='400 18px system-ui';
+      ctx.fillText(`손익비 ${s.swing.rr_ratio}:1`,cx,542);
+    }
+    (s.signals||[]).slice(0,3).forEach((sig,i)=>{
+      const delay=500+i*80;
+      ctx.globalAlpha=a*easeOut(Math.min(1,Math.max(0,(t-delay)/300)));
+      ctx.fillStyle='rgba(255,255,255,.2)';ctx.font='400 16px system-ui';ctx.textAlign='center';
+      wrapText(ctx,SIGNAL_LABELS[sig]||sig,cx,590+i*62,W/2-80,22);
+    });
+    ctx.globalAlpha=a;
+  };
+  drawCol(s1,col1,1);drawCol(s2,col2,2);
+  ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(W/2,170);ctx.lineTo(W/2,H-210);ctx.stroke();
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  PARTICLES & COMETS (2D layer)
+// ══════════════════════════════════════════════════════════
+function spawnComet() {
+  if(Math.random()<.015){
+    comets.push({x:Math.random()*W,y:0,vx:(Math.random()-.5)*3,vy:8+Math.random()*6,
+      len:60+Math.random()*80,alpha:.4+Math.random()*.4,born:performance.now()});
+  }
+}
+function drawComets() {
+  const now=performance.now();
+  comets=comets.filter(c=>{
+    const age=(now-c.born)/1000;
+    if(age>1.2||c.y>H+50)return false;
+    const al=c.alpha*(1-age/1.2);
+    const g=ctx.createLinearGradient(c.x,c.y,c.x-c.vx*10,c.y-c.vy*10);
+    g.addColorStop(0,`rgba(245,158,11,${al})`);g.addColorStop(1,'transparent');
+    ctx.beginPath();ctx.strokeStyle=g;ctx.lineWidth=2;
+    ctx.moveTo(c.x,c.y);ctx.lineTo(c.x-c.vx*12,c.y-c.vy*12);ctx.stroke();
+    c.x+=c.vx*.3;c.y+=c.vy*.3;
+    return true;
+  });
+}
+function updateParticles() {
+  particles=particles.filter(p=>p.life>.02);
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.05;p.life*=.93;p.alpha=p.life;});
+}
+function drawParticles() {
+  particles.forEach(p=>{
+    ctx.save();ctx.globalAlpha=p.alpha;ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.restore();
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  LOADING / ERROR
+// ══════════════════════════════════════════════════════════
+function drawLoading() {
+  ctx.clearRect(0,0,W,H);drawBg('#03050a','#080c18');
+  const t2=Date.now()/1000;ctx.save();ctx.translate(W/2,H/2);ctx.rotate(t2*2);
+  for(let i=0;i<8;i++){ctx.rotate(Math.PI/4);ctx.fillStyle=`rgba(245,158,11,${.1+i*.1})`;ctx.fillRect(-3,40,6,22);}
+  ctx.restore();ctx.fillStyle='#f59e0b';ctx.font='500 28px system-ui';ctx.textAlign='center';
+  ctx.fillText('NASDAQ 스캔 중...',W/2,H/2+90);
+  requestAnimationFrame(()=>{if(!stocks.length)drawLoading();});
+}
+function drawError(msg) {
+  ctx.clearRect(0,0,W,H);drawBg('#100303','#1a0606');
+  ctx.fillStyle='#ff4444';ctx.font='600 36px system-ui';ctx.textAlign='center';
+  ctx.fillText('⚠ 오류',W/2,H/2-40);
+  ctx.fillStyle='rgba(255,255,255,.45)';ctx.font='400 22px system-ui';
+  wrapText(ctx,msg,W/2,H/2+20,W-120,32);
+}
+function drawChartNA(s,t) {
+  const a=easeOut(Math.min(1,t/300));
+  ctx.save();ctx.globalAlpha=a;
+  ctx.fillStyle='rgba(255,255,255,.28)';ctx.font='400 24px system-ui';ctx.textAlign='center';
+  ctx.fillText('차트 데이터 없음',W/2,H/2);
+  gradText(s.ticker,W/2,H/2-90,68,'#f59e0b','#ffd700');
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════
+//  RECORD
+// ══════════════════════════════════════════════════════════
+async function startRecord() {
+  const btn=document.getElementById('recordBtn');
+  if(recorder?.recording){return;}
+  recorder=new ReelsRecorder();
+  btn.textContent='⏹ 녹화 중 (30초)';btn.classList.add('recording');
+  showToast('🔴 MP4 녹화 시작 — 30초 자동 저장');
+  await recorder.init();
+  if(!isPlaying){isPlaying=true;document.getElementById('btnPlay').textContent='⏸';playScene();}
+  setTimeout(async()=>{
+    await recorder.finish();
+    btn.textContent='⏺ MP4 저장';btn.classList.remove('recording');
+    recorder=null;
+  }, 30500);
+}
+
+// ══════════════════════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════════════════════
+function showToast(msg) {
+  const t=document.getElementById('toast');t.textContent=msg;t.style.opacity='1';
+  setTimeout(()=>t.style.opacity='0',3500);
+}
+
+// ══════════════════════════════════════════════════════════
+//  CONTROLS
+// ══════════════════════════════════════════════════════════
+document.getElementById('btnPlay').onclick=()=>{
+  isPlaying=!isPlaying;
+  document.getElementById('btnPlay').textContent=isPlaying?'⏸':'▶';
+  if(isPlaying){clearTimeout(sceneTimer);sceneTimer=setTimeout(nextScene,SCENE_DUR);renderLoop();}
+  else clearTimeout(sceneTimer);
+};
+document.getElementById('btnNext').onclick=()=>{clearTimeout(sceneTimer);nextScene();};
+document.getElementById('btnPrev').onclick=()=>{
+  clearTimeout(sceneTimer);
+  currentScene=Math.max(0,currentScene-1);playScene();
+};
+
+// ══════════════════════════════════════════════════════════
+//  MOTION.JS — animate controls on scene change
+// ══════════════════════════════════════════════════════════
+function animateControls() {
+  if(!animate) return;
+  animate('#progressFill',{scaleX:[.98,1]},{duration:.3,easing:'ease-out'});
+}
+
+// ══════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════
+initThree();
+loadData();
+</script>
+</body>
+</html>
