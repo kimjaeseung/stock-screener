@@ -31,6 +31,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Copy reels player to dist
+        run: |
+          mkdir -p dist/reels
+          cp docs/index.html dist/reels/
+          cp docs/data.json dist/reels/
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
