@@ -1,17 +1,16 @@
-name: Daily Stock Screener
+name: Daily Stock Screener (DISABLED — 대신 update.yml 사용)
+
+# ⚠ 이 워크플로우는 비활성화됨.
+# 6,754개 종목 순차 처리로 60분+ 타임아웃 발생.
+# update.yml (top-100 배치 다운로드, ~5분)으로 대체됨.
 
 on:
-  schedule:
-    # 한국 장 마감 후 (UTC 07:30 = KST 16:30) 평일
-    - cron: '30 7 * * 1-5'
-    # 미국 장 마감 후 (UTC 22:30 = EST 17:30) 평일
-    - cron: '30 22 * * 1-5'
-  workflow_dispatch:  # 수동 실행 (GitHub Actions 탭에서 클릭)
+  workflow_dispatch:  # 수동 실행만 가능 (schedule 제거)
     inputs:
       test_mode:
-        description: '테스트 모드 (상위 20종목만 스캔)'
+        description: '테스트 모드'
         required: false
-        default: 'false'
+        default: 'true'
         type: choice
         options: ['false', 'true']
 
@@ -38,10 +37,8 @@ jobs:
       - name: Run screener
         run: |
           if [ "${{ github.event.inputs.test_mode }}" = "true" ]; then
-            echo "🧪 테스트 모드로 실행합니다"
             python scripts/screener.py --test
           else
-            echo "🚀 전체 스캔 모드로 실행합니다"
             python scripts/screener.py
           fi
 
