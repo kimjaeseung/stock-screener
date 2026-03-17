@@ -16,8 +16,8 @@ const RANK_CONFIG = [
 const SCORE_BARS = [
   { key: 'trend' as const,        label: '추세',    max: 25 },
   { key: 'golden_cross' as const, label: '크로스',  max: 20 },
-  { key: 'momentum' as const,     label: '모멘텀', max: 20 },
-  { key: 'volume' as const,       label: '거래량', max: 15 },
+  { key: 'momentum' as const,     label: '모멘텀', max: 15 },
+  { key: 'volume' as const,       label: '거래량', max: 20 },
   { key: 'support' as const,      label: '지지',    max: 10 },
   { key: 'bollinger' as const,    label: '볼린저', max: 10 },
 ];
