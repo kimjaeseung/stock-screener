@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const p = require\\(''/Users/jaeseung/stock-screener/package.json''\\); console.log\\(''deps:'', Object.keys\\(p.dependencies||{}\\).join\\('', ''\\)\\); console.log\\(''devDeps:'', Object.keys\\(p.devDependencies||{}\\).join\\('', ''\\)\\)\")"
+    ]
+  }
+}
