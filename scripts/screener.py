@@ -203,8 +203,8 @@ def detect_chart_patterns(df: pd.DataFrame) -> tuple[int, list[str]]:
             segs = [c[-60:-45], c[-45:-30], c[-30:-15], c[-15:]]
             ranges = [(s.max()-s.min())/(s.mean()+1e-10) for s in segs if len(s) > 0]
             if len(ranges) == 4:
-                contracting = all(ranges[i] > ranges[i+1] * 0.9 for i in range(3))
-                if contracting and ranges[-1] < 0.06:
+                contracting = all(ranges[i] > ranges[i+1] for i in range(3))
+                if contracting and ranges[-1] < 0.10:
                     bonus += 8
                     patterns_found.append('변동성 수축 (VCP) 📐')
     except Exception:
@@ -232,7 +232,7 @@ def detect_chart_patterns(df: pd.DataFrame) -> tuple[int, list[str]]:
     return min(bonus, 20), patterns_found
 
 
-def score_stock(df: pd.DataFrame, ind: dict) -> dict | None:
+def score_stock(df: pd.DataFrame, ind: dict, benchmark_20d: float = 0.0) -> dict | None:
     close = float(df['Close'].iloc[-1])
     prev  = float(df['Close'].iloc[-2])
 
@@ -283,6 +283,17 @@ def score_stock(df: pd.DataFrame, ind: dict) -> dict | None:
     # ADX 추세 강도
     if adx > 25:
         bd['trend'] += 2; signals.append(f'ADX {adx:.0f} — 추세 강함')
+
+    # ── [신규] 52주 신고가 근접 (강한 추세 보조 신호) ──────────────────────────
+    hi252 = float(df['High'].tail(252).max()) if len(df) >= 252 else float(df['High'].max())
+    if hi252 > 0:
+        dist_from_high = (hi252 - close) / hi252
+        if dist_from_high <= 0.05:
+            bd['trend'] += 5; signals.append(f'52주 신고가 ({dist_from_high*100:.0f}% 이내) 🏔')
+        elif dist_from_high <= 0.15:
+            bd['trend'] += 3; signals.append(f'52주 신고가 근접 ({dist_from_high*100:.0f}%)')
+        elif dist_from_high <= 0.25:
+            bd['trend'] += 1
 
     bd['trend'] = min(bd['trend'], 25)
 
@@ -350,6 +361,16 @@ def score_stock(df: pd.DataFrame, ind: dict) -> dict | None:
     if macd > msig:
         bd['momentum'] += 2
 
+    # ── [신규] 최근 5일 수익률 모멘텀 ──────────────────────────────────────────
+    if len(df) >= 6:
+        ret_5d = (close / float(df['Close'].iloc[-6]) - 1) * 100
+        if ret_5d >= 10:
+            bd['momentum'] = min(bd['momentum'] + 5, 20)
+            signals.append(f'5일 수익률 +{ret_5d:.0f}% 강세 📈')
+        elif ret_5d >= 5:
+            bd['momentum'] = min(bd['momentum'] + 3, 20)
+            signals.append(f'5일 수익률 +{ret_5d:.0f}%')
+
     bd['momentum'] = min(bd['momentum'], 20)
 
     # ── 4. 거래량 (20점) ──────────────────────────────────────────────────────
@@ -361,12 +382,14 @@ def score_stock(df: pd.DataFrame, ind: dict) -> dict | None:
         bd['volume'] += 10; signals.append(f'거래량 {vol_ratio:.1f}배 증가')
     elif vol_ratio >= 1.2:
         bd['volume'] += 5
+    elif vol_ratio >= 1.0:
+        bd['volume'] += 2  # [신규] 시장 평균 이상 거래량도 최소 가산
 
-    # 최근 5일 거래량 트렌드 상승
-    if vol_5d_avg > vol_20d_avg * 1.3:
+    # [수정] 5일 거래량 트렌드 임계치 1.3 → 1.1 (기존 너무 빡빡)
+    if vol_5d_avg > vol_20d_avg * 1.1:
         bd['volume'] = min(bd['volume'] + 5, 20)
         if not any('거래량' in s for s in signals):
-            signals.append('거래량 트렌드 증가 (5일 > 20일 ×1.3)')
+            signals.append('거래량 트렌드 증가 (5일 > 20일 ×1.1)')
 
     bd['volume'] = min(bd['volume'], 20)
 
@@ -405,11 +428,36 @@ def score_stock(df: pd.DataFrame, ind: dict) -> dict | None:
         elif close > bb_u:
             bd['bollinger'] += 5; signals.append('볼린저 상단 돌파')
 
+    # ── [신규] 볼린저 밴드 수축 추세 ─────────────────────────────────────────
+    # 스퀴즈 완성 전에도 밴드가 좁아지는 추세 자체를 인식
+    if len(bw) >= 6 and bd['bollinger'] < 5:
+        bw_now  = float(bw.iloc[-1])
+        bw_5ago = float(bw.iloc[-6])
+        if bw_now < bw_5ago * 0.88:  # 5거래일 대비 12% 이상 수축
+            bd['bollinger'] = min(bd['bollinger'] + 3, 10)
+            signals.append('볼린저 밴드 수축 추세 📉')
+        elif bw_now < bw_5ago * 0.94:  # 6% 이상 수축
+            bd['bollinger'] = min(bd['bollinger'] + 1, 10)
+
     bd['bollinger'] = min(bd['bollinger'], 10)
+
+    # ── [신규] 상대강도 (Relative Strength) — 시장 대비 20일 수익률 ────────────
+    rs_bonus = 0
+    if len(df) >= 21:
+        stock_20d_ret = (close / float(df['Close'].iloc[-21]) - 1) * 100
+        rs_diff = stock_20d_ret - benchmark_20d
+        if rs_diff >= 15:
+            rs_bonus = 10; signals.append(f'상대강도 시장 대비 +{rs_diff:.0f}% 💪')
+        elif rs_diff >= 8:
+            rs_bonus = 7; signals.append(f'상대강도 시장 대비 +{rs_diff:.0f}%')
+        elif rs_diff >= 3:
+            rs_bonus = 4
+        elif rs_diff >= 0:
+            rs_bonus = 2
 
     # ── 차트 패턴 보너스 ──────────────────────────────────────────────────────
     pattern_bonus, pattern_sigs = detect_chart_patterns(df)
-    total = sum(bd.values()) + pattern_bonus
+    total = sum(bd.values()) + pattern_bonus + rs_bonus
     signals = (pattern_sigs + signals)[:6]  # 패턴 시그널 앞에 배치
 
     return {
@@ -466,7 +514,7 @@ def calc_risk_reward(df: pd.DataFrame, ind: dict, is_kr: bool) -> dict | None:
 
 # ─── Single-ticker analysis ───────────────────────────────────────────────────
 
-def analyze(info: dict, is_kr: bool, min_avg_vol: float, min_price: float) -> dict | None:
+def analyze(info: dict, is_kr: bool, min_avg_vol: float, min_price: float, benchmark_20d: float = 0.0) -> dict | None:
     ticker = info['ticker']
     try:
         raw = yf.download(ticker, period='1y', progress=False, auto_adjust=True)
@@ -512,7 +560,7 @@ def analyze(info: dict, is_kr: bool, min_avg_vol: float, min_price: float) -> di
         if ind is None:
             return None
 
-        sr = score_stock(df, ind)
+        sr = score_stock(df, ind, benchmark_20d)
         if sr is None:
             return None
 
@@ -885,12 +933,23 @@ def main():
     if not args.us_only:
         print("\n🇰🇷  한국 종목 스캔...")
         print("  필터: 20일 평균 거래량 5만주 이상, 주가 1000원 이상")
+        # 벤치마크 20일 수익률 (KOSPI 기준)
+        kr_benchmark_20d = 0.0
+        try:
+            bdf = yf.download('^KS11', period='60d', progress=False, auto_adjust=True)
+            if bdf is not None and len(bdf) >= 21:
+                if isinstance(bdf.columns, pd.MultiIndex):
+                    bdf.columns = bdf.columns.get_level_values(0)
+                bdf = bdf.dropna()
+                kr_benchmark_20d = float((bdf['Close'].iloc[-1] / bdf['Close'].iloc[-21] - 1) * 100)
+        except Exception:
+            pass
         kr_list = KR_TEST if args.test else get_kr_universe()
         kr_cands, passed = [], 0
         for i, info in enumerate(kr_list):
             sys.stdout.write(f"\r  [{i+1:3d}/{len(kr_list)}] {info['ticker']:<14} {info['name']:<14}")
             sys.stdout.flush()
-            r = analyze(info, is_kr=True, min_avg_vol=50_000, min_price=1_000)
+            r = analyze(info, is_kr=True, min_avg_vol=50_000, min_price=1_000, benchmark_20d=kr_benchmark_20d)
             if r:
                 passed += 1
                 kr_cands.append(r)
@@ -917,12 +976,23 @@ def main():
     if not args.kr_only:
         print("\n🇺🇸  미국 종목 스캔...")
         print("  필터: 20일 평균 거래량 10만주 이상, 주가 $1 이상")
+        # 벤치마크 20일 수익률 (SPY 기준)
+        us_benchmark_20d = 0.0
+        try:
+            bdf = yf.download('SPY', period='60d', progress=False, auto_adjust=True)
+            if bdf is not None and len(bdf) >= 21:
+                if isinstance(bdf.columns, pd.MultiIndex):
+                    bdf.columns = bdf.columns.get_level_values(0)
+                bdf = bdf.dropna()
+                us_benchmark_20d = float((bdf['Close'].iloc[-1] / bdf['Close'].iloc[-21] - 1) * 100)
+        except Exception:
+            pass
         us_list = US_TEST if args.test else get_us_universe()
         us_cands, passed = [], 0
         for i, info in enumerate(us_list):
             sys.stdout.write(f"\r  [{i+1:3d}/{len(us_list)}] {info['ticker']:<8} {info['name']:<22}")
             sys.stdout.flush()
-            r = analyze(info, is_kr=False, min_avg_vol=100_000, min_price=1.0)
+            r = analyze(info, is_kr=False, min_avg_vol=100_000, min_price=1.0, benchmark_20d=us_benchmark_20d)
             if r:
                 passed += 1
                 us_cands.append(r)
