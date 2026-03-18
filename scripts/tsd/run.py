@@ -85,23 +85,80 @@ def get_market_summary() -> dict:
 
 # ── Main ────────────────────────────────────────────────────────────────────
 
-def _enrich_stock_info(stocks: list[dict]) -> None:
+from screener import _LEVERAGED_NAME_PATTERNS  # noqa: E402
+
+
+def _filter_leveraged_etfs(stocks: list[dict]) -> list[dict]:
     """
-    Fetch name and sector from yfinance for top-2 stocks (lightweight fast_info).
-    Modifies stocks in-place. Fails silently.
+    yfinance quoteType + name 기반 레버리지/인버스 ETF 2차 필터링.
+    screener.py의 블랙리스트+변동성 휴리스틱이 1차, 이게 2차(정밀).
+    top_n 후보 전체에 대해 실행 (최대 10개 → API 10회, ~5초).
     """
     import yfinance as yf
-    for s in stocks[:2]:
+    clean = []
+    for s in stocks:
         ticker = s.get("ticker", "")
-        if not ticker:
-            continue
         try:
             info = yf.Ticker(ticker).info
-            s["name"]   = info.get("shortName") or info.get("longName") or ticker
-            s["sector"] = info.get("sector") or info.get("industryDisp") or "NASDAQ"
+            qt   = (info.get("quoteType") or "").upper()
+            cat  = (info.get("category")  or "").lower()
+            name = (info.get("shortName") or info.get("longName") or "").lower()
+
+            # ETF 인지 확인
+            if qt == "ETF":
+                is_lev = (
+                    "leverag" in cat or "inverse" in cat or
+                    any(p in name for p in _LEVERAGED_NAME_PATTERNS)
+                )
+                if is_lev:
+                    print(f"[run] ⚠ 레버리지 ETF 제외: {ticker} ({info.get('shortName','')})")
+                    continue
+
+            # 이름이 없으면 채워줌 (enrich 겸용)
+            s.setdefault("name",   info.get("shortName") or info.get("longName") or ticker)
+            s.setdefault("sector", info.get("sector") or info.get("industryDisp") or "NASDAQ")
+
         except Exception:
             s.setdefault("name",   ticker)
             s.setdefault("sector", "NASDAQ")
+
+        clean.append(s)
+
+    return clean
+
+
+def _ensure_top2_diversity(stocks: list[dict]) -> list[dict]:
+    """
+    Top-2 종목이 같은 ETF 계열(같은 기초자산의 다른 레버리지)이 아닌지 확인.
+    ticker 첫 3글자가 같으면 같은 발행사 계열로 간주해 다음 후보로 교체.
+    """
+    if len(stocks) < 2:
+        return stocks
+
+    result = [stocks[0]]
+    prefix0 = stocks[0]["ticker"][:3].upper()
+
+    for s in stocks[1:]:
+        if s["ticker"][:3].upper() != prefix0:
+            result.append(s)
+        if len(result) >= 2:
+            break
+
+    # 다양성 있는 쌍을 못 찾으면 그냥 1, 2위
+    if len(result) < 2 and len(stocks) >= 2:
+        result = stocks[:2]
+
+    return result
+
+
+def _enrich_stock_info(stocks: list[dict]) -> None:
+    """
+    top-2 종목에 name/sector 보완 (없는 경우에만).
+    _filter_leveraged_etfs 에서 이미 채워지므로 fallback 역할.
+    """
+    for s in stocks[:2]:
+        s.setdefault("name",   s.get("ticker", ""))
+        s.setdefault("sector", "NASDAQ")
 
 
 def main():
@@ -145,17 +202,30 @@ def _run_pipeline(now_kst, now_utc):
     if ok < 5:
         raise RuntimeError(f"Too few stocks fetched: {ok}")
 
-    # 4. Score & rank
+    # 4. Score & rank (레버리지 1차 필터는 screener.py 내부에서 처리)
     print("\n[run] Scoring stocks...")
-    top_stocks = run_screener(data_map, spy_20d=spy_20d, top_n=10)
+    top_stocks = run_screener(data_map, spy_20d=spy_20d, top_n=20)  # 여유있게 20개
     print(f"[run] Top {len(top_stocks)} stocks scored")
 
     if len(top_stocks) < 2:
         raise RuntimeError(f"Too few stocks scored: {len(top_stocks)}")
 
-    # 4b. Enrich top-2 with name/sector from yfinance
-    print("[run] Enriching top-2 with name/sector...")
+    # 4b. yfinance 기반 레버리지 ETF 2차 정밀 필터 + name/sector 보완
+    print("[run] 레버리지 ETF 2차 필터링 + name/sector 보완...")
+    top_stocks = _filter_leveraged_etfs(top_stocks)
+    print(f"[run] 필터 후: {len(top_stocks)}개")
+
+    if len(top_stocks) < 2:
+        raise RuntimeError(f"레버리지 필터 후 종목 부족: {len(top_stocks)}")
+
+    # 4c. Top-2 다양성 확인 (동일 계열 ETF 쌍 방지)
+    top_stocks = _ensure_top2_diversity(top_stocks)
+
+    # 4d. name/sector fallback
     _enrich_stock_info(top_stocks)
+
+    # docs_out 은 top-2만 사용하므로 슬라이스
+    top_stocks = top_stocks[:10]
 
     # 4c. kr_names.json 검증 (top-2)
     top2_tickers = [s["ticker"] for s in top_stocks[:2]]

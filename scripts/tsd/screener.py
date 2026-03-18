@@ -2,10 +2,64 @@
 TA screener — 11 signals, all computed manually (no external TA libs).
 Returns top N stocks with score, signals (dict), chart_data (reels format),
 swing data (ATR-based), and full indicator chart (SPA format).
+
+Leveraged/inverse ETFs are excluded at scoring time via heuristic ATR check.
+Definitive ETF-type filtering is done in run.py via yfinance info.
 """
 import pandas as pd
 import numpy as np
 from typing import Optional
+
+
+# ── 레버리지 ETF 블랙리스트 (하드코딩 + 휴리스틱) ─────────────────────────
+
+# 알려진 2x/3x 레버리지·인버스 ETF 티커
+LEVERAGED_BLACKLIST: set[str] = {
+    # ProShares 2x/3x
+    "UPRO","SPXL","TQQQ","SSO","QLD","UDOW","MVV","SAA","UWM","UXI","UYG",
+    "URE","ROM","UGE","RXL","DIG","LTL","UBT","UCO","AGQ","YCL","EZJ",
+    "EET","UBR","DDM",
+    # ProShares inverse
+    "SQQQ","SPXU","SPXS","SDS","QID","SDOW","MZZ","TWM","SDD","SRS","REW",
+    "SKF","SZK","RXD","DUG","SMN","TBT","SCO","ZSL","YCS","EUO","BZQ",
+    "EEV","EFU","FXP","EPV","DXD","DOG","PSQ",
+    # Direxion 3x
+    "TECL","TECS","SOXL","SOXS","LABU","LABD","FAS","FAZ","TNA","TZA",
+    "NUGT","DUST","JNUG","JDST","NAIL","DFEN","WEBL","WEBS","WANT","RETL",
+    "MIDU","MIDZ","DPST","CURE","HIBL","HIBS","INDL","DRN","DRV","ERX","ERY",
+    "CLAW","TPOR","MEXX","BRZU","EURL","RUSL","RUSS",
+    # GraniteShares 2x (single-stock)
+    "NVDX","NVDD","AAPB","AAPD","METX","METD","AMZX","AMZD",
+    "MSFX","MSFD","GOOGX","GOOGD","TSLL","TSLS","TSLQ","NVDL","NVDS",
+    # Leverage Shares 2x (single-stock)
+    "NBIG","MSTX","MSTU","MSTZ","AMZU","AMZD","GOGL","GOGZ",
+    # T-Rex 2x
+    "CONL","NVDX","MAGX","MAGQ","PLTR2X",
+    # MicroSectors
+    "BNKU","BNKD","FNGU","FNGD","OILU","OILD","URAU","URAD",
+    # Crypto leveraged
+    "ETHU","ETHD","BITU","BITX","ETHW","BTCW",
+}
+
+# 이름 패턴으로 레버리지 감지 (yfinance shortName 포함)
+_LEVERAGED_NAME_PATTERNS = [
+    "2x long","2x short","3x long","3x short","ultra pro","ultrashort",
+    "leverage shares","granitesha","direxion daily","proshares ultra",
+    "bull 2x","bear 2x","bull 3x","bear 3x","daily 2x","daily 3x",
+    "1.5x","2x etf","3x etf","inverse daily",
+]
+
+
+def _is_likely_leveraged_by_volatility(df: pd.DataFrame) -> bool:
+    """
+    Heuristic: 레버리지 ETF는 일간 변동폭이 비정상적으로 큼.
+    최근 20일 중 5% 초과 일일 변동이 5번 이상이면 레버리지로 판단.
+    """
+    if len(df) < 15:
+        return False
+    daily_ret = df["Close"].pct_change().abs()
+    extreme_days = int((daily_ret.tail(20) > 0.05).sum())
+    return extreme_days >= 5
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -100,6 +154,14 @@ def score_stock(ticker: str, df: pd.DataFrame) -> Optional[dict]:
     Swing data: ATR-based entry/stop/target with R:R ratio.
     """
     if len(df) < 60:
+        return None
+
+    # ── 레버리지 ETF 1차 필터 (블랙리스트 + 변동성 휴리스틱) ──
+    if ticker in LEVERAGED_BLACKLIST:
+        print(f"[screener] {ticker}: 레버리지 블랙리스트 — 제외")
+        return None
+    if _is_likely_leveraged_by_volatility(df):
+        print(f"[screener] {ticker}: 레버리지 의심 (극단 변동 ≥5회/20일) — 제외")
         return None
 
     close  = df["Close"]
