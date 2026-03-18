@@ -111,14 +111,16 @@ const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi,v))
 const prog  = (elapsed, start, dur) => clamp((elapsed-start)/dur, 0, 1)
 
 /* ═══════════════════════════════════════════════════════════
-   SCENE_PLAN  (총합 30000ms)
+   SCENE_PLAN  (총합 31400ms — sigi 씬 포함)
 ════════════════════════════════════════════════════════════ */
 const SCENE_PLAN = [
+  {id:'sg0',stock:0, type:'sigi',       dur:700 },
   {id:'s0', stock:0, type:'hook',       dur:2500},
   {id:'s1', stock:0, type:'entry_card', dur:3000},
   {id:'s2', stock:0, type:'chart',      dur:4500},
   {id:'s3', stock:0, type:'summary',    dur:3500},
   {id:'sx',          type:'transition', dur:500 },
+  {id:'sg4',stock:1, type:'sigi',       dur:700 },
   {id:'s4', stock:1, type:'hook',       dur:2500},
   {id:'s5', stock:1, type:'entry_card', dur:3000},
   {id:'s6', stock:1, type:'chart',      dur:4500},
@@ -194,6 +196,10 @@ function fmtPct(v) {
   if (v == null || isNaN(v)) return '—'
   return v + '%'
 }
+function fmtNum(v) {
+  if (v == null || isNaN(v)) return '—'
+  return v
+}
 
 /* ═══════════════════════════════════════════════════════════
    Canvas 좌표 헬퍼
@@ -265,23 +271,23 @@ function drawBurst(ctx, cx, cy, progress, color='#f59e0b') {
     ctx.save(); ctx.globalAlpha=fa; ctx.fillStyle=color
     ctx.fillRect(0,0,W,H); ctx.restore()
   }
-  for (let r=0; r<4; r++) {
+  for (let r=0; r<5; r++) {
     const rp = easeOutCubic(clamp(p*3-r*0.3, 0, 1))
     if (rp <= 0.01) continue
     ctx.save(); ctx.globalAlpha = (1-rp)*0.9
     ctx.strokeStyle=color; ctx.lineWidth = 2.5*(1-rp*0.7)
-    ctx.shadowColor=color; ctx.shadowBlur = 14*(1-rp)
-    ctx.beginPath(); ctx.arc(cx, cy, rp*55, 0, Math.PI*2); ctx.stroke()
+    ctx.shadowColor=color; ctx.shadowBlur = 16*(1-rp)
+    ctx.beginPath(); ctx.arc(cx, cy, rp*65, 0, Math.PI*2); ctx.stroke()
     ctx.restore()
   }
   const pp = easeOutQuint(clamp(p*1.8, 0, 1))
   if (pp > 0.01 && pp < 0.99) {
-    for (let i=0; i<12; i++) {
-      const a = (i/12)*Math.PI*2
+    for (let i=0; i<16; i++) {
+      const a = (i/16)*Math.PI*2
       ctx.save(); ctx.globalAlpha = (1-pp)*0.95
       ctx.fillStyle=color; ctx.shadowColor=color; ctx.shadowBlur=8
       ctx.beginPath()
-      ctx.arc(cx+Math.cos(a)*pp*58, cy+Math.sin(a)*pp*58, 2.8*(1-pp*0.85), 0, Math.PI*2)
+      ctx.arc(cx+Math.cos(a)*pp*68, cy+Math.sin(a)*pp*68, 2.8*(1-pp*0.85), 0, Math.PI*2)
       ctx.fill(); ctx.restore()
     }
   }
@@ -483,6 +489,113 @@ function setUI(html) {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   SIGI 캐릭터 씬 (Canvas)
+════════════════════════════════════════════════════════════ */
+function getSigiLine1(stock) {
+  const sc = stock.score || 0
+  if (sc >= 80) return `${stock.ticker} 발견! 오늘 강추야 🔥`
+  if (sc >= 60) return `${stock.ticker} 왔어! 좋은 타이밍 ✨`
+  return `${stock.ticker} 체크해봐 👀`
+}
+function getSigiLine2(stock) {
+  const sc = stock.score || 0
+  if (sc >= 80) return `신호 ${sc}점 — 놓치면 아까워 😼`
+  if (sc >= 60) return `신호 ${sc}점 — 분석 결과 봐봐 🐱`
+  return `신호 ${sc}점 — 참고해봐 🐾`
+}
+
+function renderSigi(ctx, elapsed, stock) {
+  setUI('')
+  const cx = W/2, cy = H/2 - 50
+
+  /* ─ 고양이 얼굴 bounce-in ─ */
+  const bp = easeOutElastic(prog(elapsed, 0, 380))
+  if (bp > 0.01) {
+    ctx.save()
+    ctx.globalAlpha = Math.min(1, bp * 1.5)
+    ctx.translate(cx, cy + (1-bp)*200)
+    ctx.scale(bp*0.88+0.12, bp*0.88+0.12)
+    const R = 52
+
+    /* 귀 */
+    ctx.fillStyle='#fbbf24'
+    ctx.beginPath(); ctx.moveTo(-38,-R+6); ctx.lineTo(-52,-R-28); ctx.lineTo(-16,-R-4); ctx.closePath(); ctx.fill()
+    ctx.beginPath(); ctx.moveTo( 38,-R+6); ctx.lineTo( 52,-R-28); ctx.lineTo( 16,-R-4); ctx.closePath(); ctx.fill()
+    ctx.fillStyle='#f9a8d4'
+    ctx.beginPath(); ctx.moveTo(-35,-R+4); ctx.lineTo(-46,-R-22); ctx.lineTo(-18,-R-2); ctx.closePath(); ctx.fill()
+    ctx.beginPath(); ctx.moveTo( 35,-R+4); ctx.lineTo( 46,-R-22); ctx.lineTo( 18,-R-2); ctx.closePath(); ctx.fill()
+
+    /* 얼굴 */
+    ctx.shadowColor='#f59e0b'; ctx.shadowBlur=20
+    ctx.fillStyle='#fde68a'
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI*2); ctx.fill()
+    ctx.shadowBlur=0
+
+    /* 눈 */
+    const score = stock.score||0
+    ;[[-20,-12],[20,-12]].forEach(([ex,ey]) => {
+      ctx.fillStyle='#1a1a1a'; ctx.beginPath(); ctx.ellipse(ex,ey,7,score>=80?9:7,0,0,Math.PI*2); ctx.fill()
+      ctx.fillStyle='#fff';    ctx.beginPath(); ctx.arc(ex+2,ey-2,2.5,0,Math.PI*2); ctx.fill()
+    })
+
+    /* 코 */
+    ctx.fillStyle='#f43f5e'; ctx.beginPath(); ctx.ellipse(0,6,5,3.5,0,0,Math.PI*2); ctx.fill()
+
+    /* 입 */
+    ctx.strokeStyle='#92400e'; ctx.lineWidth=1.8; ctx.lineCap='round'
+    ctx.beginPath()
+    if (score>=80) { ctx.arc(0,8,12,0.15*Math.PI,0.85*Math.PI) }
+    else           { ctx.moveTo(-8,14); ctx.quadraticCurveTo(0,18,8,14) }
+    ctx.stroke()
+
+    /* 수염 */
+    ctx.strokeStyle='#92400e77'; ctx.lineWidth=1
+    ;[[-6,8,-44,4],[-6,12,-44,14],[-6,16,-44,24]].forEach(([x1,y1,x2,y2])=>{
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke()
+    })
+    ;[[6,8,44,4],[6,12,44,14],[6,16,44,24]].forEach(([x1,y1,x2,y2])=>{
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke()
+    })
+    ctx.restore()
+  }
+
+  /* ─ 말풍선 ─ */
+  const bubA = easeOutCubic(prog(elapsed, 280, 200))
+  if (bubA > 0.01) {
+    const bx=cx, by=cy+66, bw=310, bh=64, br=14
+    ctx.save(); ctx.globalAlpha=bubA
+    ctx.fillStyle='#111'; ctx.strokeStyle='#f59e0b55'; ctx.lineWidth=1.5
+    ctx.shadowColor='#f59e0b'; ctx.shadowBlur=10
+    ctx.beginPath(); ctx.roundRect(bx-bw/2, by, bw, bh, br); ctx.fill(); ctx.stroke()
+    ctx.shadowBlur=0; ctx.fillStyle='#111'
+    ctx.beginPath(); ctx.moveTo(cx-8,by); ctx.lineTo(cx,by-12); ctx.lineTo(cx+8,by); ctx.fill()
+    ctx.restore()
+  }
+
+  /* ─ 타이핑 텍스트 ─ */
+  const line1 = getSigiLine1(stock)
+  const line2 = getSigiLine2(stock)
+  const t1p = prog(elapsed, 310, 220)
+  if (t1p > 0) {
+    const txt = line1.slice(0, Math.ceil(t1p * line1.length))
+    ctx.save(); ctx.globalAlpha=Math.min(1,t1p*5)
+    ctx.fillStyle='#fff'; ctx.font='400 13px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='middle'
+    ctx.fillText(txt, cx, cy+66+20)
+    ctx.restore()
+  }
+  const t2p = prog(elapsed, 470, 220)
+  if (t2p > 0) {
+    const txt = line2.slice(0, Math.ceil(t2p * line2.length))
+    ctx.save(); ctx.globalAlpha=Math.min(1,t2p*5)
+    ctx.fillStyle='#fbbf24'; ctx.font='700 13px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='middle'
+    ctx.fillText(txt, cx, cy+66+44)
+    ctx.restore()
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
    11. 후킹 씬 (Canvas)
 ════════════════════════════════════════════════════════════ */
 function renderHook(ctx, elapsed, stock) {
@@ -514,9 +627,10 @@ function renderHook(ctx, elapsed, stock) {
   if (a2 > 0.01) {
     ctx.save(); ctx.globalAlpha = a2
     ctx.fillStyle='#ffffff'
+    ctx.shadowColor='#ffffff'; ctx.shadowBlur = 8
     ctx.font = '700 33px "Noto Sans KR",sans-serif'
     ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.fillText(`4주 안에 +${sw.target2_pct ?? '—'}% 가능`, cx, H/2-42 + (1-a2)*22)
+    ctx.fillText(`4주 안에 +${fmtNum(sw.target2_pct)}% 가능`, cx, H/2-42 + (1-a2)*22)
     ctx.restore()
   }
 
@@ -526,8 +640,8 @@ function renderHook(ctx, elapsed, stock) {
     const scale = clamp(a3, 0.1, 1.25)
     ctx.save(); ctx.globalAlpha = Math.min(1, a3*1.3)
     ctx.fillStyle='#f59e0b'
-    ctx.shadowColor='#f59e0b'; ctx.shadowBlur = 28*Math.min(1,a3)
-    ctx.font = '900 72px "Noto Sans KR",sans-serif'
+    ctx.shadowColor='#f59e0b'; ctx.shadowBlur = 36*Math.min(1,a3)
+    ctx.font = '900 80px "Noto Sans KR",sans-serif'
     ctx.textAlign='center'; ctx.textBaseline='alphabetic'
     ctx.translate(cx, H/2+28)
     ctx.scale(scale, scale)
@@ -735,6 +849,17 @@ function renderChart(ctx, elapsed, stock) {
     ctx.restore()
   }
 
+  /* ── 차트 영역 배경 그라디언트 + 그리드 ── */
+  const chartBg = ctx.createLinearGradient(CL, CT, CL, CB)
+  chartBg.addColorStop(0, '#0d1117'); chartBg.addColorStop(1, '#050505')
+  ctx.fillStyle=chartBg; ctx.fillRect(CL, CT, CR-CL, CB-CT)
+  ctx.save(); ctx.globalAlpha=0.12; ctx.strokeStyle='#ffffff'; ctx.lineWidth=0.5; ctx.setLineDash([2,5])
+  for (let gi=0; gi<=4; gi++) {
+    const gy = CT + (gi/4)*(CB-CT)
+    ctx.beginPath(); ctx.moveTo(CL,gy); ctx.lineTo(CR,gy); ctx.stroke()
+  }
+  ctx.setLineDash([]); ctx.restore()
+
   /* ── 13. Phase 0: 가격선 혜성 + 일목 구름 (0~1200ms) ── */
   const p0 = prog(elapsed, 0, 1200)
   if (p0 > 0) {
@@ -757,7 +882,7 @@ function renderChart(ctx, elapsed, stock) {
     }
     /* 혜성 가격선 */
     drawCometLine(ctx, xs, closeY, p0, {
-      color:'#6ee7b7', lineWidth:2, glowColor:'#10b981', glowBlur:10, comet:p0<0.97
+      color:'#6ee7b7', lineWidth:2.5, glowColor:'#10b981', glowBlur:16, comet:p0<0.97
     })
   }
 
@@ -968,7 +1093,7 @@ function renderSummary(ctx, elapsed, stock) {
   if (rA > 0.01) {
     const statDefs = [
       {icon:'🛑', l:'손절가',              v:`${fmtPrice(sw.stop_loss)} (${fmtPct(sw.stop_pct)})`,  c:'#ef4444'},
-      {icon:'🎯', l:`목표 2 (${sw.target2_week ?? 4}주)`, v:`+${fmtPct(sw.target2_pct)}`,              c:'#10b981'},
+      {icon:'🎯', l:`목표 2 (${sw.target2_week ?? 4}주)`, v: sw.target2_pct != null && !isNaN(sw.target2_pct) ? `+${sw.target2_pct}%` : '—', c:'#10b981'},
       {icon:'⚖️', l:'손익비',              v:`${sw.rr_ratio}:1`,                             c:sw.rr_ratio>=2?'#f59e0b':'#ccc'},
     ]
     statDefs.forEach((r, si) => {
@@ -1033,16 +1158,29 @@ function renderFinal(ctx, elapsed, stocks) {
   const hA    = easeOutCubic(prog(elapsed, 0, 380))
   const blink = (Math.sin(elapsed*0.006)+1)/2
 
+  /* ─ 골든 배경 펄스 ─ */
+  const goldPulse = (Math.sin(elapsed*0.003)*0.5+0.5)
+  const pulseA = easeOutCubic(prog(elapsed, 0, 700)) * 0.07 * goldPulse
+  if (pulseA > 0.001) {
+    const grd = ctx.createRadialGradient(W/2,H/2,0, W/2,H/2,W*0.85)
+    grd.addColorStop(0,'#f59e0b'); grd.addColorStop(1,'#f59e0b00')
+    ctx.save(); ctx.globalAlpha=pulseA; ctx.fillStyle=grd; ctx.fillRect(0,0,W,H); ctx.restore()
+  }
+
   /* 레이아웃 기준점 */
   const headerY = 230      // "오늘의 스윙 픽" baseline
   const cardTop = 252      // 카드 상단
   const cardH   = 218      // 카드 높이
   const belowY  = cardTop + cardH + 26
 
-  /* ─ "오늘의 스윙 픽" ─ */
+  /* ─ "오늘의 스윙 픽" — 드롭 인 ─ */
   if (hA > 0.01) {
+    const dropY = (1-hA)*(-36)
     ctx.save(); ctx.globalAlpha = hA
-    ctx.fillStyle='#f59e0b'; ctx.font='400 12px "Noto Sans KR",sans-serif'
+    ctx.translate(0, dropY)
+    ctx.fillStyle='#f59e0b'
+    ctx.shadowColor='#f59e0b'; ctx.shadowBlur=18
+    ctx.font='700 13px "Noto Sans KR",sans-serif'
     ctx.textAlign='center'; ctx.textBaseline='alphabetic'
     ctx.letterSpacing='3px'; ctx.fillText('오늘의 스윙 픽', W/2, headerY); ctx.letterSpacing='0px'
     ctx.restore()
@@ -1074,7 +1212,7 @@ function renderFinal(ctx, elapsed, stocks) {
 
     const miniRows = [
       {l:'진입',  v:fmtPrice(sw2.entry_low),  c:'#f59e0b'},
-      {l:'목표',  v:`+${fmtPct(sw2.target2_pct)}`,  c:'#10b981'},
+      {l:'목표',  v: sw2.target2_pct != null && !isNaN(sw2.target2_pct) ? `+${sw2.target2_pct}%` : '—', c:'#10b981'},
       {l:'손절',  v:fmtPct(sw2.stop_pct),           c:'#ef4444'},
       {l:'손익비',v:`${sw2.rr_ratio}:1`,       c:sw2.rr_ratio>=2?'#f59e0b':'#ccc'},
     ]
@@ -1098,13 +1236,20 @@ function renderFinal(ctx, elapsed, stocks) {
   drawCard(stocks[0], -1, 200, mx)
   drawCard(stocks[1],  1, 400, mx+halfW+gap)
 
-  /* ─ "저장해두고..." 깜빡임 ─ */
+  /* ─ "저장해두고..." 깜빡임 + 뱃지 ─ */
   const pin1A = easeOutCubic(prog(elapsed, 800, 400))
   if (pin1A > 0.01) {
-    ctx.save(); ctx.globalAlpha = pin1A*blink
-    ctx.fillStyle='#f59e0b'; ctx.font='700 13px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.fillText('저장해두고 직접 확인해보세요 📌', W/2, belowY+14)
+    const txt = '저장해두고 직접 확인해보세요 📌'
+    ctx.font = '700 13px "Noto Sans KR",sans-serif'
+    const tw = ctx.measureText(txt).width
+    const bw = tw+28, bh=30, br=15
+    ctx.save(); ctx.globalAlpha = pin1A*(0.35+blink*0.65)
+    ctx.fillStyle='#f59e0b22'; ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1.5
+    ctx.shadowColor='#f59e0b'; ctx.shadowBlur=10
+    ctx.beginPath(); ctx.roundRect(W/2-bw/2, belowY, bw, bh, br); ctx.fill(); ctx.stroke()
+    ctx.shadowBlur=0; ctx.fillStyle='#f59e0b'
+    ctx.textAlign='center'; ctx.textBaseline='middle'
+    ctx.fillText(txt, W/2, belowY+bh/2)
     ctx.restore()
   }
 
@@ -1127,6 +1272,53 @@ function renderFinal(ctx, elapsed, stocks) {
     ctx.fillText('⚠ 투자 참고용 · 손익 책임은 본인에게', W/2, belowY+62)
     ctx.restore()
   }
+
+  /* ─ SIGI 재등장 (elapsed > 1500ms) ─ */
+  const sigiEndP = easeOutElastic(prog(elapsed, 1500, 480))
+  if (sigiEndP > 0.01) {
+    const sx=W-58, sy=H-105
+    ctx.save()
+    ctx.globalAlpha = Math.min(1, sigiEndP*1.5)
+    ctx.translate(sx + (1-sigiEndP)*110, sy)
+    const R=28
+    /* 귀 */
+    ctx.fillStyle='#fbbf24'
+    ctx.beginPath(); ctx.moveTo(-20,-R+4); ctx.lineTo(-28,-R-14); ctx.lineTo(-9,-R-2); ctx.closePath(); ctx.fill()
+    ctx.beginPath(); ctx.moveTo( 20,-R+4); ctx.lineTo( 28,-R-14); ctx.lineTo(  9,-R-2); ctx.closePath(); ctx.fill()
+    /* 얼굴 */
+    ctx.shadowColor='#f59e0b'; ctx.shadowBlur=12
+    ctx.fillStyle='#fde68a'
+    ctx.beginPath(); ctx.arc(0,0,R,0,Math.PI*2); ctx.fill()
+    ctx.shadowBlur=0
+    /* 눈 */
+    ;[[-10,-4],[10,-4]].forEach(([ex,ey])=>{
+      ctx.fillStyle='#1a1a1a'; ctx.beginPath(); ctx.ellipse(ex,ey,4,5,0,0,Math.PI*2); ctx.fill()
+      ctx.fillStyle='#fff';    ctx.beginPath(); ctx.arc(ex+1,ey-1,1.5,0,Math.PI*2); ctx.fill()
+    })
+    /* 코 */
+    ctx.fillStyle='#f43f5e'; ctx.beginPath(); ctx.ellipse(0,4,3.5,2.5,0,0,Math.PI*2); ctx.fill()
+    /* 웃음 입 */
+    ctx.strokeStyle='#92400e'; ctx.lineWidth=1.5; ctx.lineCap='round'
+    ctx.beginPath(); ctx.arc(0,6,8,0.15*Math.PI,0.85*Math.PI); ctx.stroke()
+    ctx.restore()
+
+    /* 말풍선 "내일도 찾아올게~ 🐱" */
+    const fareA = easeOutCubic(prog(elapsed, 1700, 380))
+    if (fareA > 0.01) {
+      const txt='내일도 찾아올게~ 🐱'
+      ctx.save(); ctx.globalAlpha=fareA
+      ctx.font='400 11px "Noto Sans KR",sans-serif'
+      const tw=ctx.measureText(txt).width
+      const bw=tw+20, bh=26, bx=sx-bw/2-14, by=sy-R-40
+      ctx.fillStyle='#111'; ctx.strokeStyle='#f59e0b55'; ctx.lineWidth=1
+      ctx.shadowColor='#f59e0b'; ctx.shadowBlur=6
+      ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,10); ctx.fill(); ctx.stroke()
+      ctx.shadowBlur=0; ctx.fillStyle='#fbbf24'
+      ctx.textAlign='center'; ctx.textBaseline='middle'
+      ctx.fillText(txt, bx+bw/2, by+bh/2)
+      ctx.restore()
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1135,6 +1327,7 @@ function renderFinal(ctx, elapsed, stocks) {
 function renderScene(scene, elapsed, data) {
   const stock = scene.stock !== undefined ? data.stocks[scene.stock] : null
   switch(scene.type) {
+    case 'sigi':       renderSigi(ctx, elapsed, stock);                     break
     case 'hook':       setUI(''); renderHook(ctx, elapsed, stock);          break
     case 'entry_card': renderEntryCard(ctx, elapsed, stock);                break
     case 'chart':      setUI(''); renderChart(ctx, elapsed, stock);         break
