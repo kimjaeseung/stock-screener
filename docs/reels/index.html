@@ -62,6 +62,17 @@
       text-align:center;font-size:9px;color:#666;
       letter-spacing:0.02em;z-index:50;
     }
+    /* 동영상에 안 나오게: 캔버스(#scene-canvas)만 캡처하므로 버튼은 #phone 밖에 둠 */
+    #video-ctrl{
+      position:fixed;bottom:12px;right:12px;z-index:9999;
+      pointer-events:auto;
+    }
+    #video-ctrl button{
+      padding:8px 14px;border-radius:20px;border:1px solid rgba(255,255,255,0.2);
+      background:rgba(0,0,0,0.6);color:#fff;font-size:12px;cursor:pointer;
+      font-family:'Noto Sans KR',sans-serif;
+    }
+    #video-ctrl button:hover{ background:rgba(245,158,11,0.25); border-color:#f59e0b; }
 
     /* ── UI 씬 공통 ─────────────────────────────────────────── */
     @keyframes pulse-gold{
@@ -79,6 +90,9 @@
     <canvas id="scene-canvas"></canvas>
     <div id="ui-layer"></div>
     <div id="updated-at"></div>
+  </div>
+  <div id="video-ctrl" title="캔버스만 녹화·다운로드 (동영상에는 버튼이 나오지 않음)">
+    <button type="button" id="btnSaveVideo">Save as video</button>
   </div>
 
 <script>
@@ -1042,6 +1056,59 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   /* 21. 자동재생 시작 */
   requestAnimationFrame(masterLoop)
+
+  /* Save as video: 캔버스만 캡처 → 동영상에 버튼/UI 미포함 */
+  ;(function() {
+    let mediaRecorder = null
+    let chunks = []
+    const btn = document.getElementById('btnSaveVideo')
+    const FPS = 30
+    const MAX_DURATION_MS = 120000
+
+    function getMimeType() {
+      const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
+      for (const t of types) {
+        if (MediaRecorder.isTypeSupported(t)) return t
+      }
+      return ''
+    }
+
+    if (!btn) return
+    btn.onclick = function() {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop()
+        return
+      }
+      if (!canvas) return
+      try {
+        const stream = canvas.captureStream(FPS)
+        const mime = getMimeType()
+        const options = mime ? { mimeType: mime, videoBitsPerSecond: 2500000 } : { videoBitsPerSecond: 2500000 }
+        mediaRecorder = new MediaRecorder(stream, options)
+        chunks = []
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'video/webm' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = 'TopStockDaily_reels_' + new Date().toISOString().slice(0,19).replace(/:/g,'-') + '.webm'
+          a.click()
+          URL.revokeObjectURL(url)
+          btn.textContent = 'Save as video'
+          mediaRecorder = null
+        }
+        mediaRecorder.start(500)
+        btn.textContent = 'Stop & Save'
+        setTimeout(() => {
+          if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop()
+        }, MAX_DURATION_MS)
+      } catch (e) {
+        btn.textContent = 'Save as video'
+        console.warn('Video capture:', e)
+      }
+    }
+  })()
 })
 </script>
 </body>

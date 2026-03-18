@@ -49,6 +49,7 @@
   <button id="btnPlay">⏸ Pause</button>
   <button id="btnNext">Next ▶</button>
   <button id="btnRefresh" onclick="loadData()">↺ Refresh</button>
+  <button id="btnSaveVideo" title="캔버스만 녹화·다운로드 (동영상에는 버튼이 나오지 않음)">Save as video</button>
 </div>
 
 <script>
@@ -1407,6 +1408,61 @@ document.getElementById('btnPrev').onclick = () => {
   clearTimeout(sceneTimer);
   prevSceneAction();
 };
+
+// ══════════════════════════════════════════════════════════
+//  SAVE AS VIDEO (캔버스만 캡처 → 동영상에 버튼 미포함)
+// ══════════════════════════════════════════════════════════
+(function() {
+  let mediaRecorder = null;
+  let chunks = [];
+  const btn = document.getElementById('btnSaveVideo');
+  const FPS = 30;
+  const MAX_DURATION_MS = 120000; // 2분 후 자동 정지
+
+  function getMimeType() {
+    const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    for (const t of types) {
+      if (MediaRecorder.isTypeSupported(t)) return t;
+    }
+    return '';
+  }
+
+  btn.onclick = function() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      return;
+    }
+    try {
+      const stream = canvas.captureStream(FPS);
+      const mime = getMimeType();
+      const options = mime ? { mimeType: mime, videoBitsPerSecond: 2500000 } : { videoBitsPerSecond: 2500000 };
+      mediaRecorder = new MediaRecorder(stream, options);
+      chunks = [];
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'TopStockDaily_reels_' + new Date().toISOString().slice(0,19).replace(/:/g,'-') + '.webm';
+        a.click();
+        URL.revokeObjectURL(url);
+        btn.textContent = 'Save as video';
+        mediaRecorder = null;
+      };
+      mediaRecorder.start(500);
+      btn.textContent = 'Stop & Save';
+      setTimeout(() => {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+          mediaRecorder.stop();
+        }
+      }, MAX_DURATION_MS);
+    } catch (e) {
+      statusBar.textContent = 'Video not supported: ' + e.message;
+      btn.textContent = 'Save as video';
+    }
+  };
+})();
 
 // ══════════════════════════════════════════════════════════
 //  INIT
