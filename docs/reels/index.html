@@ -59,7 +59,7 @@
     }
     #updated-at{
       position:absolute;bottom:6px;left:0;right:0;
-      text-align:center;font-size:9px;color:#1a1a1a;
+      text-align:center;font-size:9px;color:#888;
       z-index:50;
     }
 
@@ -116,17 +116,17 @@ const SCENE_PLAN = [
    신호 의미 매핑
 ════════════════════════════════════════════════════════════ */
 const SIGNAL_LABELS = {
-  golden_cross:      '단기 상승 모멘텀 켜짐',
-  volume_confirm:    '거래량 폭증 — 수급 확인',
-  rsi_signal:        '아직 과열 아님 — 상승 여력 있음',
-  rsi_divergence:    '하락 중 매수세 증가',
-  bollinger_break:   '눌려있던 변동성 폭발',
-  macd_cross:        '매수세가 매도세를 이겼습니다',
-  stoch_signal:      '과매도 구간 탈출 — 반등 시작',
-  ma_alignment:      '모든 추세가 위를 향하고 있습니다',
-  relative_strength: '나스닥 빠질 때도 혼자 버팀',
-  fib_support:       '핵심 피보나치 지지선 반등',
-  ichimoku_bull:     '구름 위 강세 구간 진입',
+  golden_cross:      'Golden Cross  (단기 추세 전환 확인)',
+  volume_confirm:    'Volume Surge  (수급 폭증 · 매집 신호)',
+  rsi_signal:        'RSI 모멘텀  (과열 아님 · 상승 여력)',
+  rsi_divergence:    'RSI Divergence  (하락 중 반등 선행)',
+  bollinger_break:   'Bollinger Breakout  (변동성 폭발 임박)',
+  macd_cross:        'MACD Cross  (매수세 우위 전환)',
+  stoch_signal:      'Stochastic  (과매도 탈출 · 반등 시작)',
+  ma_alignment:      'MA 정배열  (5 · 20 · 60 전부 상향)',
+  relative_strength: 'Relative Strength  (나스닥 대비 강세)',
+  fib_support:       'Fibonacci 지지  (핵심 반등 구간 진입)',
+  ichimoku_bull:     'Ichimoku 강세  (구름 위 안착)',
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -516,14 +516,19 @@ function renderHook(ctx, elapsed, stock) {
     ctx.restore()
   }
 
-  /* 라인4: sector · NASDAQ */
+  /* 라인4: 한국어명 + sector */
   const a4 = easeOutCubic(prog(elapsed, 1600, 400))
   if (a4 > 0.01) {
+    const krName = getKrName(stock.ticker, stock.name)
+    const sectorTxt = stock.sector && stock.sector !== 'NASDAQ' ? stock.sector : 'NASDAQ'
     ctx.save(); ctx.globalAlpha = a4
-    ctx.fillStyle='#444444'
-    ctx.font = '300 12px "Noto Sans KR",sans-serif'
+    ctx.fillStyle='#888888'
+    ctx.font = '400 12px "Noto Sans KR",sans-serif'
     ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.fillText(`${stock.sector} · NASDAQ`, cx, H/2+72)
+    ctx.fillText(krName, cx, H/2+58)
+    ctx.fillStyle='#555555'
+    ctx.font = '300 11px "Noto Sans KR",sans-serif'
+    ctx.fillText(sectorTxt + ' · NASDAQ', cx, H/2+74)
     ctx.restore()
   }
 }
@@ -542,7 +547,7 @@ function renderEntryCard(elapsed, stock) {
     {delay:400, icon:'🛑', label:'손절가', val:`${fmtPrice(sw.stop_loss)} <span style="font-size:11px">(${sw.stop_pct}%)</span>`, color:'#ef4444'},
     {delay:500, icon:'🎯', label:'목표1',  val:`${fmtPrice(sw.target1)} <span style="font-size:11px;color:#10b981">(+${sw.target1_pct}%)</span>`, color:'#10b981'},
     {delay:600, icon:'🎯', label:'목표2',  val:`${fmtPrice(sw.target2)} <span style="font-size:11px;color:#6ee7b7">(+${sw.target2_pct}%)</span>`, color:'#6ee7b7'},
-    {delay:700, icon:'⚖️', label:'손익비', val:`${sw.rr_ratio} : 1 ${sw.rr_ratio>=2?'⭐':''}`, color: sw.rr_ratio>=2?'#f59e0b':'#888'},
+    {delay:700, icon:'⚖️', label:'손익비', val:`${sw.rr_ratio} : 1 ${sw.rr_ratio>=2?'⭐':''}`, color: sw.rr_ratio>=2?'#f59e0b':'#ccc'},
   ]
 
   const rowsHTML = rows.map(row => {
@@ -554,7 +559,7 @@ function renderEntryCard(elapsed, stock) {
       <div style="display:flex;justify-content:space-between;align-items:center;
                   padding:10px 0;${borderStyle}
                   opacity:${rp};transition:none">
-        <span style="font-size:12px;color:#555">${row.icon} ${row.label}</span>
+        <span style="font-size:12px;color:#aaa">${row.icon} ${row.label}</span>
         <span style="font-size:13px;font-weight:700;color:${row.color}">${row.val}</span>
       </div>`
   }).join('')
@@ -568,15 +573,15 @@ function renderEntryCard(elapsed, stock) {
                 opacity:${cardP};transform:translateY(${cardY}px)">
       <div style="width:100%;margin-bottom:14px">
         <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-0.02em">${stock.ticker}</div>
-        <div style="font-size:12px;color:#555;margin-top:3px">${stock.name}</div>
+        <div style="font-size:12px;color:#aaa;margin-top:3px">${getKrName(stock.ticker, stock.name)||stock.ticker}</div>
       </div>
       <div style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:16px;
                   padding:4px 16px;width:100%">
         ${rowsHTML}
       </div>
       <div style="margin-top:18px;width:100%;text-align:center">
-        <div style="font-size:12px;color:#f59e0b55;opacity:${h1}">이 가격대 지켜주면 홀드</div>
-        <div style="font-size:11px;color:#ef444455;margin-top:6px;opacity:${h2}">손절가 이탈 시 즉시 매도</div>
+        <div style="font-size:12px;color:#f59e0b;opacity:${h1*0.7}">이 가격대 지켜주면 홀드</div>
+        <div style="font-size:11px;color:#ef4444;margin-top:6px;opacity:${h2*0.7}">손절가 이탈 시 즉시 매도</div>
       </div>
     </div>`)
 }
@@ -636,7 +641,7 @@ function renderChart(ctx, elapsed, stock) {
     ctx.fillText(stock.ticker, 16, 52)
     ctx.fillStyle='#10b981'; ctx.font='400 12px "Noto Sans KR",sans-serif'
     ctx.fillText(fmtPrice(stock.price) + '  ' + fmtChange(stock.change_pct), 16, 70)
-    ctx.fillStyle='#2a2a2a'; ctx.font='300 10px "Noto Sans KR",sans-serif'
+    ctx.fillStyle='#666'; ctx.font='300 10px "Noto Sans KR",sans-serif'
     ctx.fillText('60일 캔들 차트', 16, 88)
     ctx.restore()
   }
@@ -758,22 +763,40 @@ function renderChart(ctx, elapsed, stock) {
   if (p4 > 0) {
     const lA = easeOutCubic(p4)
 
-    function hLine(price, color, dashed, labelTxt) {
-      const ly = clamp(toY(price), CT, CB)
+    /* hLine: 선은 정확한 가격 y에, 라벨은 겹침 방지 후 우측에 */
+    const hLineData = []
+    function hLine(price, color, dashed) {
+      const ly = clamp(toY(price), CT+2, CB-2)
       ctx.save(); ctx.globalAlpha=lA*0.88
       ctx.strokeStyle=color; ctx.lineWidth=1.5
       if (dashed) ctx.setLineDash([5,3])
       ctx.beginPath(); ctx.moveTo(CL, ly); ctx.lineTo(CR, ly); ctx.stroke()
       ctx.setLineDash([])
-      ctx.fillStyle=color; ctx.font='bold 10px "Noto Sans KR",sans-serif'
-      ctx.textAlign='left'; ctx.textBaseline='middle'
-      ctx.globalAlpha=lA; ctx.fillText(labelTxt, CR+4, ly)
       ctx.restore()
+      return ly
     }
 
-    hLine(sw.stop_loss, '#ef4444', true,  '🛑 '+fmtPrice(sw.stop_loss))
-    hLine(sw.target1,   '#10b981', false, '🎯 '+fmtPrice(sw.target1))
-    hLine(sw.target2,   '#6ee7b7', true,  fmtPrice(sw.target2))
+    const lyStop = hLine(sw.stop_loss, '#ef4444', true)
+    const lyT1   = hLine(sw.target1,   '#10b981', false)
+    const lyT2   = hLine(sw.target2,   '#6ee7b7', true)
+
+    /* 라벨: 수직 겹침 방지 — 최소 13px 간격 보장 */
+    const lbls = [
+      {ly: lyStop, color:'#ef4444', txt:'🛑 '+fmtPrice(sw.stop_loss)},
+      {ly: lyT1,   color:'#10b981', txt:'🎯 '+fmtPrice(sw.target1)},
+      {ly: lyT2,   color:'#6ee7b7', txt:'🎯 '+fmtPrice(sw.target2)},
+    ]
+    lbls.sort((a,b)=>a.ly-b.ly)
+    for (let i=1; i<lbls.length; i++) {
+      if (lbls[i].ly - lbls[i-1].ly < 13) lbls[i].ly = lbls[i-1].ly + 13
+    }
+    ctx.save(); ctx.globalAlpha=lA
+    ctx.font='bold 10px "Noto Sans KR",sans-serif'
+    ctx.textAlign='left'; ctx.textBaseline='middle'
+    for (const {color, txt, ly} of lbls) {
+      ctx.fillStyle=color; ctx.fillText(txt, CR+4, ly)
+    }
+    ctx.restore()
 
     /* 진입 구간 박스 */
     const ey1=toY(sw.entry_high), ey2=toY(sw.entry_low)
@@ -782,20 +805,20 @@ function renderChart(ctx, elapsed, stock) {
     ctx.globalAlpha=lA*0.45; ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1
     ctx.strokeRect(CL, ey1, CR-CL, ey2-ey1); ctx.restore()
 
-    /* 손익비 뱃지 */
+    /* 손익비 뱃지 — 차트 좌측 하단, 수평선 라벨(우측)과 겹치지 않음 */
     const bp = easeOutElastic(prog(elapsed, 3950, 550))
     if (bp > 0.01) {
-      const bx=W/2, by=CT+22
+      const bx=CL+62, by=CB-26
       ctx.save(); ctx.globalAlpha=Math.min(1,bp*1.4)
       ctx.translate(bx, by); ctx.scale(bp, bp)
       ctx.fillStyle='#0a0a0a'
       ctx.shadowColor='#f59e0b'; ctx.shadowBlur=16
       ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1.5
-      ctx.beginPath(); ctx.roundRect(-52,-14,104,28,14); ctx.fill(); ctx.stroke()
+      ctx.beginPath(); ctx.roundRect(-58,-14,116,28,14); ctx.fill(); ctx.stroke()
       ctx.shadowBlur=0; ctx.fillStyle='#f59e0b'
       ctx.font='bold 12px "Noto Sans KR",sans-serif'
       ctx.textAlign='center'; ctx.textBaseline='middle'
-      ctx.fillText(`손익비  ${sw.rr_ratio}:1`, 0, 1)
+      ctx.fillText(`R:R  ${sw.rr_ratio}:1  ⭐`, 0, 1)
       ctx.restore()
     }
   }
@@ -821,13 +844,13 @@ function renderSummary(elapsed, stock) {
       <div style="width:16px;height:16px;border-radius:50%;background:#f59e0b;
                   display:flex;align-items:center;justify-content:center;
                   flex-shrink:0;font-size:9px;font-weight:700;color:#000">✓</div>
-      <span style="font-size:12px;color:#999">${label}</span>
+      <span style="font-size:12px;color:#ddd">${label}</span>
     </div>`
   }).join('')
 
   const rA = easeOutCubic(prog(elapsed, 1500, 400))
   const score = stock.score||0
-  let gradeText='⚠ 추가 관망', gradeColor='#555'
+  let gradeText='⚠ 추가 관망', gradeColor='#888'
   if (score>=80) { gradeText='⭐ 강력 매수 신호'; gradeColor='#f59e0b' }
   else if (score>=60) { gradeText='👍 매수 신호'; gradeColor='#10b981' }
   const gP = easeOutElastic(prog(elapsed, 2200, 650))
@@ -835,19 +858,19 @@ function renderSummary(elapsed, stock) {
   setUI(`
     <div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:28px 20px 10px">
       <div style="font-size:18px;font-weight:700;color:#f59e0b;margin-bottom:8px;opacity:${hA}">
-        이 조건이면 진입
+        진입 시그널 확인 !
       </div>
       <div style="margin-bottom:6px">${sigsHTML}</div>
       <div style="opacity:${rA}">
         ${[
           {icon:'🛑', l:'손절가', v:`${fmtPrice(sw.stop_loss)} (${sw.stop_pct}%)`, c:'#ef4444'},
           {icon:'🎯', l:`목표 2 (${sw.target2_week}주)`, v:`+${sw.target2_pct}%`, c:'#10b981'},
-          {icon:'⚖️', l:'손익비', v:`${sw.rr_ratio}:1`, c:sw.rr_ratio>=2?'#f59e0b':'#888'},
+          {icon:'⚖️', l:'손익비', v:`${sw.rr_ratio}:1`, c:sw.rr_ratio>=2?'#f59e0b':'#ccc'},
         ].map(r=>`
           <div style="display:flex;justify-content:space-between;align-items:center;
                       padding:6px 10px;background:#0a0a0a;border:1px solid #111;
                       border-radius:8px;margin-bottom:4px">
-            <span style="font-size:12px;color:#555">${r.icon} ${r.l}</span>
+            <span style="font-size:12px;color:#aaa">${r.icon} ${r.l}</span>
             <span style="font-size:13px;font-weight:700;color:${r.c}">${r.v}</span>
           </div>`).join('')}
       </div>
@@ -894,15 +917,16 @@ function renderFinal(elapsed, stocks) {
       <div style="flex:1;background:#0a0a0a;border:1px solid #1d1d1d;border-radius:14px;
                   padding:14px 12px;opacity:${p};transform:translateX(${(1-p)*60*dir}px)">
         <div style="font-size:19px;font-weight:900;color:#fff">${s.ticker}</div>
-        <div style="font-size:11px;color:#2a2a2a;margin-bottom:10px">${fmtPrice(s.price)}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:1px">${getKrName(s.ticker, s.name)||s.ticker}</div>
+        <div style="font-size:11px;color:#ccc;margin-bottom:8px">${fmtPrice(s.price)}</div>
         ${[
           {l:'진입',  v:fmtPrice(sw.entry_low), c:'#f59e0b'},
           {l:'목표',  v:`+${sw.target2_pct}%`,  c:'#10b981'},
           {l:'손절',  v:`${sw.stop_pct}%`,       c:'#ef4444'},
-          {l:'손익비',v:`${sw.rr_ratio}:1`,      c:'#666'},
+          {l:'손익비',v:`${sw.rr_ratio}:1`,      c:sw.rr_ratio>=2?'#f59e0b':'#ccc'},
         ].map(r=>`
           <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-            <span style="font-size:10px;color:#333">${r.l}</span>
+            <span style="font-size:10px;color:#888">${r.l}</span>
             <span style="font-size:11px;font-weight:700;color:${r.c}">${r.v}</span>
           </div>`).join('')}
       </div>`
@@ -932,7 +956,7 @@ function renderFinal(elapsed, stocks) {
         </span>
       </div>
       <div style="opacity:${disc};text-align:center">
-        <span style="font-size:9px;color:#1e1e1e">
+        <span style="font-size:9px;color:#555">
           ⚠ 투자 참고용 · 손익 책임은 본인에게
         </span>
       </div>
