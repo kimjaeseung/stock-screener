@@ -231,7 +231,7 @@ def _run_pipeline(now_kst, now_utc):
     top2_tickers = [s["ticker"] for s in top_stocks[:2]]
     check_kr_names(top2_tickers)
 
-    updated_at = now_utc.strftime("%Y-%m-%d %H:%M UTC")
+    updated_at = now_kst.strftime("%Y-%m-%d %H:%M KST")
 
     # 5. Write docs/data.json  (read by docs/reels/)
     docs_out = {

@@ -548,56 +548,125 @@ function renderHook(ctx, elapsed, stock) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   12. 진입 조건 카드 씬 (UI layer)
+   12. 진입 조건 카드 씬 (Canvas — 녹화 캡처 가능)
 ════════════════════════════════════════════════════════════ */
-function renderEntryCard(elapsed, stock) {
+function renderEntryCard(ctx, elapsed, stock) {
+  setUI('')
   const sw = stock.swing
-  const cardP  = easeOutCubic(prog(elapsed, 0, 600))
-  const cardY  = (1-cardP)*80
+  const cardP = easeOutCubic(prog(elapsed, 0, 600))
+  if (cardP < 0.01) return
+  const offY = (1 - cardP) * 80
 
-  const rows = [
-    {delay:200, icon:'📌', label:'종목',   val:`${stock.ticker} &nbsp;${fmtPrice(stock.price)} <span style="font-size:11px;color:${stock.change_pct>=0?'#10b981':'#ef4444'}">${fmtChange(stock.change_pct)}</span>`, color:'#fff'},
-    {delay:300, icon:'💰', label:'진입가', val:`${fmtPrice(sw.entry_low)} ~ ${fmtPrice(sw.entry_high)}`, color:'#f59e0b', pulse:true},
-    {delay:400, icon:'🛑', label:'손절가', val:`${fmtPrice(sw.stop_loss)} <span style="font-size:11px">(${sw.stop_pct}%)</span>`, color:'#ef4444'},
-    {delay:500, icon:'🎯', label:'목표1',  val:`${fmtPrice(sw.target1)} <span style="font-size:11px;color:#10b981">(+${sw.target1_pct}%)</span>`, color:'#10b981'},
-    {delay:600, icon:'🎯', label:'목표2',  val:`${fmtPrice(sw.target2)} <span style="font-size:11px;color:#6ee7b7">(+${sw.target2_pct}%)</span>`, color:'#6ee7b7'},
-    {delay:700, icon:'⚖️', label:'손익비', val:`${sw.rr_ratio} : 1 ${sw.rr_ratio>=2?'⭐':''}`, color: sw.rr_ratio>=2?'#f59e0b':'#ccc'},
+  ctx.save()
+  ctx.globalAlpha = cardP
+  ctx.translate(0, offY)
+
+  const mx = 20, cw = W - mx * 2
+  const rowH = 47, nRows = 6
+  const cardH = 16 + nRows * rowH   // 298px
+  const startY = 218                 // 수직 중앙 기준
+
+  /* ─ 헤더 ─ */
+  ctx.fillStyle = '#fff'
+  ctx.font = '900 26px "Noto Sans KR",sans-serif'
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+  ctx.fillText(stock.ticker, mx, startY)
+
+  ctx.fillStyle = '#aaa'
+  ctx.font = '400 12px "Noto Sans KR",sans-serif'
+  ctx.fillText(getKrName(stock.ticker, stock.name) || stock.ticker, mx, startY + 22)
+
+  /* ─ 카드 배경 ─ */
+  const cY = startY + 38
+  ctx.fillStyle = '#0a0a0a'; ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1
+  ctx.beginPath(); ctx.roundRect(mx, cY, cw, cardH, 16); ctx.fill(); ctx.stroke()
+
+  /* ─ 행 데이터 ─ */
+  const rowDefs = [
+    { delay:200, icon:'📌', label:'종목',
+      main:()=>`${stock.ticker}  ${fmtPrice(stock.price)}`,
+      sub:()=>fmtChange(stock.change_pct),
+      mainC:'#fff', subC:()=>stock.change_pct>=0?'#10b981':'#ef4444' },
+    { delay:300, icon:'💰', label:'진입가',
+      main:()=>`${fmtPrice(sw.entry_low)} ~ ${fmtPrice(sw.entry_high)}`,
+      mainC:'#f59e0b', pulse:true },
+    { delay:400, icon:'🛑', label:'손절가',
+      main:()=>fmtPrice(sw.stop_loss), sub:()=>`(${sw.stop_pct}%)`,
+      mainC:'#ef4444', subC:()=>'#ef444488' },
+    { delay:500, icon:'🎯', label:'목표1',
+      main:()=>fmtPrice(sw.target1), sub:()=>`(+${sw.target1_pct}%)`,
+      mainC:'#10b981', subC:()=>'#10b98188' },
+    { delay:600, icon:'🎯', label:'목표2',
+      main:()=>fmtPrice(sw.target2), sub:()=>`(+${sw.target2_pct}%)`,
+      mainC:'#6ee7b7', subC:()=>'#6ee7b788' },
+    { delay:700, icon:'⚖️', label:'손익비',
+      main:()=>`${sw.rr_ratio} : 1${sw.rr_ratio>=2?' ⭐':''}`,
+      mainC: sw.rr_ratio>=2?'#f59e0b':'#ccc' },
   ]
 
-  const rowsHTML = rows.map(row => {
+  rowDefs.forEach((row, ri) => {
     const rp = easeOutCubic(prog(elapsed, row.delay, 380))
-    const borderStyle = row.pulse
-      ? `border-top:1px solid #f59e0b22;border-bottom:1px solid #f59e0b22;animation:pulse-gold 1.6s ease-in-out infinite;`
-      : `border-bottom:1px solid #111111;`
-    return `
-      <div style="display:flex;justify-content:space-between;align-items:center;
-                  padding:10px 0;${borderStyle}
-                  opacity:${rp};transition:none">
-        <span style="font-size:12px;color:#aaa">${row.icon} ${row.label}</span>
-        <span style="font-size:13px;font-weight:700;color:${row.color}">${row.val}</span>
-      </div>`
-  }).join('')
+    if (rp < 0.01) return
+    const rowTopY = cY + 8 + ri * rowH
+    const midY    = rowTopY + rowH / 2
 
+    ctx.save(); ctx.globalAlpha = rp
+
+    /* 구분선 */
+    if (ri > 0) {
+      ctx.strokeStyle = row.pulse ? '#f59e0b22' : '#111111'; ctx.lineWidth = 1
+      ctx.beginPath(); ctx.moveTo(mx+12, rowTopY); ctx.lineTo(mx+cw-12, rowTopY); ctx.stroke()
+    }
+
+    /* 진입가 펄싱 배경 */
+    if (row.pulse) {
+      const pa = (Math.sin(elapsed*0.004)*0.5+0.5)*0.07
+      ctx.fillStyle = '#f59e0b'; ctx.globalAlpha = rp*pa
+      ctx.fillRect(mx+1, rowTopY, cw-2, rowH)
+      ctx.globalAlpha = rp
+    }
+
+    /* 왼쪽: 아이콘 + 레이블 */
+    ctx.fillStyle = '#aaa'; ctx.font = '400 12px "Noto Sans KR",sans-serif'
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
+    ctx.fillText(`${row.icon} ${row.label}`, mx+12, midY)
+
+    /* 오른쪽: sub 값 먼저, 그다음 main 값 */
+    let rx = mx + cw - 12
+    if (row.sub) {
+      const subTxt = row.sub()
+      ctx.font = '400 11px "Noto Sans KR",sans-serif'
+      const sw2 = ctx.measureText(subTxt).width
+      ctx.fillStyle = row.subC ? row.subC() : '#888'
+      ctx.textAlign = 'right'
+      ctx.fillText(subTxt, rx, midY)
+      rx -= sw2 + 4
+    }
+    ctx.fillStyle = row.mainC || '#fff'; ctx.font = '700 13px "Noto Sans KR",sans-serif'
+    ctx.textAlign = 'right'
+    ctx.fillText(row.main(), rx, midY)
+
+    ctx.restore()
+  })
+
+  /* ─ 하단 힌트 ─ */
+  const hintY = cY + cardH + 22
   const h1 = easeOutCubic(prog(elapsed, 1500, 400))
   const h2 = easeOutCubic(prog(elapsed, 1700, 400))
+  if (h1 > 0.01) {
+    ctx.save(); ctx.globalAlpha = h1*0.7
+    ctx.fillStyle='#f59e0b'; ctx.font='400 12px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.fillText('이 가격대 지켜주면 홀드', W/2, hintY); ctx.restore()
+  }
+  if (h2 > 0.01) {
+    ctx.save(); ctx.globalAlpha = h2*0.7
+    ctx.fillStyle='#ef4444'; ctx.font='400 11px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.fillText('손절가 이탈 시 즉시 매도', W/2, hintY+20); ctx.restore()
+  }
 
-  setUI(`
-    <div style="position:absolute;inset:0;display:flex;flex-direction:column;
-                align-items:center;justify-content:center;padding:32px 20px;
-                opacity:${cardP};transform:translateY(${cardY}px)">
-      <div style="width:100%;margin-bottom:14px">
-        <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-0.02em">${stock.ticker}</div>
-        <div style="font-size:12px;color:#aaa;margin-top:3px">${getKrName(stock.ticker, stock.name)||stock.ticker}</div>
-      </div>
-      <div style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:16px;
-                  padding:4px 16px;width:100%">
-        ${rowsHTML}
-      </div>
-      <div style="margin-top:18px;width:100%;text-align:center">
-        <div style="font-size:12px;color:#f59e0b;opacity:${h1*0.7}">이 가격대 지켜주면 홀드</div>
-        <div style="font-size:11px;color:#ef4444;margin-top:6px;opacity:${h2*0.7}">손절가 이탈 시 즉시 매도</div>
-      </div>
-    </div>`)
+  ctx.restore()
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -765,11 +834,14 @@ function renderChart(ctx, elapsed, stock) {
       ctx.restore()
     })
 
-    /* 거래량 popLabel */
-    const spikeVol = dv[dv.length-1]
-    const vm = Math.round(spikeVol/avgVol*10)/10
+    /* 거래량 popLabel — swing.vol_multiple(최근 5일 최대) 우선 사용 */
+    const spikeIdx = dv.reduce((mi,v,i) => v > dv[mi] ? i : mi, 0)
+    const vm = (sw.vol_multiple && sw.vol_multiple >= 1.0)
+      ? sw.vol_multiple
+      : Math.round(dv[spikeIdx] / avgVol * 10) / 10
+    const spikeX = clamp(xs[spikeIdx] ?? W/2, W*0.2, W*0.8)
     const pl3 = prog(elapsed, 3350, 400)
-    if (pl3 > 0) drawPopLabel(ctx, W/2, VT-8, `거래량 ${vm}배 — 수급 확인 ✓`, pl3, '#10b981')
+    if (pl3 > 0) drawPopLabel(ctx, spikeX, VT-8, `평균 대비 ${vm}배 — 수급 확인 ✓`, pl3, '#10b981')
   }
 
   /* ── 17. Phase 4: 목표/손절선 + RR 뱃지 (3800~4500ms) ── */
@@ -839,63 +911,93 @@ function renderChart(ctx, elapsed, stock) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   18. 스윙 조건 요약 씬 (UI layer)
+   18. 스윙 조건 요약 씬 (Canvas — 녹화 캡처 가능)
 ════════════════════════════════════════════════════════════ */
-function renderSummary(elapsed, stock) {
+function renderSummary(ctx, elapsed, stock) {
+  setUI('')
   const sw = stock.swing
   const sigs = Object.entries(stock.signals||{})
     .filter(([,v])=>v)
     .map(([k])=>SIGNAL_LABELS[k])
     .filter(Boolean).slice(0,5)
 
+  /* ─ 헤더 ─ */
   const hA = easeOutCubic(prog(elapsed, 0, 380))
+  if (hA > 0.01) {
+    ctx.save(); ctx.globalAlpha = hA
+    ctx.fillStyle='#f59e0b'; ctx.font='700 18px "Noto Sans KR",sans-serif'
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic'
+    ctx.fillText('진입 시그널 확인 !', 20, 140)
+    ctx.restore()
+  }
 
-  const sigsHTML = sigs.map((label, i) => {
+  /* ─ 시그널 목록 ─ */
+  const sigStartY = 158, sigH = 36, sigGap = 4
+  sigs.forEach((label, i) => {
     const p = easeOutCubic(prog(elapsed, 100+i*120, 380))
-    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;
-                margin-bottom:3px;background:#070707;border:1px solid #111;
-                border-radius:8px;opacity:${p};transform:translateX(${(1-p)*38}px)">
-      <div style="width:16px;height:16px;border-radius:50%;background:#f59e0b;
-                  display:flex;align-items:center;justify-content:center;
-                  flex-shrink:0;font-size:9px;font-weight:700;color:#000">✓</div>
-      <span style="font-size:12px;color:#ddd">${label}</span>
-    </div>`
-  }).join('')
+    if (p < 0.01) return
+    const sy = sigStartY + i*(sigH+sigGap)
+    ctx.save(); ctx.globalAlpha = p
+    ctx.translate((1-p)*38, 0)
 
+    ctx.fillStyle='#070707'; ctx.strokeStyle='#111111'; ctx.lineWidth=1
+    ctx.beginPath(); ctx.roundRect(20, sy, W-40, sigH, 8); ctx.fill(); ctx.stroke()
+
+    /* ✓ 배지 */
+    const bx=36, by=sy+sigH/2
+    ctx.fillStyle='#f59e0b'; ctx.beginPath(); ctx.arc(bx,by,8,0,Math.PI*2); ctx.fill()
+    ctx.fillStyle='#000'; ctx.font='700 9px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('✓',bx,by)
+
+    ctx.fillStyle='#ddd'; ctx.font='400 12px "Noto Sans KR",sans-serif'
+    ctx.textAlign='left'; ctx.textBaseline='middle'
+    ctx.fillText(label, 52, by)
+    ctx.restore()
+  })
+
+  /* ─ 하단 요약 (손절/목표/손익비) ─ */
   const rA = easeOutCubic(prog(elapsed, 1500, 400))
+  const statStartY = sigStartY + sigs.length*(sigH+sigGap) + 10
+  const statH=32, statGap=4
+  if (rA > 0.01) {
+    const statDefs = [
+      {icon:'🛑', l:'손절가',              v:`${fmtPrice(sw.stop_loss)} (${sw.stop_pct}%)`, c:'#ef4444'},
+      {icon:'🎯', l:`목표 2 (${sw.target2_week}주)`, v:`+${sw.target2_pct}%`,               c:'#10b981'},
+      {icon:'⚖️', l:'손익비',              v:`${sw.rr_ratio}:1`,                             c:sw.rr_ratio>=2?'#f59e0b':'#ccc'},
+    ]
+    statDefs.forEach((r, si) => {
+      const sy = statStartY + si*(statH+statGap)
+      ctx.save(); ctx.globalAlpha = rA
+      ctx.fillStyle='#0a0a0a'; ctx.strokeStyle='#111111'; ctx.lineWidth=1
+      ctx.beginPath(); ctx.roundRect(20,sy,W-40,statH,8); ctx.fill(); ctx.stroke()
+      ctx.fillStyle='#aaa'; ctx.font='400 12px "Noto Sans KR",sans-serif'
+      ctx.textAlign='left'; ctx.textBaseline='middle'
+      ctx.fillText(`${r.icon} ${r.l}`, 32, sy+statH/2)
+      ctx.fillStyle=r.c; ctx.font='700 13px "Noto Sans KR",sans-serif'
+      ctx.textAlign='right'; ctx.fillText(r.v, W-32, sy+statH/2)
+      ctx.restore()
+    })
+  }
+
+  /* ─ 매수 등급 뱃지 ─ */
   const score = stock.score||0
   let gradeText='⚠ 추가 관망', gradeColor='#888'
   if (score>=80) { gradeText='⭐ 강력 매수 신호'; gradeColor='#f59e0b' }
   else if (score>=60) { gradeText='👍 매수 신호'; gradeColor='#10b981' }
   const gP = easeOutElastic(prog(elapsed, 2200, 650))
-
-  setUI(`
-    <div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:28px 20px 10px">
-      <div style="font-size:18px;font-weight:700;color:#f59e0b;margin-bottom:8px;opacity:${hA}">
-        진입 시그널 확인 !
-      </div>
-      <div style="margin-bottom:6px">${sigsHTML}</div>
-      <div style="opacity:${rA}">
-        ${[
-          {icon:'🛑', l:'손절가', v:`${fmtPrice(sw.stop_loss)} (${sw.stop_pct}%)`, c:'#ef4444'},
-          {icon:'🎯', l:`목표 2 (${sw.target2_week}주)`, v:`+${sw.target2_pct}%`, c:'#10b981'},
-          {icon:'⚖️', l:'손익비', v:`${sw.rr_ratio}:1`, c:sw.rr_ratio>=2?'#f59e0b':'#ccc'},
-        ].map(r=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;
-                      padding:6px 10px;background:#0a0a0a;border:1px solid #111;
-                      border-radius:8px;margin-bottom:4px">
-            <span style="font-size:12px;color:#aaa">${r.icon} ${r.l}</span>
-            <span style="font-size:13px;font-weight:700;color:${r.c}">${r.v}</span>
-          </div>`).join('')}
-      </div>
-      <div style="text-align:center;margin-top:8px;
-                  opacity:${clamp(gP,0,1)};transform:scale(${clamp(gP,0.2,1)})">
-        <div style="display:inline-block;padding:10px 24px;background:#0a0a0a;
-                    border:2px solid ${gradeColor};border-radius:50px;
-                    font-size:15px;font-weight:700;color:${gradeColor};
-                    box-shadow:0 0 22px ${gradeColor}44">${gradeText}</div>
-      </div>
-    </div>`)
+  if (gP > 0.01) {
+    ctx.save(); ctx.globalAlpha = Math.min(1, gP)
+    ctx.translate(W/2, H-96)
+    const s = clamp(gP, 0.2, 1); ctx.scale(s, s)
+    ctx.fillStyle='#0a0a0a'; ctx.strokeStyle=gradeColor; ctx.lineWidth=2
+    ctx.shadowColor=gradeColor; ctx.shadowBlur=22
+    ctx.beginPath(); ctx.roundRect(-100,-22,200,44,50); ctx.fill(); ctx.stroke()
+    ctx.shadowBlur=0; ctx.fillStyle=gradeColor
+    ctx.font='700 15px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='middle'
+    ctx.fillText(gradeText, 0, 1)
+    ctx.restore()
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -918,63 +1020,107 @@ function renderTransition(ctx, elapsed) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   20. 마무리 씬 (UI layer)
+   20. 마무리 씬 (Canvas — 녹화 캡처 가능)
 ════════════════════════════════════════════════════════════ */
-function renderFinal(elapsed, stocks) {
-  const hA = easeOutCubic(prog(elapsed, 0, 380))
+function renderFinal(ctx, elapsed, stocks) {
+  setUI('')
+  const hA    = easeOutCubic(prog(elapsed, 0, 380))
   const blink = (Math.sin(elapsed*0.006)+1)/2
 
-  function card(s, dir, delay) {
-    const p = easeOutCubic(prog(elapsed, delay, 500))
-    const sw = s.swing
-    return `
-      <div style="flex:1;background:#0a0a0a;border:1px solid #1d1d1d;border-radius:14px;
-                  padding:14px 12px;opacity:${p};transform:translateX(${(1-p)*60*dir}px)">
-        <div style="font-size:19px;font-weight:900;color:#fff">${s.ticker}</div>
-        <div style="font-size:10px;color:#aaa;margin-top:1px">${getKrName(s.ticker, s.name)||s.ticker}</div>
-        <div style="font-size:11px;color:#ccc;margin-bottom:8px">${fmtPrice(s.price)}</div>
-        ${[
-          {l:'진입',  v:fmtPrice(sw.entry_low), c:'#f59e0b'},
-          {l:'목표',  v:`+${sw.target2_pct}%`,  c:'#10b981'},
-          {l:'손절',  v:`${sw.stop_pct}%`,       c:'#ef4444'},
-          {l:'손익비',v:`${sw.rr_ratio}:1`,      c:sw.rr_ratio>=2?'#f59e0b':'#ccc'},
-        ].map(r=>`
-          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-            <span style="font-size:10px;color:#888">${r.l}</span>
-            <span style="font-size:11px;font-weight:700;color:${r.c}">${r.v}</span>
-          </div>`).join('')}
-      </div>`
+  /* 레이아웃 기준점 */
+  const headerY = 230      // "오늘의 스윙 픽" baseline
+  const cardTop = 252      // 카드 상단
+  const cardH   = 218      // 카드 높이
+  const belowY  = cardTop + cardH + 26
+
+  /* ─ "오늘의 스윙 픽" ─ */
+  if (hA > 0.01) {
+    ctx.save(); ctx.globalAlpha = hA
+    ctx.fillStyle='#f59e0b'; ctx.font='400 12px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.letterSpacing='3px'; ctx.fillText('오늘의 스윙 픽', W/2, headerY); ctx.letterSpacing='0px'
+    ctx.restore()
   }
 
-  const pin1A = easeOutCubic(prog(elapsed, 800, 400))
-  const pin2A = easeOutCubic(prog(elapsed, 1200, 400))
-  const disc  = easeOutCubic(prog(elapsed, 1400, 400))
+  /* ─ 두 종목 카드 ─ */
+  const gap=12, mx=20
+  const halfW = (W - mx*2 - gap) / 2   // ≈169px
 
-  setUI(`
-    <div style="position:absolute;inset:0;display:flex;flex-direction:column;
-                align-items:center;justify-content:center;padding:40px 20px">
-      <div style="font-size:12px;color:#f59e0b;letter-spacing:0.35em;
-                  margin-bottom:22px;opacity:${hA}">오늘의 스윙 픽</div>
-      <div style="display:flex;gap:12px;width:100%;margin-bottom:22px">
-        ${card(stocks[0], -1, 200)}
-        ${card(stocks[1],  1, 400)}
-      </div>
-      <div style="opacity:${pin1A*blink};text-align:center;margin-bottom:12px">
-        <span style="font-size:13px;color:#f59e0b;font-weight:700">
-          저장해두고 직접 확인해보세요 📌
-        </span>
-      </div>
-      <div style="opacity:${pin2A};text-align:center;margin-bottom:10px">
-        <span style="font-size:16px;font-weight:900;color:#f59e0b;letter-spacing:0.04em">
-          TopStockDaily
-        </span>
-      </div>
-      <div style="opacity:${disc};text-align:center">
-        <span style="font-size:9px;color:#555">
-          ⚠ 투자 참고용 · 손익 책임은 본인에게
-        </span>
-      </div>
-    </div>`)
+  function drawCard(s, dir, delay, cx) {
+    const p = easeOutCubic(prog(elapsed, delay, 500))
+    if (p < 0.01) return
+    const sw2 = s.swing
+    ctx.save(); ctx.globalAlpha = p
+    ctx.translate((1-p)*60*dir, 0)
+
+    ctx.fillStyle='#0a0a0a'; ctx.strokeStyle='#1d1d1d'; ctx.lineWidth=1
+    ctx.beginPath(); ctx.roundRect(cx, cardTop, halfW, cardH, 14); ctx.fill(); ctx.stroke()
+
+    ctx.fillStyle='#fff'; ctx.font='900 19px "Noto Sans KR",sans-serif'
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic'
+    ctx.fillText(s.ticker, cx+12, cardTop+26)
+
+    ctx.fillStyle='#aaa'; ctx.font='400 10px "Noto Sans KR",sans-serif'
+    ctx.fillText((getKrName(s.ticker, s.name)||s.ticker).slice(0,14), cx+12, cardTop+40)
+
+    ctx.fillStyle='#ccc'; ctx.font='400 11px "Noto Sans KR",sans-serif'
+    ctx.fillText(fmtPrice(s.price), cx+12, cardTop+56)
+
+    const miniRows = [
+      {l:'진입',  v:fmtPrice(sw2.entry_low),  c:'#f59e0b'},
+      {l:'목표',  v:`+${sw2.target2_pct}%`,   c:'#10b981'},
+      {l:'손절',  v:`${sw2.stop_pct}%`,        c:'#ef4444'},
+      {l:'손익비',v:`${sw2.rr_ratio}:1`,       c:sw2.rr_ratio>=2?'#f59e0b':'#ccc'},
+    ]
+    const miniRowH=34, miniStartY=cardTop+68
+    miniRows.forEach((r,ri) => {
+      const ry = miniStartY + ri*miniRowH
+      if (ri>0) {
+        ctx.strokeStyle='#111111'; ctx.lineWidth=1
+        ctx.beginPath(); ctx.moveTo(cx+8,ry); ctx.lineTo(cx+halfW-8,ry); ctx.stroke()
+      }
+      ctx.fillStyle='#888'; ctx.font='400 10px "Noto Sans KR",sans-serif'
+      ctx.textAlign='left'; ctx.textBaseline='middle'
+      ctx.fillText(r.l, cx+12, ry+miniRowH/2)
+      ctx.fillStyle=r.c; ctx.font='700 11px "Noto Sans KR",sans-serif'
+      ctx.textAlign='right'
+      ctx.fillText(r.v, cx+halfW-12, ry+miniRowH/2)
+    })
+    ctx.restore()
+  }
+
+  drawCard(stocks[0], -1, 200, mx)
+  drawCard(stocks[1],  1, 400, mx+halfW+gap)
+
+  /* ─ "저장해두고..." 깜빡임 ─ */
+  const pin1A = easeOutCubic(prog(elapsed, 800, 400))
+  if (pin1A > 0.01) {
+    ctx.save(); ctx.globalAlpha = pin1A*blink
+    ctx.fillStyle='#f59e0b'; ctx.font='700 13px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.fillText('저장해두고 직접 확인해보세요 📌', W/2, belowY+14)
+    ctx.restore()
+  }
+
+  /* ─ "TopStockDaily" ─ */
+  const pin2A = easeOutCubic(prog(elapsed, 1200, 400))
+  if (pin2A > 0.01) {
+    ctx.save(); ctx.globalAlpha = pin2A
+    ctx.fillStyle='#f59e0b'; ctx.font='900 16px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.fillText('TopStockDaily', W/2, belowY+42)
+    ctx.restore()
+  }
+
+  /* ─ 면책 조항 ─ */
+  const disc = easeOutCubic(prog(elapsed, 1400, 400))
+  if (disc > 0.01) {
+    ctx.save(); ctx.globalAlpha = disc
+    ctx.fillStyle='#555555'; ctx.font='300 9px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.fillText('⚠ 투자 참고용 · 손익 책임은 본인에게', W/2, belowY+62)
+    ctx.restore()
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -983,12 +1129,12 @@ function renderFinal(elapsed, stocks) {
 function renderScene(scene, elapsed, data) {
   const stock = scene.stock !== undefined ? data.stocks[scene.stock] : null
   switch(scene.type) {
-    case 'hook':       setUI(''); renderHook(ctx, elapsed, stock);    break
-    case 'entry_card': renderEntryCard(elapsed, stock);               break
-    case 'chart':      setUI(''); renderChart(ctx, elapsed, stock);   break
-    case 'summary':    renderSummary(elapsed, stock);                  break
-    case 'transition': renderTransition(ctx, elapsed);                break
-    case 'final':      renderFinal(elapsed, data.stocks);             break
+    case 'hook':       setUI(''); renderHook(ctx, elapsed, stock);          break
+    case 'entry_card': renderEntryCard(ctx, elapsed, stock);                break
+    case 'chart':      setUI(''); renderChart(ctx, elapsed, stock);         break
+    case 'summary':    renderSummary(ctx, elapsed, stock);                  break
+    case 'transition': renderTransition(ctx, elapsed);                      break
+    case 'final':      renderFinal(ctx, elapsed, data.stocks);              break
   }
 }
 
@@ -1040,72 +1186,105 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   /* 5. 데이터 로드 → 22. 실데이터 연동 */
   stockData = await loadData()
-  /* 업데이트 시간 표시: "데이터 기준 2026-03-18 01:03 UTC (KST 10:03)" */
+  /* 업데이트 시간 표시: JSON이 "YYYY-MM-DD HH:MM KST" 또는 "HH:MM UTC" 형식 */
   const ua = stockData.updated_at || ''
-  let uaLabel = ua ? `데이터 기준 ${ua}` : ''
-  if (ua && ua.includes('UTC')) {
-    try {
-      const dt = new Date(ua.replace(' UTC','Z').replace(' ','T'))
-      const kstH = ((dt.getUTCHours()+9)%24).toString().padStart(2,'0')
-      const kstM = dt.getUTCMinutes().toString().padStart(2,'0')
-      const kstDay = dt.getUTCHours()+9 >= 24 ? dt.getUTCDate()+1 : dt.getUTCDate()
-      uaLabel = `데이터 기준 ${ua}  ·  KST ${kstH}:${kstM}`
-    } catch(e) {}
-  }
+  const uaLabel = ua ? `데이터 기준 ${ua}` : ''
   document.getElementById('updated-at').textContent = uaLabel
 
   /* 21. 자동재생 시작 */
   requestAnimationFrame(masterLoop)
 
-  /* Save as video: 캔버스만 캡처 → 동영상에 버튼/UI 미포함 */
+  /* ── Save as video ──────────────────────────────────────────
+     버튼 클릭 → 애니메이션 처음부터 재생하며 30초 자동 녹화 → 다운로드
+     포맷: Safari = MP4(AVC), Chrome/Firefox = WebM(VP9)           */
   ;(function() {
     let mediaRecorder = null
-    let chunks = []
-    const btn = document.getElementById('btnSaveVideo')
-    const FPS = 30
-    const MAX_DURATION_MS = 120000
+    let chunks        = []
+    let autoStopTimer = null
+    let countdownInterval = null
+    const btn  = document.getElementById('btnSaveVideo')
+    const FPS  = 30
+    const TOTAL_MS = SCENE_PLAN.reduce((s, sc) => s + sc.dur, 0) // 30 000 ms
 
-    function getMimeType() {
-      const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
-      for (const t of types) {
-        if (MediaRecorder.isTypeSupported(t)) return t
+    /* 지원 포맷 탐색: MP4(Safari) → WebM(Chrome/Firefox) */
+    function getBestFormat() {
+      const candidates = [
+        { mime:'video/mp4;codecs=avc1', ext:'mp4' },
+        { mime:'video/mp4',             ext:'mp4' },
+        { mime:'video/webm;codecs=vp9', ext:'webm' },
+        { mime:'video/webm;codecs=vp8', ext:'webm' },
+        { mime:'video/webm',            ext:'webm' },
+      ]
+      for (const c of candidates) {
+        if (MediaRecorder.isTypeSupported(c.mime)) return c
       }
-      return ''
+      return { mime:'', ext:'webm' }
+    }
+
+    function stopRecording() {
+      clearTimeout(autoStopTimer)
+      clearInterval(countdownInterval)
+      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop()
     }
 
     if (!btn) return
+
     btn.onclick = function() {
+      /* 녹화 중이면 취소 */
       if (mediaRecorder && mediaRecorder.state === 'recording') {
-        mediaRecorder.stop()
+        stopRecording()
+        btn.textContent = 'Save as video'
         return
       }
       if (!canvas) return
+
+      /* 1. 애니메이션 처음부터 재시작 */
+      sceneIdx      = 0
+      sceneStartTime = null   // masterLoop 다음 프레임에서 초기화
+      paused        = false
+
       try {
         const stream = canvas.captureStream(FPS)
-        const mime = getMimeType()
-        const options = mime ? { mimeType: mime, videoBitsPerSecond: 2500000 } : { videoBitsPerSecond: 2500000 }
-        mediaRecorder = new MediaRecorder(stream, options)
+        const { mime, ext } = getBestFormat()
+        const opts = mime
+          ? { mimeType: mime, videoBitsPerSecond: 6_000_000 }
+          : {              videoBitsPerSecond: 6_000_000 }
+
+        mediaRecorder = new MediaRecorder(stream, opts)
         chunks = []
+
         mediaRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
+
         mediaRecorder.onstop = () => {
+          clearInterval(countdownInterval)
           const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'video/webm' })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = 'TopStockDaily_reels_' + new Date().toISOString().slice(0,19).replace(/:/g,'-') + '.webm'
+          const url  = URL.createObjectURL(blob)
+          const a    = document.createElement('a')
+          a.href     = url
+          a.download = `TopStockDaily_${new Date().toISOString().slice(0,10)}.${ext}`
           a.click()
           URL.revokeObjectURL(url)
           btn.textContent = 'Save as video'
-          mediaRecorder = null
+          mediaRecorder   = null
         }
-        mediaRecorder.start(500)
-        btn.textContent = 'Stop & Save'
-        setTimeout(() => {
-          if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop()
-        }, MAX_DURATION_MS)
+
+        /* 100ms 단위로 청크 수집 → 끊김 최소화 */
+        mediaRecorder.start(100)
+
+        /* 카운트다운 표시 */
+        let remaining = Math.ceil(TOTAL_MS / 1000)
+        btn.textContent = `⏺ ${remaining}s`
+        countdownInterval = setInterval(() => {
+          remaining--
+          btn.textContent = remaining > 0 ? `⏺ ${remaining}s` : '⏺ 저장 중...'
+        }, 1000)
+
+        /* 정확히 TOTAL_MS 후 자동 정지 (버퍼 200ms) */
+        autoStopTimer = setTimeout(stopRecording, TOTAL_MS + 200)
+
       } catch (e) {
         btn.textContent = 'Save as video'
-        console.warn('Video capture:', e)
+        console.warn('Video capture failed:', e)
       }
     }
   })()
