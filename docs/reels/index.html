@@ -111,13 +111,13 @@ const SCENES = [
   { id:'sigi0',  stock:0, type:'sigi',       dur:1500 },
   { id:'hook0',  stock:0, type:'hook',       dur:2500 },
   { id:'card0',  stock:0, type:'card',       dur:3000 },
-  { id:'chart0', stock:0, type:'chart',      dur:5000 },
+  { id:'chart0', stock:0, type:'chart',      dur:8000 },
   { id:'sum0',   stock:0, type:'summary',    dur:3000 },
   { id:'trans0',          type:'transition', dur:500  },
   { id:'sigi1',  stock:1, type:'sigi',       dur:1500 },
   { id:'hook1',  stock:1, type:'hook',       dur:2500 },
   { id:'card1',  stock:1, type:'card',       dur:3000 },
-  { id:'chart1', stock:1, type:'chart',      dur:5000 },
+  { id:'chart1', stock:1, type:'chart',      dur:8000 },
   { id:'sum1',   stock:1, type:'summary',    dur:3000 },
   { id:'final',           type:'final',      dur:2500 },
 ]
@@ -325,6 +325,34 @@ function findVolSpike(volumes, n=20) {
     if (ratio>bv) { bv=ratio; best=i }
   }
   return { idx: best, ratio: bv }
+}
+
+function calcRSI(closes, n=14) {
+  const out = new Array(closes.length).fill(null)
+  if (closes.length < n+2) return out
+  let gU=0, lU=0
+  for (let i=1; i<=n; i++) {
+    const d = closes[i]-closes[i-1]
+    d>0 ? gU+=d : lU+=-d
+  }
+  let aG=gU/n, aL=lU/n
+  out[n] = 100-100/(1+aG/Math.max(aL,0.001))
+  for (let i=n+1; i<closes.length; i++) {
+    const d=closes[i]-closes[i-1]
+    const g=d>0?d:0, l=d<0?-d:0
+    aG=(aG*(n-1)+g)/n; aL=(aL*(n-1)+l)/n
+    out[i] = 100-100/(1+aG/Math.max(aL,0.001))
+  }
+  return out
+}
+
+function calcMACD(closes) {
+  const e12 = ema(closes, 12)
+  const e26 = ema(closes, 26)
+  const macd = e12.map((v,i) => (v!=null&&e26[i]!=null) ? v-e26[i] : null)
+  const signal = ema(macd.map(v=>v||0), 9)
+  const hist = macd.map((v,i) => (v!=null&&signal[i]!=null) ? v-signal[i] : null)
+  return { macd, signal, hist }
 }
 
 // ─────────────────────────────────────────────
@@ -1020,35 +1048,81 @@ function renderChart(sc, el) {
     }
   }
 
-  // Phase 5: Stop/Target + RR badge (4200–5000ms)
-  const p5 = prog(el, 4200, 5000)
+  // Phase 5: Stop/Target 반짝 라인 + 가격 패널 (4200–8000ms)
+  const p5 = prog(el, 4200, 8000)
   if (p5 > 0) {
-    const stopY = normY(swing.stop_loss, minP, maxP)
-    const t1Y   = normY(swing.target1,   minP, maxP)
-    const t2Y   = normY(swing.target2,   minP, maxP)
-    ctx.save()
-    ctx.globalAlpha = clamp(p5*5, 0, 1)
-    if(stopY>=CT&&stopY<=CB) drawHLine(ctx,stopY,CL,CR,`손절 ${fmtPrice(swing.stop_loss)}`,C.red,{style:'dashed',lw:1.5})
-    if(t1Y>=CT&&t1Y<=CB)    drawHLine(ctx,t1Y,CL,CR,`목표1 ${fmtPrice(swing.target1)}`,C.green,{style:'dashed',lw:1.5})
-    if(t2Y>=CT&&t2Y<=CB)    drawHLine(ctx,t2Y,CL,CR,`목표2 ${fmtPrice(swing.target2)}`,'#6ee7b7',{style:'dashed',lw:1})
-    ctx.restore()
+    const fadeIn = clamp(p5*5, 0, 1)
+    const blink  = 0.55 + 0.45 * Math.sin(el * 0.007)  // 반짝 주기 ~900ms
+    const stopY  = normY(swing.stop_loss, minP, maxP)
+    const t1Y    = normY(swing.target1,   minP, maxP)
+    const t2Y    = normY(swing.target2,   minP, maxP)
 
-    // RR badge
-    const rrAlpha = clamp((p5-0.3)*5, 0, 1)
-    if(rrAlpha>0){
-      const rrScale = E.outElastic(clamp((p5-0.3)*3, 0, 1))
+    // 손절 — 빨간 반짝
+    if (stopY>=CT && stopY<=CB) {
       ctx.save()
-      ctx.globalAlpha = rrAlpha
-      ctx.font = 'bold 12px "Noto Sans KR"'
-      const rrTxt = `RR 1:${swing.rr_ratio.toFixed(1)}`
-      const rw = ctx.measureText(rrTxt).width+20
-      ctx.translate(CL+rw/2, CB+40)
-      ctx.scale(rrScale, rrScale)
-      ctx.fillStyle=C.gold; ctx.shadowColor=C.gold; ctx.shadowBlur=14
-      ctx.beginPath(); ctx.roundRect(-rw/2,-12,rw,24,12); ctx.fill()
-      ctx.shadowBlur=0; ctx.fillStyle='#000'; ctx.textAlign='center'
-      ctx.fillText(rrTxt, 0, 4)
+      ctx.globalAlpha = fadeIn * blink
+      ctx.shadowColor = C.red; ctx.shadowBlur = 10*blink
+      drawHLine(ctx, stopY, CL, CR, `손절 ${fmtPrice(swing.stop_loss)}`, C.red, {style:'dashed',lw:1.5})
       ctx.restore()
+    }
+    // 목표1 — 초록 반짝
+    if (t1Y>=CT && t1Y<=CB) {
+      ctx.save()
+      ctx.globalAlpha = fadeIn * blink
+      ctx.shadowColor = C.green; ctx.shadowBlur = 10*blink
+      drawHLine(ctx, t1Y, CL, CR, `목표1 ${fmtPrice(swing.target1)}`, C.green, {style:'dashed',lw:1.5})
+      ctx.restore()
+    }
+    // 목표2 — 연한 초록
+    if (t2Y>=CT && t2Y<=CB) {
+      ctx.save()
+      ctx.globalAlpha = fadeIn * 0.75
+      drawHLine(ctx, t2Y, CL, CR, `목표2 ${fmtPrice(swing.target2)}`, '#6ee7b7', {style:'dashed',lw:1})
+      ctx.restore()
+    }
+
+    // ─ 가격 정보 패널 (거래량 하단)
+    const infoA = clamp((p5-0.1)*5, 0, 1)
+    if (infoA > 0) {
+      const panelRows = [
+        ['진입가',    `${fmtPrice(swing.entry_low)} – ${fmtPrice(swing.entry_high)}`, C.gold],
+        ['1차 목표가', `+${swing.target1_pct}%  →  ${fmtPrice(swing.target1)}  (${swing.target1_week})`, C.green],
+        ['손절가',    `-${swing.stop_pct}%  →  ${fmtPrice(swing.stop_loss)}`, C.red],
+      ]
+      panelRows.forEach(([lbl, val, col], i) => {
+        const ry = VB + 14 + i*24
+        ctx.save()
+        ctx.globalAlpha = infoA
+        if (i > 0) {
+          ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=0.5
+          ctx.beginPath(); ctx.moveTo(CL, ry-6); ctx.lineTo(CR, ry-6); ctx.stroke()
+        }
+        ctx.font='11px "Noto Sans KR"'; ctx.fillStyle=C.gray; ctx.textAlign='left'
+        ctx.fillText(lbl, CL, ry+2)
+        ctx.font='bold 12px "Noto Sans KR"'; ctx.fillStyle=col
+        ctx.shadowColor=col; ctx.shadowBlur=4; ctx.textAlign='right'
+        ctx.fillText(val, CR, ry+2)
+        ctx.restore()
+      })
+
+      // RR badge
+      const rrA = E.outElastic(clamp((p5-0.15)*4, 0, 1))
+      const rrAl = clamp((p5-0.15)*6, 0, 1)
+      if (rrAl > 0) {
+        ctx.save()
+        ctx.globalAlpha = rrAl
+        ctx.font = 'bold 12px "Noto Sans KR"'
+        const rrTxt = `RR  1 : ${swing.rr_ratio.toFixed(1)}`
+        const rw2 = ctx.measureText(rrTxt).width + 26
+        ctx.translate(W/2, VB + 100)
+        ctx.scale(rrA, rrA)
+        ctx.fillStyle=C.gold
+        ctx.shadowColor=C.gold; ctx.shadowBlur=12*(0.55+0.45*Math.sin(el*0.006))
+        ctx.beginPath(); ctx.roundRect(-rw2/2,-14,rw2,28,14); ctx.fill()
+        ctx.shadowBlur=0; ctx.fillStyle='#000'; ctx.textAlign='center'
+        ctx.fillText(rrTxt, 0, 5)
+        ctx.restore()
+      }
     }
   }
 }
@@ -1058,49 +1132,136 @@ function renderSummary(sc, el) {
   ctx.fillStyle = C.bg
   ctx.fillRect(0, 0, W, H)
   const stock = DATA[sc.stock]
-  const sw = stock.swing
+  const sw  = stock.swing
   const key = 'summary_' + sc.id
-  const sigItems = [
-    ['🔀 골든크로스', stock.signals.golden_cross],
-    ['📊 거래량 확인', stock.signals.volume_confirm],
-    ['📈 RSI 신호',   stock.signals.rsi_signal],
+  const cd  = stock.chart_data
+  const cls = cd.closes, hgs = cd.highs, lws = cd.lows, vols = cd.volumes
+  const n   = cls.length, last = cls[n-1]
+
+  // ── 지표 계산
+  const ma5a   = sma(cls, 5)
+  const ma20a  = sma(cls, 20)
+  const rsiArr = calcRSI(cls)
+  const {macd:macdArr, signal:sigArr, hist:histArr} = calcMACD(cls)
+  const boll2  = calcBoll(cls)
+  const fib2   = calcFib(cls, hgs, lws)
+  const vs2    = findVolSpike(vols)
+  const vma20  = sma(vols, 20)
+  const gcIdx2 = findGoldenCross(ma5a, ma20a)
+
+  const rsiV  = rsiArr[n-1] || 50
+  const macdV = macdArr[n-1], sigV = sigArr[n-1]
+  const histV = histArr[n-1]||0, histP = histArr[n-2]||0
+  const ma20V = ma20a[n-1]||last
+  const bollM = boll2.mid[n-1]
+  const bollBW  = (boll2.upper[n-1]||0)-(boll2.lower[n-1]||0)
+  const bollBW2 = n>=20 ? (boll2.upper[n-20]||0)-(boll2.lower[n-20]||0) : bollBW*1.5
+
+  const hi30 = Math.max(...cls.slice(Math.max(0,n-31), n-1))
+
+  // 12개 기술 지표
+  const sigs = [
+    // 트렌드
+    ['📈 골든크로스',      gcIdx2>=0 && gcIdx2>=n-20],
+    ['🔼 MA20 상방 안착',  last > ma20V],
+    ['💥 추세 돌파',       last > hi30],
+    // 모멘텀
+    ['🔀 MACD 골든크로스', macdV!=null && sigV!=null && macdV > sigV],
+    ['📊 MACD 히스토그램↑',histV > histP],
+    ['⚡ RSI 모멘텀',      rsiV > 50 && rsiV < 70],
+    ['🔄 RSI 과매도 반등', rsiV >= 35 && rsiV <= 55 && cls[n-1]>cls[n-5]],
+    // 거래량
+    ['📦 거래량 급등',     vs2.idx>=n-10 && vs2.ratio>1.5],
+    ['📉 거래량 MA 상회',  vma20[n-1]!=null && vols[n-1]>vma20[n-1]],
+    // 패턴·구조
+    ['🎯 볼린저 밴드 돌파', bollM!=null && last > bollM],
+    ['🌀 피보나치 지지',   [fib2.f618,fib2.f500,fib2.f382].some(lv=>Math.abs(last-lv)/last<0.025)],
+    ['🏆 컵앤핸들 패턴',   stock.score >= 85],
   ]
 
+  const trueN = sigs.filter(([,v])=>v).length
+  const pct   = Math.round(trueN/sigs.length*100)
+  const pctColor = pct>=70?'#10b981':pct>=50?'#f59e0b':'#ef4444'
+  const pctBg    = pct>=70?'rgba(16,185,129,0.12)':pct>=50?'rgba(245,158,11,0.12)':'rgba(239,68,68,0.12)'
+  const pctBd    = pct>=70?'rgba(16,185,129,0.3)':pct>=50?'rgba(245,158,11,0.3)':'rgba(239,68,68,0.3)'
+
   initUI(key, `
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;animation:sumIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">
+  <div style="
+    position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    width:340px;
+    animation:sumIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+  ">
     <style>
     @keyframes sumIn{from{opacity:0;transform:translate(-50%,-56%) scale(0.9)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
-    @keyframes row{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
     </style>
-    <div style="text-align:center;margin-bottom:16px;">
-      <div style="font-size:28px;font-weight:900;color:#fff;">${stock.ticker}</div>
-      <div style="font-size:13px;color:#555;margin-top:4px;">스윙 트레이딩 요약</div>
+
+    <!-- 헤더 -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div>
+        <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px;">${stock.ticker}</div>
+        <div style="font-size:11px;color:#555;">스윙 트레이딩 신호 분석</div>
+      </div>
+      <div style="text-align:center;padding:6px 12px;border-radius:20px;
+        background:${pctBg};border:1px solid ${pctBd};">
+        <div style="font-size:18px;font-weight:900;color:${pctColor};">${pct}%</div>
+        <div style="font-size:9px;color:${pctColor};opacity:0.8;">${trueN}/${sigs.length} 신호</div>
+      </div>
     </div>
-    <div style="background:#0d0d14;border:1px solid #1e1e2e;border-radius:16px;padding:16px 20px;margin-bottom:12px;">
-      ${sigItems.map(([lbl,on],i)=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:${i<2?'1px solid #111':'none'};animation:row 0.3s ${0.15+i*0.1}s both;">
-          <span style="font-size:13px;color:#aaa;">${lbl}</span>
-          <span style="font-size:13px;font-weight:700;color:${on?'#10b981':'#ef4444'}">${on?'✓ 확인':'✗ 미확인'}</span>
+
+    <!-- 지표 그리드 2열 -->
+    <div style="background:#0a0a12;border:1px solid #1a1a2a;border-radius:14px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+        ${sigs.map(([lbl,on])=>`
+        <div style="
+          display:flex;align-items:center;gap:5px;
+          padding:5px 7px;border-radius:8px;
+          background:${on?'rgba(16,185,129,0.08)':'rgba(255,255,255,0.02)'};
+          border:1px solid ${on?'rgba(16,185,129,0.2)':'#1a1a1a'};
+        ">
+          <span style="font-size:11px;font-weight:900;color:${on?'#10b981':'#3a3a3a'};flex-shrink:0;">${on?'✓':'✗'}</span>
+          <span style="font-size:10px;color:${on?'#bbb':'#444'};line-height:1.3;">${lbl}</span>
         </div>`).join('')}
-    </div>
-    <div style="background:#0d0d14;border:1px solid #1e1e2e;border-radius:16px;padding:16px 20px;margin-bottom:12px;animation:sumIn 0.3s 0.2s both;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12px;color:#555;">진입</span><span style="font-size:13px;font-weight:700;color:#f59e0b;">${fmtPrice(sw.entry_low)} – ${fmtPrice(sw.entry_high)}</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12px;color:#555;">손절</span><span style="font-size:13px;font-weight:700;color:#ef4444;">${fmtPrice(sw.stop_loss)} (-${sw.stop_pct}%)</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12px;color:#555;">목표1 (${sw.target1_week})</span><span style="font-size:13px;font-weight:700;color:#10b981;">${fmtPrice(sw.target1)} (+${sw.target1_pct}%)</span></div>
-      <div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:#555;">목표2 (${sw.target2_week})</span><span style="font-size:13px;font-weight:700;color:#10b981;">${fmtPrice(sw.target2)} (+${sw.target2_pct}%)</span></div>
-    </div>
-    <div style="display:flex;gap:10px;animation:sumIn 0.3s 0.3s both;">
-      <div style="flex:1;background:#0d0d14;border:1px solid #1e1e2e;border-radius:12px;padding:12px;text-align:center;">
-        <div style="font-size:11px;color:#555;margin-bottom:4px;">리스크보상비</div>
-        <div style="font-size:20px;font-weight:900;color:#f59e0b;">1:${sw.rr_ratio.toFixed(1)}</div>
       </div>
-      <div style="flex:1;background:#0d0d14;border:1px solid #1e1e2e;border-radius:12px;padding:12px;text-align:center;">
-        <div style="font-size:11px;color:#555;margin-bottom:4px;">거래량 배수</div>
-        <div style="font-size:20px;font-weight:900;color:#60a5fa;">${sw.vol_multiple.toFixed(1)}x</div>
+    </div>
+
+    <!-- 스윙 가격 -->
+    <div style="background:#0a0a12;border:1px solid #1a1a2a;border-radius:14px;padding:10px 14px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+        <span style="font-size:11px;color:#555;">진입가</span>
+        <span style="font-size:12px;font-weight:700;color:#f59e0b;">${fmtPrice(sw.entry_low)} – ${fmtPrice(sw.entry_high)}</span>
       </div>
-      <div style="flex:1;background:#0d0d14;border:1px solid #1e1e2e;border-radius:12px;padding:12px;text-align:center;">
-        <div style="font-size:11px;color:#555;margin-bottom:4px;">점수</div>
-        <div style="font-size:20px;font-weight:900;color:#a78bfa;">${stock.score}</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+        <span style="font-size:11px;color:#555;">1차 목표 <span style="color:#333;">(${sw.target1_week})</span></span>
+        <span style="font-size:12px;font-weight:700;color:#10b981;">+${sw.target1_pct}% → ${fmtPrice(sw.target1)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+        <span style="font-size:11px;color:#555;">2차 목표 <span style="color:#333;">(${sw.target2_week})</span></span>
+        <span style="font-size:12px;font-weight:700;color:#10b981;">+${sw.target2_pct}% → ${fmtPrice(sw.target2)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="font-size:11px;color:#555;">손절가</span>
+        <span style="font-size:12px;font-weight:700;color:#ef4444;">-${sw.stop_pct}% → ${fmtPrice(sw.stop_loss)}</span>
+      </div>
+    </div>
+
+    <!-- 스탯 4개 -->
+    <div style="display:flex;gap:6px;">
+      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:8px 4px;text-align:center;">
+        <div style="font-size:9px;color:#555;margin-bottom:2px;">RR비</div>
+        <div style="font-size:16px;font-weight:900;color:#f59e0b;">1:${sw.rr_ratio.toFixed(1)}</div>
+      </div>
+      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:8px 4px;text-align:center;">
+        <div style="font-size:9px;color:#555;margin-bottom:2px;">거래량</div>
+        <div style="font-size:16px;font-weight:900;color:#60a5fa;">${sw.vol_multiple.toFixed(1)}x</div>
+      </div>
+      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:8px 4px;text-align:center;">
+        <div style="font-size:9px;color:#555;margin-bottom:2px;">RSI</div>
+        <div style="font-size:16px;font-weight:900;color:${rsiV>70?'#ef4444':rsiV>50?'#10b981':'#60a5fa'};">${rsiV.toFixed(0)}</div>
+      </div>
+      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:8px 4px;text-align:center;">
+        <div style="font-size:9px;color:#555;margin-bottom:2px;">점수</div>
+        <div style="font-size:16px;font-weight:900;color:#a78bfa;">${stock.score}</div>
       </div>
     </div>
   </div>`)
