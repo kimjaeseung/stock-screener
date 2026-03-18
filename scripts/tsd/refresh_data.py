@@ -52,6 +52,21 @@ _LEV_TICKERS = {"TQQQ","SQQQ","UPRO","SPXU","SPXL","SPXS","SSO","SDS","QLD","QID
                  "BITU","BITX","ETHU","ETHD","IBIT","GBTC"}
 
 
+def parse_mktcap(s) -> float:
+    """'$1.23B' → 1_230_000_000.0, '' or 'N/A' → 0.0"""
+    s = str(s).strip().lstrip("$").upper().replace(",", "")
+    if not s or s in ("N/A", "-", ""):
+        return 0.0
+    try:
+        if "T" in s: return float(s.replace("T", "")) * 1e12
+        if "B" in s: return float(s.replace("B", "")) * 1e9
+        if "M" in s: return float(s.replace("M", "")) * 1e6
+        if "K" in s: return float(s.replace("K", "")) * 1e3
+        return float(s)
+    except Exception:
+        return 0.0
+
+
 def fetch_nasdaq_tickers() -> list[dict]:
     """NASDAQ 공식 API + NYSE로 전 종목 수집. 실패시 확장 fallback 목록."""
     tickers: list[dict] = []
@@ -67,9 +82,10 @@ def fetch_nasdaq_tickers() -> list[dict]:
                 sym  = str(row.get("symbol","")).strip().upper()
                 name = str(row.get("name","")).strip()
                 sec  = str(row.get("sector","Unknown")).strip() or "Unknown"
+                mktcap = parse_mktcap(row.get("marketCap", 0))
                 if sym and sym not in seen and sym.isalpha() and len(sym) <= 5:
                     seen.add(sym)
-                    tickers.append({"ticker": sym, "name": name, "sector": sec})
+                    tickers.append({"ticker": sym, "name": name, "sector": sec, "market_cap": mktcap})
             print(f"  {exchange}: {len(tickers)} 누계")
         except Exception as e:
             print(f"  {exchange} API 실패: {e}")
@@ -134,7 +150,7 @@ def fetch_nasdaq_tickers() -> list[dict]:
     for sym in FALLBACK:
         if sym not in seen:
             seen.add(sym)
-            tickers.append({"ticker": sym, "name": sym, "sector": "NASDAQ"})
+            tickers.append({"ticker": sym, "name": sym, "sector": "NASDAQ", "market_cap": 0})
     print(f"  Fallback 적용 후: {len(tickers)} 누계")
     return tickers
 
@@ -200,8 +216,17 @@ def score_stock(ticker: str, df: pd.DataFrame, spy_20d: float = 0.0) -> dict | N
 
     # 달러 거래대금 필터 — $1M/일 이상 (적당한 유동성 확보)
     avg_vol_20 = float(vol.iloc[-21:-1].mean())
-    if avg_vol_20 * last_close < 1_000_000:
+    avg_dollar_vol = avg_vol_20 * last_close
+    if avg_dollar_vol < 1_000_000:
         return None
+
+    # ── 초소형 급등주(pump) 필터 ─────────────────────────────────────────────
+    # 달러거래량 < $5M AND 20일 수익률 > 60% AND 거래량 5배 이상 → 투기성 pump
+    # 진짜 성장주는 유동성(달러거래량)이 충분하므로 걸러지지 않음
+    ret_20d_pre = float((close.iloc[-1]/close.iloc[-21]-1)*100) if len(close) >= 21 else 0
+    vol_ratio_pre = float(vol.iloc[-1]) / (float(vol.iloc[-21:-1].mean()) + 1)
+    if avg_dollar_vol < 5_000_000 and ret_20d_pre > 60 and vol_ratio_pre > 5:
+        return None  # 얇은 유동성 + 폭발적 단기 급등 = pump 의심
 
     # 지표
     ma5   = _sma(close, 5)
@@ -484,10 +509,17 @@ def main():
     universe = fetch_nasdaq_tickers()
     # 레버리지 제거
     universe = [u for u in universe if not is_leveraged(u["ticker"], u.get("name",""))]
+    # 초소형주 제거: 마켓캡 정보가 있는 경우 $300M 미만 제외
+    # (API에서 마켓캡 없는 종목은 달러거래량으로 2차 필터링)
+    MIN_MKTCAP = 300_000_000  # $300M
+    universe = [
+        u for u in universe
+        if u.get("market_cap", 0) == 0 or u["market_cap"] >= MIN_MKTCAP
+    ]
     tickers  = [u["ticker"] for u in universe]
     name_map = {u["ticker"]: u.get("name", u["ticker"]) for u in universe}
     sect_map = {u["ticker"]: u.get("sector", "NASDAQ")  for u in universe}
-    print(f"유효 종목: {len(tickers)}개 (레버리지 제외)\n")
+    print(f"유효 종목: {len(tickers)}개 (레버리지·초소형주 제외)\n")
 
     # 배치 다운로드 (50개씩)
     print("OHLCV 배치 다운로드...")

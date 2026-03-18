@@ -1,73 +1,252 @@
-# React + TypeScript + Vite
+# NASDAQ 보물주 발굴기 — 스윙트레이딩 스크리너
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> 나스닥·뉴욕증시 전체 종목을 매일 4회 자동 스캔하여, **"조용히 올라가고 있는 종목"** 과 **"저점에서 뭔가 수상한 종목"** 을 찾아내는 알고리즘 스크리너입니다.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 기 — 왜 이 프로젝트가 필요한가?
 
-## React Compiler
+개인 투자자는 하루에 수천 개 종목을 직접 볼 수 없습니다.
+나스닥에만 상장된 종목이 3,000개가 넘고, 여기에 NYSE까지 합치면 6,000개 이상입니다.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+그 중에는 아직 아무도 주목하지 않았지만, 차트 상으로 이미 **기술적 반전 신호**가 쌓이기 시작한 종목들이 존재합니다. 이런 종목을 사람이 일일이 필터링하는 건 불가능에 가깝습니다.
 
-## Expanding the ESLint configuration
+이 프로젝트는 그 작업을 자동화합니다.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **스크리너**: Python 백엔드가 6,000+ 종목을 스캔 → 10가지 기술 지표로 점수화 → Top 10 선발
+- **뷰어**: GitHub Pages에 호스팅된 인터랙티브 캔버스 애니메이션으로 결과를 "릴스(Reels)" 형식으로 표시
+- **자동화**: cron으로 하루 4회 자동 실행 + 자동 배포
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 승 — 어떤 데이터를 어떻게 가져오는가?
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 종목 유니버스 수집
+
+```
+NASDAQ 공식 API → NASDAQ 전종목 (~3,500개)
+              └→ NYSE 전종목  (~2,500개)
+              └→ 레버리지·인버스 ETF 제거
+              └→ 시가총액 $300M 미만 제거 (초소형주 필터)
+              └→ 달러 거래대금 $1M/일 미만 제거 (유동성 필터)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 가격·지표 데이터
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- **yfinance** 라이브러리를 통해 야후 파이낸스 API 호출
+- 최근 1년치 일봉(OHLCV) 데이터를 **50개 종목씩 배치 다운로드**
+- 모든 지표(RSI, MACD, 볼린저밴드, 스토캐스틱, 이동평균선)는 서버에서 직접 계산
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 자동 실행 스케줄 (KST 기준)
+
+| 시각 | 이유 |
+|------|------|
+| 08:57 | 미국 시장 마감 후 — 전날 종가 기준 최신 데이터 |
+| 14:03 | 한국 오후장 중 — 당일 캐치업 |
+| 21:23 | 미국 프리마켓 직전 — 당일 이슈 반영 |
+| 02:07 | 미국 장중 — 실시간 거래량 반영 |
+
+---
+
+## 전 — 알고리즘은 어떻게 작동하는가?
+
+### 핵심 철학
+
+> **"골든크로스가 뜬 종목"은 모두가 안다. 우리는 그 직전을 본다.**
+
+전통적인 스크리너는 `MA20 > MA60` (골든크로스)를 주요 필터로 씁니다.
+문제는 골든크로스가 뜬 후에는 이미 상당히 오른 경우가 많다는 점입니다.
+
+이 알고리즘은 **모멘텀이 막 태동하는 시점**을 포착하기 위해 설계됐습니다.
+
+---
+
+### 점수 체계 (100점 만점)
+
+#### ① 모멘텀 보너스 — 최대 26점
+
+```
+SPY 20일 수익률 대비 초과 수익률 (rs_excess = 종목 20일 수익률 - SPY 20일 수익률)
+
+rs_excess ≥ 50%  → 26점  ← CRCL (+114%) 같은 폭발적 종목
+rs_excess ≥ 35%  → 22점
+rs_excess ≥ 25%  → 18점
+rs_excess ≥ 15%  → 13점
+rs_excess ≥  8%  → 8점
+rs_excess ≥  3%  → 4점
+```
+
+**왜 SPY 초과 수익률?**
+SPY는 시장 전체의 기준선입니다. 시장이 10% 오를 때 같이 10% 오른 종목은
+알파(초과 수익)가 없습니다. 시장 대비 얼마나 강하게 움직이는지를 보는 것이
+진짜 강도 측정입니다.
+
+---
+
+#### ② 조기 추세 전환 — 최대 17점
+
+```
+MA5 > MA20 > MA60 (완전 정렬)    → 13점
+MA20 > MA60 만 성립 (골든크로스)  → 9점
+MA5 > MA20 (but MA20 < MA60)     → 6점  ← 핵심! 회복 초기 단계
+```
+
+**왜 MA5 > MA20만 봐도 의미있나?**
+MA20이 MA60을 뚫기 전에, MA5가 MA20을 먼저 뚫습니다. 이 시그널을 포착하면
+골든크로스 2~4주 전에 진입할 수 있습니다.
+
+---
+
+#### ③ MACD 전환 — 최대 10점
+
+```
+MACD 라인이 마이너스 → 플러스 전환 (최근 10봉 이내)  → 10점  ← 강력
+히스토그램 2봉 연속 가속                             → 9점
+히스토그램 상승                                     → 6점
+MACD > Signal 만 성립                              → 4점
+```
+
+**왜 "마이너스→플러스" 전환이 강력한가?**
+MACD가 음수라는 것은 단기 모멘텀(12일 EMA)이 장기(26일 EMA)보다 약하다는 뜻입니다.
+이 라인이 양수로 전환되는 순간은 추세 역전의 확실한 신호입니다.
+
+---
+
+#### ④ 거래량 급증 — 최대 13점
+
+```
+최근 5일 최고 거래량 > 20일 평균의 3배  → 13점
+최근 5일 최고 거래량 > 20일 평균의 2배  → 10점
+당일 거래량 > 20일 평균의 2배           → 9점
+당일 거래량 > 20일 평균의 1.5배         → 6점
+```
+
+**왜 거래량인가?**
+주가 상승은 거짓 신호일 수 있지만, 거래량 증가는 실제 매수 압력을 나타냅니다.
+"주가 + 거래량 동반 상승"은 추세 지속성의 가장 강력한 근거입니다.
+
+---
+
+#### ⑤ RSI 모멘텀 — 최대 10점
+
+```
+과매도(< 35) 후 반등 → 현재 45 이상  → 10점  ← 저점 매수 황금 기회
+RSI 55~70 (황금 구간)               → 10점
+RSI 50~73                           → 6점
+RSI 73 초과                         → 4점   ← 과열이나 모멘텀 존재
+```
+
+RSI 73으로 상한을 완화한 이유: 초강세장에서는 RSI가 80 이상 유지되는 경우가
+많습니다. 70에서 잘라버리면 진짜 강세 종목을 놓칩니다.
+
+---
+
+#### ⑥ ~ ⑩ 보조 지표
+
+| 지표 | 점수 | 설명 |
+|------|------|------|
+| 피보나치 지지 | 8점 | 60일 고·저점 기준 0.236/0.382/0.5/0.618 되돌림 ±1.5 ATR 이내 |
+| 볼린저 상단 돌파 | 5점 | 가격 > 볼린저 상단 = 강한 돌파 모멘텀 |
+| SPY 대비 상대강도 | 4점 | 20일 수익률 > SPY 20일 수익률 |
+| 스토캐스틱 반등 | 3점 | %K가 과매도 구간(< 30)에서 반등 |
+| 52주 신고가 근접 | 4점 | 신고가까지 5% 이내 |
+
+---
+
+### 필터 체계
+
+```
+전체 6,000+ 종목
+    ↓
+레버리지/인버스 ETF 제거 (TQQQ, SQQQ, SOXL 등 50+ 블랙리스트 + 이름 패턴)
+    ↓
+시가총액 $300M 미만 제거 (NASDAQ API의 marketCap 필드 활용)
+    ↓
+달러 거래대금 $1M/일 미만 제거 (avg_volume × price)
+    ↓
+가격 $2 미만 제거 (페니스톡)
+    ↓
+[초소형 급등주 pump 감지]
+  달러거래량 < $5M AND 20일 수익 > 60% AND 거래량 5배 이상 → 제거
+  → 이유: 얇은 유동성에서 폭발적 단기 급등은 이슈성 투기 가능성이 높음
+    (진짜 성장주는 달러거래량이 충분하므로 이 필터에 걸리지 않음)
+    ↓
+10가지 지표로 점수화
+    ↓
+Top 10 선발 → docs/data.json 저장 → GitHub Pages 자동 배포
+```
+
+---
+
+## 결 — 결과는 어디서, 어떻게 보는가?
+
+### 릴스(Reels) 형식 뷰어
+
+모바일 SNS 릴스처럼 **9:16 세로 비율**의 캔버스 애니메이션으로 표시됩니다.
+
+| 씬 | 내용 | 시간 |
+|----|------|------|
+| 인트로 | 오늘 날짜 · SPY 수익률 · 스캔 종목 수 | 3초 |
+| 순위표 | Top 10 종목 리스트 + 점수 | 5초 |
+| 차트 (각 종목) | 캔들차트 + MA5/MA20/MA60 + 볼린저밴드 + 거래량 | 8초 |
+|    | → 목표선/손절선 blinking 애니메이션 | |
+|    | → 진입가 / 1차 목표가 / 손절가 패널 자동 표시 | |
+| 요약 | 12개 기술 지표 체크 + 스윙 매매 포인트 | 5초 |
+
+### 스윙 매매 정보 (자동 계산)
+
+모든 목표가와 손절가는 **ATR(Average True Range)** 기반으로 자동 산출됩니다.
+
+```
+진입가  = 현재가 ± 0.5%
+손절가  = 현재가 - 2×ATR  (손실 제한)
+1차 목표 = 현재가 + 3.5×ATR  (수익 실현, 보통 3~4주)
+2차 목표 = 현재가 + 6×ATR   (추가 보유, 보통 6~8주)
+손익비   = 목표 수익% / 손실%  (2:1 이상 권장)
+```
+
+ATR을 쓰는 이유: 개별 종목의 **실제 변동성**에 맞게 목표를 설정합니다.
+$10짜리 주식과 $500짜리 주식에 동일한 % 기준을 적용하는 것보다
+현실적인 리스크 관리가 가능합니다.
+
+---
+
+## 주의사항 및 면책
+
+이 도구는 **투자 아이디어 발굴**을 위한 기술적 스크리닝 도구입니다.
+모든 투자 결정은 본인의 책임 하에 이루어져야 하며, 본 스크리너의 결과는
+매수 추천이 아닙니다.
+
+- 기술적 분석은 과거 패턴 기반이며 미래를 보장하지 않습니다
+- 스크리너 실행 시점(KST 기준)과 실제 매매 시점 사이 가격이 변동될 수 있습니다
+- 개별 기업의 펀더멘털(실적, 부채, 사업 모델) 분석과 병행하여 사용하십시오
+
+---
+
+## 기술 스택
+
+| 구분 | 기술 |
+|------|------|
+| 스크리너 백엔드 | Python 3.11, yfinance, pandas, numpy |
+| 데이터 소스 | Yahoo Finance (yfinance), NASDAQ 공식 API |
+| 프론트엔드 | Vanilla JS, HTML5 Canvas 2D API |
+| 호스팅 | GitHub Pages |
+| 자동화 | macOS cron (하루 4회) + git auto-push |
+
+---
+
+## 파일 구조
+
+```
+stock-screener/
+├── docs/
+│   ├── data.json          # 스크리너 결과 (자동 업데이트)
+│   └── reels/
+│       └── index.html     # 릴스 뷰어 (Canvas 2D)
+├── scripts/
+│   ├── run_screener.sh    # cron 실행 + 자동 배포 스크립트
+│   └── tsd/
+│       └── refresh_data.py # 메인 스크리너 (Python 3.11)
+└── logs/
+    └── screener.log       # 실행 로그
 ```
