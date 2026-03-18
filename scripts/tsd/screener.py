@@ -449,13 +449,18 @@ def score_stock(ticker: str, df: pd.DataFrame) -> Optional[dict]:
         },
     }
 
+    # 당일 등락률 (전일 종가 대비)
+    prev_close  = float(close.iloc[-2]) if len(close) >= 2 else last_close
+    change_pct  = round((last_close - prev_close) / prev_close * 100, 2) if prev_close else 0.0
+
     return {
-        "ticker":    ticker,
-        "score":     score,
-        "signals":   signals,    # dict[str, bool] — reels-compatible
-        "details":   details,
-        "price":     round(last_close, 2),
-        "vol_ratio": round(vol_ratio, 2),
+        "ticker":     ticker,
+        "score":      score,
+        "signals":    signals,    # dict[str, bool] — reels-compatible
+        "details":    details,
+        "price":      round(last_close, 2),
+        "change_pct": change_pct,
+        "vol_ratio":  round(vol_ratio, 2),
         "chart_data": chart_data,  # reels: closes/highs/lows/volumes
         "chart":      chart,       # SPA: full indicator arrays
         "swing":      swing,
