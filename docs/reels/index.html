@@ -59,8 +59,8 @@
     }
     #updated-at{
       position:absolute;bottom:6px;left:0;right:0;
-      text-align:center;font-size:9px;color:#888;
-      z-index:50;
+      text-align:center;font-size:9px;color:#666;
+      letter-spacing:0.02em;z-index:50;
     }
 
     /* ── UI 씬 공통 ─────────────────────────────────────────── */
@@ -1026,7 +1026,19 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   /* 5. 데이터 로드 → 22. 실데이터 연동 */
   stockData = await loadData()
-  document.getElementById('updated-at').textContent = stockData.updated_at || ''
+  /* 업데이트 시간 표시: "데이터 기준 2026-03-18 01:03 UTC (KST 10:03)" */
+  const ua = stockData.updated_at || ''
+  let uaLabel = ua ? `데이터 기준 ${ua}` : ''
+  if (ua && ua.includes('UTC')) {
+    try {
+      const dt = new Date(ua.replace(' UTC','Z').replace(' ','T'))
+      const kstH = ((dt.getUTCHours()+9)%24).toString().padStart(2,'0')
+      const kstM = dt.getUTCMinutes().toString().padStart(2,'0')
+      const kstDay = dt.getUTCHours()+9 >= 24 ? dt.getUTCDate()+1 : dt.getUTCDate()
+      uaLabel = `데이터 기준 ${ua}  ·  KST ${kstH}:${kstM}`
+    } catch(e) {}
+  }
+  document.getElementById('updated-at').textContent = uaLabel
 
   /* 21. 자동재생 시작 */
   requestAnimationFrame(masterLoop)
