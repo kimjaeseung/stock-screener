@@ -468,6 +468,22 @@ function detectPattern(closes, highs, lows) {
     }
   }
 
+  // 2b. 콰시모도 패턴 (Quasimodo — 강세반전, 역H&S 변형)
+  // 특징: 우어깨(rs)가 좌어깨(ls)보다 낮지만 머리(hd)보다 높음 → ls>rs>hd
+  if(tr.length>=3){
+    const ls=tr[tr.length-3],hd=tr[tr.length-2],rs=tr[tr.length-1]
+    const lsV=closes[ls],hdV=closes[hd],rsV=closes[rs]
+    if(rs-ls>=15&&hdV<rsV&&rsV<lsV){  // ls>rs>hd (오른쪽어깨가 왼쪽보다 낮음)
+      const lsRsDiff=Math.abs(lsV-rsV)/lsV
+      const depth=(rsV-hdV)/rsV
+      if(lsRsDiff>0.03&&lsRsDiff<0.30&&depth>0.03){
+        const neck=lsV  // 네크라인 = 좌어깨 수준
+        if(last>neck*0.96)
+          return{type:'quasimodo',name:'콰시모도 패턴',color:'#22d3ee',bull:true,ls,hd,rs,lsV,hdV,rsV,neck}
+      }
+    }
+  }
+
   // 3. 컵앤핸들 (강세 지속)
   for(let pi=0;pi<pk.length-1;pi++){
     const p1=pk[pi],p2=pk[pi+1]
@@ -614,7 +630,7 @@ function drawPatternOverlay(ctx, pattern, xs, closes, highs, lows, minP, maxP, a
     }
   }
 
-  if(pattern.type==='inv_hs'||pattern.type==='head_shoulders'){
+  if(pattern.type==='inv_hs'||pattern.type==='head_shoulders'||pattern.type==='quasimodo'){
     [pattern.ls,pattern.hd,pattern.rs].forEach((idx,i)=>{
       const px=xs[idx],py=nY(closes[idx])
       ctx.beginPath(); ctx.arc(px,py,4+i%2*2,0,Math.PI*2)
@@ -624,6 +640,16 @@ function drawPatternOverlay(ctx, pattern, xs, closes, highs, lows, minP, maxP, a
     if(ny>CT&&ny<CB){
       ctx.strokeStyle=C2+'bb'
       ctx.beginPath(); ctx.moveTo(xs[pattern.ls],ny); ctx.lineTo(xs[n-1],ny); ctx.stroke()
+    }
+    // Connect the three key points
+    if(pattern.type==='quasimodo'){
+      ctx.lineWidth=0.8; ctx.setLineDash([2,3])
+      ctx.beginPath()
+      ctx.moveTo(xs[pattern.ls],nY(closes[pattern.ls]))
+      ctx.lineTo(xs[pattern.hd],nY(closes[pattern.hd]))
+      ctx.lineTo(xs[pattern.rs],nY(closes[pattern.rs]))
+      ctx.strokeStyle=C2+'66'; ctx.stroke()
+      ctx.setLineDash([])
     }
   }
 
