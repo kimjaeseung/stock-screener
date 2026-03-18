@@ -171,28 +171,74 @@ function genChart(n=120) {
 }
 
 function normalizeSock(raw) {
-  const ch = raw.chart || {}
-  const closes  = ch.close  || ch.closes  || []
-  const highs   = ch.high   || ch.highs   || []
-  const lows    = ch.low    || ch.lows    || []
-  const volumes = ch.volume || ch.volumes || []
+  const ch  = raw.chart || {}
+  // chart_data (reels format) is preferred; fallback to chart arrays
+  const cd  = raw.chart_data || {}
+  const closes  = cd.closes  || ch.close  || ch.closes  || []
+  const highs   = cd.highs   || ch.high   || ch.highs   || []
+  const lows    = cd.lows    || ch.low    || ch.lows    || []
+  const volumes = cd.volumes || ch.volume || ch.volumes || []
   const n = closes.length
+
+  // Pre-computed indicator arrays from screener
+  const rsiArr      = ch.rsi       || []
+  const macdHistArr = ch.macd_hist || []
+  const ma5Arr      = ch.ma5       || []
+  const ma20Arr     = ch.ma20      || []
+  const ma60Arr     = ch.ma60      || []
+  const bbUArr      = ch.bb_upper  || []
+  const bbLArr      = ch.bb_lower  || []
+  const stochKArr   = ch.stoch_k   || []
+  const fibData     = ch.fib       || {}
+
+  // Latest indicator values
+  const lastRsi      = rsiArr.length      ? rsiArr[rsiArr.length-1]           : null
+  const lastMacdH    = macdHistArr.length ? macdHistArr[macdHistArr.length-1] : null
+  const prevMacdH    = macdHistArr.length > 1 ? macdHistArr[macdHistArr.length-2] : null
+
+  // swing — stop_pct is stored as positive in new data; keep compat
+  const rawSwing = raw.swing || {}
+  const lastClose = closes[n-1] || raw.price || 0
+  const swing = {
+    entry_low:    rawSwing.entry_low    || lastClose*0.98,
+    entry_high:   rawSwing.entry_high   || lastClose*1.00,
+    stop_loss:    rawSwing.stop_loss    || lastClose*0.92,
+    stop_pct:     rawSwing.stop_pct != null ? Math.abs(rawSwing.stop_pct) : 8,
+    target1:      rawSwing.target1      || lastClose*1.12,
+    target1_pct:  rawSwing.target1_pct  || 12,
+    target1_week: rawSwing.target1_week || '3-4주',
+    target2:      rawSwing.target2      || lastClose*1.25,
+    target2_pct:  rawSwing.target2_pct  || 25,
+    target2_week: rawSwing.target2_week || '6-8주',
+    rr_ratio:     rawSwing.rr_ratio     || 1.8,
+    vol_multiple: rawSwing.vol_multiple || (raw.vol_ratio || 1.4),
+  }
+
   return {
-    ticker: raw.ticker || raw.symbol || 'UNKNOWN',
-    name:   raw.name || raw.ticker || 'Unknown',
-    price:  raw.price || closes[n-1] || 0,
+    ticker:     raw.ticker || raw.symbol || 'UNKNOWN',
+    name:       raw.name   || raw.ticker || 'Unknown',
+    price:      raw.price  || lastClose  || 0,
     change_pct: raw.change_pct || raw.change || 0,
-    sector: raw.sector || 'ETC',
-    score:  raw.score || 75,
-    signals: raw.signals || { golden_cross:false, volume_confirm:false, rsi_signal:false },
-    swing:  raw.swing || {
-      entry_low: closes[n-1]*0.98, entry_high: closes[n-1]*1.00,
-      stop_loss: closes[n-1]*0.92, stop_pct:8,
-      target1: closes[n-1]*1.12, target1_pct:12, target1_week:'3-4주',
-      target2: closes[n-1]*1.25, target2_pct:25, target2_week:'6-8주',
-      rr_ratio: 1.8, vol_multiple: 1.4,
+    sector:     raw.sector || 'NASDAQ',
+    score:      raw.score  || 75,
+    vol_ratio:  raw.vol_ratio || 1,
+    // pre-computed signals from screener (10 boolean flags)
+    signals: raw.signals || {
+      golden_cross:false, volume_confirm:false, rsi_signal:false,
+      rsi_divergence:false, macd_cross:false, bollinger_break:false,
+      stoch_signal:false, ma_alignment:false, relative_strength:false,
+      fib_support:false,
     },
+    swing,
     chart_data: { closes, highs, lows, volumes },
+    // pre-computed indicator values for display in renderSummary
+    indicators: {
+      rsi:         lastRsi,
+      macdHistLast: lastMacdH,
+      macdHistPrev: prevMacdH,
+      rsiArr, macdHistArr, ma5Arr, ma20Arr, ma60Arr, bbUArr, bbLArr, stochKArr,
+      fib: fibData,
+    },
   }
 }
 
@@ -1134,49 +1180,52 @@ function renderSummary(sc, el) {
   const stock = DATA[sc.stock]
   const sw  = stock.swing
   const key = 'summary_' + sc.id
-  const cd  = stock.chart_data
-  const cls = cd.closes, hgs = cd.highs, lws = cd.lows, vols = cd.volumes
-  const n   = cls.length, last = cls[n-1]
 
-  // ── 지표 계산
-  const ma5a   = sma(cls, 5)
-  const ma20a  = sma(cls, 20)
-  const rsiArr = calcRSI(cls)
-  const {macd:macdArr, signal:sigArr, hist:histArr} = calcMACD(cls)
-  const boll2  = calcBoll(cls)
-  const fib2   = calcFib(cls, hgs, lws)
-  const vs2    = findVolSpike(vols)
-  const vma20  = sma(vols, 20)
-  const gcIdx2 = findGoldenCross(ma5a, ma20a)
+  // ── pre-computed signals from screener (authoritative) ──
+  const S   = stock.signals     // { golden_cross, volume_confirm, rsi_signal, ... }
+  const ind = stock.indicators  // pre-computed arrays
 
-  const rsiV  = rsiArr[n-1] || 50
-  const macdV = macdArr[n-1], sigV = sigArr[n-1]
-  const histV = histArr[n-1]||0, histP = histArr[n-2]||0
-  const ma20V = ma20a[n-1]||last
-  const bollM = boll2.mid[n-1]
-  const bollBW  = (boll2.upper[n-1]||0)-(boll2.lower[n-1]||0)
-  const bollBW2 = n>=20 ? (boll2.upper[n-20]||0)-(boll2.lower[n-20]||0) : bollBW*1.5
+  // supplementary computed values (only what screener doesn't provide)
+  const cls = stock.chart_data.closes
+  const vols = stock.chart_data.volumes
+  const n   = cls.length
+  const last = cls[n-1]
 
-  const hi30 = Math.max(...cls.slice(Math.max(0,n-31), n-1))
+  // MACD histogram trend (pre-computed if available, else from calcMACD)
+  const macdH  = ind.macdHistLast
+  const macdHP = ind.macdHistPrev
+  const macdHistRising = (macdH != null && macdHP != null) ? macdH > macdHP : (() => {
+    const {hist} = calcMACD(cls)
+    return (hist[n-1]||0) > (hist[n-2]||0)
+  })()
 
-  // 12개 기술 지표
+  // 30-day high breakout (not in screener signals)
+  const hi30 = Math.max(...cls.slice(Math.max(0, n-31), n-1))
+  const trendBreakout = last > hi30
+
+  // RSI value for display
+  const rsiVal = (ind.rsi != null) ? ind.rsi : (() => {
+    const arr = calcRSI(cls); return arr[n-1] || 50
+  })()
+
+  // 12개 기술 지표 — screener pre-computed signals 우선 사용
   const sigs = [
     // 트렌드
-    ['📈 골든크로스',      gcIdx2>=0 && gcIdx2>=n-20],
-    ['🔼 MA20 상방 안착',  last > ma20V],
-    ['💥 추세 돌파',       last > hi30],
+    ['📈 골든크로스 (MA20>MA60)',   S.golden_cross],
+    ['📐 MA 완전 정렬 (5>20>60)',   S.ma_alignment],
+    ['💥 30일 추세 돌파',           trendBreakout],
     // 모멘텀
-    ['🔀 MACD 골든크로스', macdV!=null && sigV!=null && macdV > sigV],
-    ['📊 MACD 히스토그램↑',histV > histP],
-    ['⚡ RSI 모멘텀',      rsiV > 50 && rsiV < 70],
-    ['🔄 RSI 과매도 반등', rsiV >= 35 && rsiV <= 55 && cls[n-1]>cls[n-5]],
+    ['🔀 MACD 골든크로스',          S.macd_cross],
+    ['📊 MACD 히스토그램 상승',     macdHistRising],
+    ['⚡ RSI 모멘텀 (50-70)',       S.rsi_signal],
+    ['🔄 RSI 강세 다이버전스',      S.rsi_divergence],
     // 거래량
-    ['📦 거래량 급등',     vs2.idx>=n-10 && vs2.ratio>1.5],
-    ['📉 거래량 MA 상회',  vma20[n-1]!=null && vols[n-1]>vma20[n-1]],
+    ['📦 거래량 급증 (1.5x+)',      S.volume_confirm],
+    ['💪 SPY 대비 상대강도',        S.relative_strength],
     // 패턴·구조
-    ['🎯 볼린저 밴드 돌파', bollM!=null && last > bollM],
-    ['🌀 피보나치 지지',   [fib2.f618,fib2.f500,fib2.f382].some(lv=>Math.abs(last-lv)/last<0.025)],
-    ['🏆 컵앤핸들 패턴',   stock.score >= 85],
+    ['🎯 볼린저 밴드 돌파',         S.bollinger_break],
+    ['🌀 피보나치 지지선',          S.fib_support],
+    ['🌊 스토캐스틱 반등',          S.stoch_signal],
   ]
 
   const trueN = sigs.filter(([,v])=>v).length
@@ -1257,7 +1306,7 @@ function renderSummary(sc, el) {
       </div>
       <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:8px 4px;text-align:center;">
         <div style="font-size:9px;color:#555;margin-bottom:2px;">RSI</div>
-        <div style="font-size:16px;font-weight:900;color:${rsiV>70?'#ef4444':rsiV>50?'#10b981':'#60a5fa'};">${rsiV.toFixed(0)}</div>
+        <div style="font-size:16px;font-weight:900;color:${rsiVal>70?'#ef4444':rsiVal>50?'#10b981':'#60a5fa'};">${rsiVal.toFixed(0)}</div>
       </div>
       <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:8px 4px;text-align:center;">
         <div style="font-size:9px;color:#555;margin-bottom:2px;">점수</div>
