@@ -79,6 +79,31 @@ let animFrame = null;
 // ══════════════════════════════════════════════════════════
 //  DATA LOADING
 // ══════════════════════════════════════════════════════════
+// 신호 객체 → 읽기 좋은 문자열 배열로 변환 (구형 배열 포맷도 호환)
+const SIGNAL_LABELS = {
+  golden_cross:    '골든크로스 (MA20>MA60)',
+  early_trend:     '조기 추세 전환 (MA5>MA20)',
+  ma_alignment:    'MA 완전 정렬 (5>20>60)',
+  macd_cross:      'MACD 골든크로스',
+  macd_turned:     'MACD 마이너스→플러스 전환',
+  volume_confirm:  '거래량 급증 (1.5x+)',
+  rsi_signal:      'RSI 모멘텀 존 (50-73)',
+  rsi_oversold:    'RSI 과매도 반등',
+  rsi_divergence:  'RSI 강세 다이버전스',
+  bollinger_break: '볼린저 상단 돌파',
+  fib_support:     '피보나치 지지선',
+  stoch_signal:    '스토캐스틱 반등',
+  relative_strength:'SPY 대비 상대강도',
+};
+function getSignalList(s) {
+  const raw = s.signals;
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;   // 구형 배열 포맷 호환
+  return Object.entries(raw)
+    .filter(([, v]) => v)
+    .map(([k]) => SIGNAL_LABELS[k] || k);
+}
+
 async function loadData() {
   statusBar.textContent = 'Loading today\'s picks...';
   drawLoading();
@@ -372,7 +397,7 @@ function drawScoreReveal(s, t, p) {
   ctx.fillText('/ 100', W/2 + 100, 430);
 
   // Signal pills
-  const signals = s.signals || [];
+  const signals = getSignalList(s);
   signals.slice(0, 4).forEach((sig, i) => {
     const y = 520 + i * 68;
     const fade = Math.min(1, Math.max(0, (t - 400 - i * 120) / 300));
@@ -998,7 +1023,8 @@ function drawGauge(cx, cy, r, pct, color, alpha) {
 // ══════════════════════════════════════════════════════════
 function drawSignalScene(s, t, p, idx) {
   drawBg('#040610', '#080c1a');
-  const sig = (s.signals || [])[idx];
+  const _sigList = getSignalList(s);
+  const sig = _sigList[idx];
   if (!sig) { drawChartUnavailable(s, t); return; }
 
   const a = easeOut(Math.min(1, t / 400));
@@ -1008,7 +1034,7 @@ function drawSignalScene(s, t, p, idx) {
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.font = '500 22px system-ui';
   ctx.textAlign = 'center';
-  ctx.fillText(`Signal ${idx + 1} / ${(s.signals||[]).length}`, W/2, 160);
+  ctx.fillText(`Signal ${idx + 1} / ${_sigList.length}`, W/2, 160);
 
   gradText(s.ticker, W/2, 260, 60, '#00d4ff', '#7b2ff7');
 
@@ -1105,7 +1131,7 @@ function drawSummaryScene(s, t, p) {
 
   drawScoreCircle(W/2, 380, 110, s.score, scoreColor(s.score), a);
 
-  const sigs = (s.signals || []).slice(0, 4);
+  const sigs = getSignalList(s).slice(0, 4);
   sigs.forEach((sig, i) => {
     const delay = 600 + i * 100;
     const rowA = easeOut(Math.min(1, Math.max(0, (t - delay) / 300)));
@@ -1201,7 +1227,7 @@ function drawCompareScene(t, p) {
     ctx.font = '400 16px system-ui';
     ctx.fillText('SCORE', cx, 428);
 
-    (s.signals || []).slice(0, 3).forEach((sig, i) => {
+    getSignalList(s).slice(0, 3).forEach((sig, i) => {
       const delay = 500 + i * 80;
       ctx.globalAlpha = a * easeOut(Math.min(1, Math.max(0, (t - delay) / 300)));
       ctx.fillStyle = 'rgba(255,255,255,0.25)';
