@@ -1,11 +1,16 @@
 """
 Yahoo Finance data fetcher — batch download via yf.download() for speed.
 Downloads all tickers in parallel (one API call per batch), not one-by-one.
+Fallback _fetch_one retries on 429 rate limit with exponential backoff and optional timeout.
 """
 import time
 import pandas as pd
 from typing import Optional
 import yfinance as yf
+
+MAX_RETRIES = 3
+INITIAL_BACKOFF = 2.0
+REQUEST_TIMEOUT = 30
 
 
 def _extract_from_batch(raw: pd.DataFrame, ticker: str) -> Optional[pd.DataFrame]:
@@ -41,19 +46,33 @@ def _extract_from_batch(raw: pd.DataFrame, ticker: str) -> Optional[pd.DataFrame
 
 
 def _fetch_one(ticker: str, period: str = "6mo") -> Optional[pd.DataFrame]:
-    """Individual fallback fetch via Ticker.history()."""
-    try:
-        t = yf.Ticker(ticker)
-        df = t.history(period=period, interval="1d", auto_adjust=True)
-        if df is None or df.empty or len(df) < 20:
-            return None
-        df = df[["Open", "High", "Low", "Close", "Volume"]].copy()
-        df = df.dropna(subset=["Close", "Volume"])
-        df = df[df["Volume"] > 0]
-        return df if len(df) >= 20 else None
-    except Exception as e:
-        print(f"[fetcher] {ticker}: {e}")
-        return None
+    """Individual fallback fetch via Ticker.history(). Retries on 429 with backoff; optional timeout."""
+    last_err = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            t = yf.Ticker(ticker)
+            try:
+                df = t.history(period=period, interval="1d", auto_adjust=True, timeout=REQUEST_TIMEOUT)
+            except TypeError:
+                df = t.history(period=period, interval="1d", auto_adjust=True)
+            if df is None or df.empty or len(df) < 20:
+                return None
+            df = df[["Open", "High", "Low", "Close", "Volume"]].copy()
+            df = df.dropna(subset=["Close", "Volume"])
+            df = df[df["Volume"] > 0]
+            return df if len(df) >= 20 else None
+        except Exception as e:
+            last_err = e
+            msg = str(e).lower()
+            if "429" in msg or "too many" in msg or "rate" in msg:
+                backoff = INITIAL_BACKOFF * (2 ** attempt)
+                print(f"[fetcher] {ticker}: rate limited, retry in {backoff:.0f}s ({attempt + 1}/{MAX_RETRIES})")
+                time.sleep(backoff)
+            else:
+                print(f"[fetcher] {ticker}: {e}")
+                return None
+    print(f"[fetcher] {ticker}: gave up after {MAX_RETRIES} retries — {last_err}")
+    return None
 
 
 def fetch_all_sync(

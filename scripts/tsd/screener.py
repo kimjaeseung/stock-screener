@@ -73,9 +73,10 @@ def _ema(s: pd.Series, n: int) -> pd.Series:
 
 
 def _rsi(s: pd.Series, n: int = 14) -> pd.Series:
+    """RSI with Wilder's smoothing (EMA alpha=1/n)."""
     delta = s.diff()
-    gain = delta.clip(lower=0).rolling(n).mean()
-    loss = (-delta.clip(upper=0)).rolling(n).mean()
+    gain = delta.clip(lower=0).ewm(alpha=1 / n, adjust=False).mean()
+    loss = (-delta.clip(upper=0)).ewm(alpha=1 / n, adjust=False).mean()
     rs = gain / (loss + 1e-9)
     return 100 - (100 / (1 + rs))
 
@@ -91,7 +92,7 @@ def _macd(s: pd.Series) -> tuple[pd.Series, pd.Series, pd.Series]:
 
 def _bollinger(s: pd.Series, n: int = 20) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
     mid = _sma(s, n)
-    std = s.rolling(n).std()
+    std = s.rolling(n).std(ddof=0)  # population std (Bollinger standard)
     upper = mid + 2 * std
     lower = mid - 2 * std
     bw = (upper - lower) / (mid + 1e-9)
@@ -169,8 +170,10 @@ def score_stock(ticker: str, df: pd.DataFrame) -> Optional[dict]:
     low    = df["Low"]
     volume = df["Volume"]
 
-    # Dollar volume filter — $500K/day minimum (lowered from 1M for wider coverage)
-    avg_vol_20 = float(volume.tail(20).mean())
+    # Dollar volume filter — $500K/day minimum; avg = prior 20 days (exclude today)
+    if len(volume) < 21:
+        return None
+    avg_vol_20 = float(volume.iloc[-21:-1].mean())
     last_close = float(close.iloc[-1])
     if avg_vol_20 * last_close < 500_000:
         return None
@@ -235,7 +238,7 @@ def score_stock(ticker: str, df: pd.DataFrame) -> Optional[dict]:
     details["golden_cross"]  = is_golden
     details["recent_gc"]     = recent_gc
 
-    # ── 2. Volume surge ──
+    # ── 2. Volume surge (today vs prior 20-day avg; effective_vol uses same avg_vol_20) ──
     is_vol_confirmed = effective_vol >= 1.5
     if effective_vol >= 2.5:
         score += 10

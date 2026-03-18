@@ -193,9 +193,9 @@ def _run_pipeline(now_kst, now_utc):
     if len(tickers) < 10:
         raise RuntimeError(f"Too few tickers: {len(tickers)}")
 
-    # 3. Batch OHLCV download
+    # 3. Batch OHLCV download (1y for 52w high / MACD etc.)
     print("\n[run] Batch-downloading OHLCV data...")
-    data_map = fetch_all_sync(tickers, period="6mo", batch_size=50)
+    data_map = fetch_all_sync(tickers, period="1y", batch_size=50)
     ok = sum(1 for v in data_map.values() if v is not None)
     print(f"[run] Fetched {ok}/{len(tickers)} stocks ok")
 

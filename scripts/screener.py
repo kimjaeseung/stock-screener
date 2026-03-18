@@ -40,7 +40,7 @@ def _macd(s, fast=12, slow=26, sig=9):
 
 def _bbands(s, n=20, k=2.0):
     mid = s.rolling(n).mean()
-    std = s.rolling(n).std()
+    std = s.rolling(n).std(ddof=0)  # population std (Bollinger standard)
     return mid + k*std, mid, mid - k*std
 
 def _atr(h, l, c, n=14):
