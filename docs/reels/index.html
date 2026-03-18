@@ -1,986 +1,1229 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=390, initial-scale=1">
-  <title>TopStockDaily</title>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;font-family:'Noto Sans KR',sans-serif}
-    #phone{width:390px;height:844px;position:relative;overflow:hidden;cursor:pointer;user-select:none;-webkit-user-select:none}
-    canvas#three-canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
-    #segbar{position:absolute;top:0;left:0;right:0;height:28px;padding:10px 10px 0;display:flex;gap:3px;z-index:100;pointer-events:none}
-    .seg{flex:1;height:3px;border-radius:2px;background:#ffffff22;overflow:hidden}
-    .seg-fill{height:100%;background:#fff;border-radius:2px;width:0%;transition:width .06s linear}
-    #loading{position:absolute;inset:0;background:#020208;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;transition:opacity .6s}
-    #loading-ring{width:48px;height:48px;border:3px solid #f59e0b33;border-top-color:#f59e0b;border-radius:50%;animation:spin .9s linear infinite}
-    #loading p{color:#f59e0b88;font-size:13px;margin-top:16px;letter-spacing:.1em}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    @media(max-width:430px){#phone{width:100vw;height:100dvh}}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stock Reels</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#phone{
+  position:relative;width:390px;height:844px;
+  background:#050505;overflow:hidden;
+  border-radius:40px;
+  box-shadow:0 0 0 2px #222,0 0 40px #000;
+}
+#segbar{
+  position:absolute;top:0;left:0;width:100%;height:4px;
+  display:flex;gap:3px;padding:0 12px;z-index:10;
+  align-items:center;background:transparent;
+}
+.seg{
+  flex:1;height:3px;border-radius:2px;background:#ffffff33;overflow:hidden;
+}
+.seg-fill{height:100%;background:#fff;border-radius:2px;transform-origin:left;transform:scaleX(0);}
+canvas#cv{position:absolute;top:0;left:0;width:390px;height:844px;}
+#ui{
+  position:absolute;top:0;left:0;width:390px;height:844px;
+  pointer-events:none;z-index:5;font-family:'Noto Sans KR',sans-serif;
+}
+</style>
 </head>
 <body>
 <div id="phone">
-  <canvas id="three-canvas"></canvas>
   <div id="segbar"></div>
-  <div id="loading"><div id="loading-ring"></div><p>로딩중...</p></div>
+  <canvas id="cv"></canvas>
+  <div id="ui"></div>
 </div>
-<script>
-'use strict'
-/* ═══════════════════════════════════════
-   MATH / EASING
-═══════════════════════════════════════ */
-const easeOutCubic   = t => 1-Math.pow(1-t,3)
-const easeOutQuint   = t => 1-Math.pow(1-t,5)
-const easeOutElastic = t => t===0||t===1?t:Math.pow(2,-10*t)*Math.sin((t*10-0.75)*(2*Math.PI/3))+1
-const easeInOutQuad  = t => t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2
-const easeInOutCubic = t => t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2
-const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v))
-const prog  = (e,s,d)   => clamp((e-s)/d,0,1)
-const lerp  = (a,b,t)   => a+(b-a)*t
-const lerpV = (va,vb,t) => new THREE.Vector3().lerpVectors(va,vb,t)
 
-function calcSMA(arr,n){return arr.map((_,i)=>i<n-1?null:arr.slice(i-n+1,i+1).reduce((a,b)=>a+b,0)/n)}
-function fmtPrice(v){if(v==null||isNaN(v))return'—';if(v<10)return'$'+v.toFixed(3);if(v<1000)return'$'+v.toFixed(2);return'$'+Math.round(v).toLocaleString()}
-function fmtPct(v){if(v==null||isNaN(v))return'—';return(v>=0?'+':'')+v.toFixed(1)+'%'}
+<script>
+// ─────────────────────────────────────────────
+// [1] Canvas init + DPR
+// ─────────────────────────────────────────────
+const W = 390, H = 844
+const DPR = Math.min(window.devicePixelRatio || 1, 2)
+const cv = document.getElementById('cv')
+cv.width  = W * DPR
+cv.height = H * DPR
+cv.style.cssText = 'position:absolute;top:0;left:0;width:390px;height:844px;'
+const ctx = cv.getContext('2d')
+ctx.scale(DPR, DPR)
 
 // roundRect polyfill
-if(!CanvasRenderingContext2D.prototype.roundRect){
-  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
-    this.beginPath();this.moveTo(x+r,y);this.lineTo(x+w-r,y);this.arcTo(x+w,y,x+w,y+r,r)
-    this.lineTo(x+w,y+h-r);this.arcTo(x+w,y+h,x+w-r,y+h,r)
-    this.lineTo(x+r,y+h);this.arcTo(x,y+h,x,y+h-r,r)
-    this.lineTo(x,y+r);this.arcTo(x,y,x+r,y,r);this.closePath()
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    if (w < 2*r) r = w/2
+    if (h < 2*r) r = h/2
+    this.beginPath()
+    this.moveTo(x+r, y)
+    this.arcTo(x+w, y,   x+w, y+h, r)
+    this.arcTo(x+w, y+h, x,   y+h, r)
+    this.arcTo(x,   y+h, x,   y,   r)
+    this.arcTo(x,   y,   x+w, y,   r)
+    this.closePath()
+    return this
   }
 }
 
-/* ═══════════════════════════════════════
-   THREE.JS SETUP
-   portrait 390×844 → vFOV=60° → hFOV≈29.9°
-   at z=12 from cam: max visible width ≈ 6.4 units
-   → all meshes kept ≤ 5.5 units wide
-═══════════════════════════════════════ */
-const PW=390,PH=844
-const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('three-canvas'),antialias:true,alpha:false})
-renderer.setPixelRatio(Math.min(window.devicePixelRatio,2))
-renderer.setSize(PW,PH)
-renderer.toneMapping=THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure=1.1
-
-const scene=new THREE.Scene()
-scene.background=new THREE.Color(0x020208)
-scene.fog=new THREE.FogExp2(0x020208,0.012)
-
-const camera=new THREE.PerspectiveCamera(60,PW/PH,0.1,1000)
-camera.position.set(0,2,12)
-camera.lookAt(0,0,0)
-
-const ambLight  =new THREE.AmbientLight(0xffffff,0.25);scene.add(ambLight)
-const goldLight =new THREE.PointLight(0xf59e0b,2,40);goldLight.position.set(0,5,5);scene.add(goldLight)
-const rimLight  =new THREE.DirectionalLight(0x60a5fa,0.4);rimLight.position.set(-5,3,-5);scene.add(rimLight)
-const topLight  =new THREE.DirectionalLight(0xffffff,0.2);topLight.position.set(0,10,0);scene.add(topLight)
-
-/* ═══════════════════════════════════════
-   CANVAS TEXTURE HELPERS (2× DPR)
-═══════════════════════════════════════ */
-const TEX_DPR=2
-function makeTextTexture(lines,opts={}){
-  const{fontSize=48,color='#fff',fontWeight='700',
-        width=512,height=128,glowColor=null,bgColor=null,
-        lineSpacing=1.35}=opts
-  const cvs=document.createElement('canvas')
-  cvs.width=width*TEX_DPR;cvs.height=height*TEX_DPR
-  const c=cvs.getContext('2d')
-  c.scale(TEX_DPR,TEX_DPR)
-  if(bgColor){c.fillStyle=bgColor;c.fillRect(0,0,width,height)}
-  else c.clearRect(0,0,width,height)
-  c.font=`${fontWeight} ${fontSize}px "Noto Sans KR",sans-serif`
-  c.fillStyle=color;c.textAlign='center';c.textBaseline='middle'
-  const arr=Array.isArray(lines)?lines:[lines]
-  const lh=fontSize*lineSpacing,totalH=arr.length*lh
-  arr.forEach((t,i)=>{
-    if(glowColor){c.shadowColor=glowColor;c.shadowBlur=20}
-    c.fillText(t,width/2,height/2-totalH/2+(i+0.5)*lh)
-    c.shadowBlur=0
-  })
-  const tex=new THREE.CanvasTexture(cvs);tex.needsUpdate=true;return tex
-}
-function makeTextMesh(lines,opts={}){
-  const{width=512,height=128,meshW=null,meshH=1}=opts
-  const tex=makeTextTexture(lines,opts)
-  const w=meshW!==null?meshW:(width/height)*meshH
-  const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,side:THREE.DoubleSide})
-  return new THREE.Mesh(new THREE.PlaneGeometry(w,meshH),mat)
-}
-function disposeObj(o){
-  if(o.geometry)o.geometry.dispose()
-  if(o.material){if(o.material.map)o.material.map.dispose();o.material.dispose()}
+// ─────────────────────────────────────────────
+// [2] Design tokens
+// ─────────────────────────────────────────────
+const C = {
+  bg:'#050505', bg2:'#0a0a0a', bg3:'#111111',
+  gold:'#f59e0b', goldDim:'rgba(245,158,11,0.2)',
+  green:'#10b981', greenDim:'rgba(16,185,129,0.15)',
+  red:'#ef4444', redDim:'rgba(239,68,68,0.15)',
+  blue:'#60a5fa', white:'#ffffff',
+  gray:'#888888', muted:'#2a2a2a',
 }
 
-/* ═══════════════════════════════════════
-   AMBIENT PARTICLES
-═══════════════════════════════════════ */
-function createAmbientParticles(){
-  const N=900,geo=new THREE.BufferGeometry()
-  const pos=new Float32Array(N*3),col=new Float32Array(N*3),sz=new Float32Array(N)
-  for(let i=0;i<N;i++){
-    pos[i*3]=(Math.random()-.5)*28;pos[i*3+1]=(Math.random()-.5)*46;pos[i*3+2]=(Math.random()-.5)*18
-    const t=Math.random()
-    col[i*3]=lerp(0.96,1,t);col[i*3+1]=lerp(0.62,0.95,t);col[i*3+2]=lerp(0.04,0.7,t)
-    sz[i]=Math.random()*1.5+0.5
-  }
-  geo.setAttribute('position',new THREE.BufferAttribute(pos,3))
-  geo.setAttribute('color',   new THREE.BufferAttribute(col,3))
-  const mat=new THREE.PointsMaterial({size:0.065,vertexColors:true,transparent:true,opacity:0.55,sizeAttenuation:true})
-  const pts=new THREE.Points(geo,mat);scene.add(pts)
-  return{update(dt){
-    const p=pts.geometry.attributes.position.array
-    for(let i=0;i<N;i++){p[i*3+1]+=dt*0.18;if(p[i*3+1]>23)p[i*3+1]=-23}
-    pts.geometry.attributes.position.needsUpdate=true;pts.rotation.y+=dt*0.008
-  }}
+// ─────────────────────────────────────────────
+// [3] Easing & math utils
+// ─────────────────────────────────────────────
+const E = {
+  outCubic:   t => 1 - Math.pow(1-t, 3),
+  outQuint:   t => 1 - Math.pow(1-t, 5),
+  outElastic: t => {
+    if (t===0||t===1) return t
+    return Math.pow(2,-10*t)*Math.sin((t*10-0.75)*(2*Math.PI/3))+1
+  },
+  inOutQuad:  t => t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2,
+  outBounce:  t => {
+    const n1=7.5625, d1=2.75
+    if (t < 1/d1)        return n1*t*t
+    if (t < 2/d1)        return n1*(t-=1.5/d1)*t+0.75
+    if (t < 2.5/d1)      return n1*(t-=2.25/d1)*t+0.9375
+    return n1*(t-=2.625/d1)*t+0.984375
+  },
+  linear: t => t,
 }
+const lerp   = (a, b, t) => a + (b-a)*t
+const clamp  = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
+const prog   = (el, s, e) => clamp((el-s)/(e-s), 0, 1)
 
-/* ═══════════════════════════════════════
-   BURST / RING EFFECTS
-═══════════════════════════════════════ */
-function createBurst(origin,color=0xf59e0b,count=200,spd=0.1){
-  const geo=new THREE.BufferGeometry(),pos=new Float32Array(count*3),vel=[]
-  for(let i=0;i<count;i++){
-    pos[i*3]=origin.x;pos[i*3+1]=origin.y;pos[i*3+2]=origin.z
-    const a=Math.random()*Math.PI*2,e=(Math.random()-.5)*Math.PI,s=spd*(0.3+Math.random()*0.7)
-    vel.push(new THREE.Vector3(Math.cos(a)*Math.cos(e)*s,Math.sin(e)*s,Math.sin(a)*Math.cos(e)*s))
-  }
-  geo.setAttribute('position',new THREE.BufferAttribute(pos,3))
-  const mat=new THREE.PointsMaterial({color,size:0.09,transparent:true,opacity:1})
-  const pts=new THREE.Points(geo,mat);scene.add(pts);let age=0,dead=false
-  return{update(dt){
-    if(dead)return false;age+=dt
-    const p=pts.geometry.attributes.position.array
-    for(let i=0;i<count;i++){
-      p[i*3]+=vel[i].x;p[i*3+1]+=vel[i].y-dt*0.04;p[i*3+2]+=vel[i].z
-      vel[i].multiplyScalar(0.96)
-    }
-    pts.geometry.attributes.position.needsUpdate=true
-    mat.opacity=Math.max(0,1-age/1.4)
-    if(age>1.7){scene.remove(pts);geo.dispose();mat.dispose();dead=true;return false}
-    return true
-  },dispose(){}}
-}
-function createRing(pos,color=0xf59e0b,delay=0){
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.08,0.022,8,32),
-    new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.9}))
-  ring.position.copy(pos);scene.add(ring);let age=0,dead=false
-  return{update(dt){
-    if(dead)return false;age+=dt;const a=age-delay;if(a<0)return true
-    const sc=1+a*4;ring.scale.set(sc,sc,sc);ring.material.opacity=Math.max(0,0.9-a*0.9)
-    if(a>1.1){scene.remove(ring);disposeObj(ring);dead=true;return false}
-    return true
-  },dispose(){}}
-}
-
-/* ═══════════════════════════════════════
-   SCENE PLAN
-═══════════════════════════════════════ */
-const SCENE_PLAN=[
-  {id:'intro',  dur:3000,type:'intro'},
-  {id:'rev0',   dur:3000,type:'reveal',  stock:0},
-  {id:'chart0', dur:8000,type:'chart3d', stock:0},
-  {id:'sig0',   dur:3500,type:'signals', stock:0},
-  {id:'trans',  dur:1000,type:'transition'},
-  {id:'rev1',   dur:3000,type:'reveal',  stock:1},
-  {id:'chart1', dur:8000,type:'chart3d', stock:1},
-  {id:'sig1',   dur:3500,type:'signals', stock:1},
-  {id:'final',  dur:3000,type:'final'},
+// ─────────────────────────────────────────────
+// [4] Segment progress bar
+// ─────────────────────────────────────────────
+const SCENES = [
+  { id:'sigi0',  stock:0, type:'sigi',       dur:1500 },
+  { id:'hook0',  stock:0, type:'hook',       dur:2500 },
+  { id:'card0',  stock:0, type:'card',       dur:3000 },
+  { id:'chart0', stock:0, type:'chart',      dur:5000 },
+  { id:'sum0',   stock:0, type:'summary',    dur:3000 },
+  { id:'trans0',          type:'transition', dur:500  },
+  { id:'sigi1',  stock:1, type:'sigi',       dur:1500 },
+  { id:'hook1',  stock:1, type:'hook',       dur:2500 },
+  { id:'card1',  stock:1, type:'card',       dur:3000 },
+  { id:'chart1', stock:1, type:'chart',      dur:5000 },
+  { id:'sum1',   stock:1, type:'summary',    dur:3000 },
+  { id:'final',           type:'final',      dur:2500 },
 ]
 
-/* ═══════════════════════════════════════
-   GLOBAL STATE
-═══════════════════════════════════════ */
-let stockData=[]
-let sceneIdx=0,sceneStart=null,lastTs=0,paused=false
-let activeEffects=[]
-let sceneObjs=[]            // per-scene disposable meshes
-let ambientParticles=null
-let initialized=false
-let prevSceneType=null
-
-function addSO(o){scene.add(o);sceneObjs.push(o);return o}
-function clearSO(){
-  sceneObjs.forEach(o=>{scene.remove(o);disposeObj(o)})
-  sceneObjs=[]
-}
-
-/* ═══════════════════════════════════════
-   INTRO SCENE
-═══════════════════════════════════════ */
-let introSphere=null,introTextMeshes=[]
-function setupIntro(){
-  introSphere=null;introTextMeshes=[]
-  // Gold sphere
-  const sm=new THREE.MeshStandardMaterial({color:0xf59e0b,emissive:0xf59e0b,emissiveIntensity:0.5,wireframe:true,roughness:0.2,metalness:0.9})
-  introSphere=addSO(new THREE.Mesh(new THREE.SphereGeometry(1.2,32,32),sm))
-  introSphere.position.set(0,0,0);introSphere.scale.setScalar(0.01)
-
-  // Title — canvas 512×100, meshW=(512/100)*1.1=5.63 → at z=2 cam-dist=10, max=5.36 → use z=0: max=6.4 ✓
-  const tm=makeTextMesh('오늘의 추천주',{
-    fontSize:52,color:'#f59e0b',fontWeight:'900',glowColor:'#f59e0b',
-    width:512,height:100,meshH:1.1
-  })
-  tm.position.set(0,1,0);tm.material.opacity=0;addSO(tm);introTextMeshes.push(tm)
-
-  const sm2=makeTextMesh('TopStockDaily',{
-    fontSize:26,color:'#ffffff99',fontWeight:'300',
-    width:384,height:68,meshH:0.85
-  })
-  sm2.position.set(0,-0.6,0);sm2.material.opacity=0;addSO(sm2);introTextMeshes.push(sm2)
-}
-function renderIntro(elapsed){
-  // Camera zoom in
-  camera.position.z=lerp(55,12,easeOutQuint(prog(elapsed,0,1300)))
-  camera.lookAt(0,0,0)
-  goldLight.intensity=1.2+Math.sin(elapsed*.003)*1
-
-  if(introSphere){
-    const sp=easeOutElastic(prog(elapsed,700,950))
-    introSphere.scale.setScalar(Math.max(.01,sp*1.4))
-    introSphere.rotation.y+=.016;introSphere.rotation.x+=.007
-    introSphere.material.wireframe=sp<.5
-    introSphere.material.emissiveIntensity=.3+sp*.5
-    if(elapsed>2100&&!introSphere.userData.burst){
-      introSphere.userData.burst=true
-      activeEffects.push(createBurst(new THREE.Vector3(0,0,0),0xf59e0b,400,.14))
-      for(let r=0;r<4;r++)activeEffects.push(createRing(new THREE.Vector3(0,0,0),0xf59e0b,r*.1))
-      introSphere.visible=false;goldLight.intensity=9
-    }
-    goldLight.intensity=Math.max(1.2,goldLight.intensity*.97)
-  }
-
-  // Text fade in + hologram flicker
-  const tp=easeOutCubic(prog(elapsed,2150,700))
-  if(tp>0){
-    const flicker=elapsed>2600?.75+.25*Math.sin(elapsed*.07):1
-    introTextMeshes.forEach(m=>{m.material.opacity=tp*flicker})
-  }
-}
-
-/* ═══════════════════════════════════════
-   REVEAL SCENE
-   Camera (0,2,12) looking at (0,0,0)
-   Screen center at z=0: world (0,0,0)
-   Visible width at z=0: 6.4 units → all meshes ≤5.5
-═══════════════════════════════════════ */
-let rv={}   // reveal state
-function setupReveal(stock){
-  rv={_burst:false,scoreSc:null,scoreTex:null,scoreStock:stock.score}
-  camera.position.set(0,2,12);camera.lookAt(0,0,0)
-
-  // Company name — 512×90 → meshH=1.05 meshW=5.97 (at z=0 fits within 6.4) ✓
-  const nm=makeTextMesh(stock.name||stock.ticker,{
-    fontSize:34,color:'#fff',fontWeight:'700',width:512,height:90,meshH:1.05
-  })
-  nm.position.set(0,4,0);nm.material.opacity=0;nm.userData.r='name';addSO(nm)
-
-  // Ticker — canvas 512×210, meshH=2.1, meshW=(512/210)*2.1=5.12 ✓
-  const tk=makeTextMesh(stock.ticker,{
-    fontSize:82,color:'#f59e0b',fontWeight:'900',glowColor:'#f59e0b',
-    width:512,height:210,meshH:2.1
-  })
-  tk.position.set(0,2,0);tk.scale.setScalar(.01);tk.userData.r='ticker';addSO(tk)
-
-  // Price — canvas 512×180, 2 lines, meshH=1.8, meshW=(512/180)*1.8=5.12 ✓
-  const cpct=stock.change_pct!=null&&!isNaN(stock.change_pct)?fmtPct(stock.change_pct):''
-  const pcol=(stock.change_pct||0)>=0?'#10b981':'#ef4444'
-  const pm=makeTextMesh([fmtPrice(stock.price),cpct].filter(Boolean),{
-    fontSize:38,color:pcol,fontWeight:'700',width:512,height:180,meshH:1.8,lineSpacing:1.4
-  })
-  pm.position.set(-10,.2,0);pm.material.opacity=0;pm.userData.r='price';addSO(pm)
-
-  // Score bar — canvas 512×76, meshH=0.82, meshW=(512/76)*0.82=5.52 ✓
-  const cvs=document.createElement('canvas');cvs.width=512*TEX_DPR;cvs.height=76*TEX_DPR
-  const c=cvs.getContext('2d');c.scale(TEX_DPR,TEX_DPR)
-  c.clearRect(0,0,512,76)
-  c.font='400 21px "Noto Sans KR",sans-serif'
-  c.fillStyle='#888';c.textAlign='left';c.textBaseline='middle';c.fillText('신호 점수',10,22)
-  c.fillStyle='#f59e0b';c.textAlign='right';c.fillText(`${stock.score}점`,502,22)
-  c.fillStyle='#1c1c2e';c.fillRect(10,44,492,14)
-  const stex=new THREE.CanvasTexture(cvs)
-  const sbm=new THREE.Mesh(new THREE.PlaneGeometry(5.52,.82),
-    new THREE.MeshBasicMaterial({map:stex,transparent:true,depthWrite:false}))
-  sbm.position.set(0,-1.3,0);sbm.material.opacity=0;sbm.userData.r='score'
-  rv.scoreSc=c;rv.scoreCvs=cvs;rv.scoreTex=stex;addSO(sbm)
-}
-function renderReveal(elapsed,stock){
-  camera.position.set(0,2,12);camera.lookAt(0,0,0)
-  sceneObjs.forEach(obj=>{
-    const r=obj.userData.r
-    if(r==='name'){
-      const p=easeOutCubic(prog(elapsed,400,900))
-      obj.material.opacity=p;obj.position.y=4-(1-p)*3.5
-    }
-    if(r==='ticker'){
-      const p=easeOutElastic(prog(elapsed,1100,750))
-      obj.scale.setScalar(Math.max(.01,p));obj.material.opacity=clamp(p*2,0,1)
-      if(p>.05&&!rv._burst){
-        rv._burst=true
-        activeEffects.push(createBurst(new THREE.Vector3(0,2,0),0xf59e0b,250,.12))
-        for(let r2=0;r2<3;r2++)activeEffects.push(createRing(new THREE.Vector3(0,2,0),0xf59e0b,r2*.08))
-        goldLight.intensity=9
-      }
-      goldLight.intensity=Math.max(1.5,goldLight.intensity*.95)
-    }
-    if(r==='price'){
-      const p=easeOutCubic(prog(elapsed,1900,600))
-      obj.material.opacity=p;obj.position.x=-10+p*10
-    }
-    if(r==='score'){
-      const p=easeOutCubic(prog(elapsed,2350,700))
-      obj.material.opacity=p
-      if(p>0&&rv.scoreSc){
-        const c=rv.scoreSc
-        c.clearRect(10,44,492,14)
-        c.fillStyle='#1c1c2e';c.fillRect(10,44,492,14)
-        c.fillStyle='#f59e0b';c.fillRect(10,44,492*(rv.scoreStock/100)*p,14)
-        rv.scoreTex.needsUpdate=true
-      }
-    }
+function buildSegBar() {
+  const sb = document.getElementById('segbar')
+  sb.innerHTML = ''
+  SCENES.forEach((_, i) => {
+    const d = document.createElement('div')
+    d.className = 'seg'
+    const f = document.createElement('div')
+    f.className = 'seg-fill'
+    f.id = 'sf' + i
+    d.appendChild(f)
+    sb.appendChild(d)
   })
 }
 
-/* ═══════════════════════════════════════
-   CHART 3D SCENE
-   CW=7 (x ±3.5), CH=4 (y 0→4)
-   Volume bars: y below -0.5
-   Camera phase 0 (overview): wide angle showing full chart
-   then zooms into points of interest
-═══════════════════════════════════════ */
-let chartGroup=null,chartObj=null
-let chartFloatMesh=null,chartFloatText=''
-let chartStockIdx=0
-
-function buildChart3D(stock){
-  const group=new THREE.Group()
-  const ch=stock.chart
-  const closes=ch.close,vols=ch.volume
-  const N=closes.length,CW=7,CH=4
-  const minP=Math.min(...closes),maxP=Math.max(...closes)
-  const range=maxP-minP||1
-
-  // Axes / grid
-  group.add(new THREE.GridHelper(CW+1.5,14,0x0e1229,0x0e1229))
-  const floor=new THREE.Mesh(new THREE.PlaneGeometry(CW+1.5,10),
-    new THREE.MeshBasicMaterial({color:0x04040e,transparent:true,opacity:.9,side:THREE.DoubleSide}))
-  floor.rotation.x=-Math.PI/2;floor.position.y=-.05;group.add(floor)
-
-  // Subtle glow floor line
-  const glowFloor=new THREE.Mesh(new THREE.PlaneGeometry(CW+1.5,.02),
-    new THREE.MeshBasicMaterial({color:0xf59e0b,transparent:true,opacity:.25}))
-  glowFloor.position.set(0,-.04,0);glowFloor.rotation.x=-Math.PI/2;group.add(glowFloor)
-
-  // Price tube (outer glow + inner sharp)
-  const pts=closes.map((c,i)=>new THREE.Vector3((i/(N-1))*CW-CW/2,((c-minP)/range)*CH,0))
-  const curve=new THREE.CatmullRomCurve3(pts)
-
-  // Glow tube (wider, semi-transparent)
-  const glowGeo=new THREE.TubeGeometry(curve,N*2,.12,6,false)
-  const glowMat=new THREE.MeshBasicMaterial({color:0xf59e0b,transparent:true,opacity:.12})
-  group.add(new THREE.Mesh(glowGeo,glowMat))
-
-  // Main tube with vertex color gradient
-  const tubeGeo=new THREE.TubeGeometry(curve,N*3,.055,8,false)
-  const colArr=new Float32Array(tubeGeo.attributes.position.count*3)
-  for(let i=0;i<tubeGeo.attributes.position.count;i++){
-    const t=clamp(tubeGeo.attributes.position.getY(i)/CH,0,1)
-    colArr[i*3]=lerp(.23,.96,t);colArr[i*3+1]=lerp(.51,.62,t);colArr[i*3+2]=lerp(.96,.04,t)
-  }
-  tubeGeo.setAttribute('color',new THREE.BufferAttribute(colArr,3))
-  const tubeMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.2,metalness:.8,emissiveIntensity:.15})
-  const priceTube=new THREE.Mesh(tubeGeo,tubeMat)
-  priceTube.userData.type='price';priceTube.geometry.setDrawRange(0,0);group.add(priceTube)
-
-  // Volume bars
-  const maxVol=Math.max(...vols),avgVol=vols.reduce((a,b)=>a+b,0)/N
-  let spikeIdx=0,spikeMax=0
-  vols.forEach((v,i)=>{if(v>spikeMax){spikeMax=v;spikeIdx=i}})
-  vols.forEach((v,i)=>{
-    const bh=Math.max(.04,(v/maxVol)*1.6)
-    const isSpike=v>avgVol*1.5
-    const bm=new THREE.MeshStandardMaterial({
-      color:isSpike?0x10b981:0x1e2038,emissive:isSpike?0x10b981:0x000000,
-      emissiveIntensity:isSpike?.35:0,transparent:true,opacity:isSpike?.88:.45
-    })
-    const bar=new THREE.Mesh(new THREE.BoxGeometry(CW/N*.62,bh,.28),bm)
-    bar.position.set((i/(N-1))*CW-CW/2,-.6-bh/2,-1.4)
-    bar.userData={type:'volume',isSpike,targetH:bh,bottomY:-.6}
-    bar.scale.y=.001;group.add(bar)
+function updateSegBar(idx, ratio) {
+  SCENES.forEach((_, i) => {
+    const f = document.getElementById('sf' + i)
+    if (!f) return
+    if (i < idx)        f.style.transform = 'scaleX(1)'
+    else if (i === idx) f.style.transform = `scaleX(${clamp(ratio,0,1)})`
+    else                f.style.transform = 'scaleX(0)'
   })
-
-  // MA5 tube
-  const ma5=(ch.ma5||calcSMA(closes,5))
-    .map((v,i)=>v==null?null:new THREE.Vector3((i/(N-1))*CW-CW/2,((v-minP)/range)*CH+.1,.12))
-    .filter(Boolean)
-  if(ma5.length>2){
-    const g=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ma5),ma5.length*2,.032,6)
-    group.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0xfbbf24})))
-  }
-
-  // MA20 tube
-  const ma20=(ch.ma20||calcSMA(closes,20))
-    .map((v,i)=>v==null?null:new THREE.Vector3((i/(N-1))*CW-CW/2,((v-minP)/range)*CH+.06,.07))
-    .filter(Boolean)
-  if(ma20.length>2){
-    const g=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ma20),ma20.length*2,.026,6)
-    group.add(new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0x60a5fa})))
-  }
-
-  // Detect golden cross
-  const ma5arr=ch.ma5||calcSMA(closes,5),ma20arr=ch.ma20||calcSMA(closes,20)
-  let crossIdx=Math.floor(N*.55)
-  for(let i=1;i<N;i++){
-    if(ma5arr[i]&&ma20arr[i]&&ma5arr[i-1]&&ma20arr[i-1]&&ma5arr[i-1]<=ma20arr[i-1]&&ma5arr[i]>ma20arr[i]){crossIdx=i;break}
-  }
-  const crossX=(crossIdx/(N-1))*CW-CW/2
-  const crossY=((closes[crossIdx]-minP)/range)*CH
-  const spikeX=(spikeIdx/(N-1))*CW-CW/2
-
-  return{group,priceTube,tubeGeo,N,CW,CH,closes,vols,crossX,crossY,spikeX,minP,maxP,range,
-    ma5arr,ma20arr,crossIdx,spikeIdx}
 }
 
-// 6-phase camera sequence for chart (8s total)
-// Phase 0 (0-2s):   FULL OVERVIEW — shows entire chart as it draws in
-// Phase 1 (2-3.5s): ZOOM to golden cross
-// Phase 2 (3.5-5s): ZOOM to volume spike
-// Phase 3 (5-6.5s): PULLBACK + fib levels appear
-// Phase 4 (6.5-7.5s): OVERHEAD — target/stop planes
-// Phase 5 (7.5-8s):  RETURN to overview
-function makeChartCamSeq(co){
-  const{crossX,crossY,spikeX}=co
-  const triggered={}
-  // Positions chosen so CW=7 chart is fully visible from overview
-  // at dist 17: horiz = 2*17*tan(15°)=9.1 > CW=7 ✓
-  const phases=[
-    {s:0,   e:2000,
-     fp:new THREE.Vector3(1.5,5.5,17),ft:new THREE.Vector3(0,.5,0),
-     tp:new THREE.Vector3(0,5,16),  tt:new THREE.Vector3(0,.5,0),
-     ease:easeInOutCubic,label:null},
-    {s:2000,e:3500,
-     fp:new THREE.Vector3(0,5,16),  ft:new THREE.Vector3(0,.5,0),
-     tp:new THREE.Vector3(crossX,3.5,9),tt:new THREE.Vector3(crossX,crossY,0),
-     ease:easeOutQuint,label:'골든 크로스 확인 ✓',lc:'#fbbf24',effect:'burst_cross'},
-    {s:3500,e:5000,
-     fp:new THREE.Vector3(crossX,3.5,9),ft:new THREE.Vector3(crossX,crossY,0),
-     tp:new THREE.Vector3(spikeX,-1.2,6.5),tt:new THREE.Vector3(spikeX,.5,0),
-     ease:easeOutCubic,label:'거래량 폭증 — 수급 확인 ✓',lc:'#10b981',effect:'vol_glow'},
-    {s:5000,e:6500,
-     fp:new THREE.Vector3(spikeX,-1.2,6.5),ft:new THREE.Vector3(spikeX,.5,0),
-     tp:new THREE.Vector3(0,2,12),tt:new THREE.Vector3(0,1.5,0),
-     ease:easeInOutQuad,label:'핵심 지지구간 반등 중 ✓',lc:'#a78bfa',effect:'fib'},
-    {s:6500,e:7500,
-     fp:new THREE.Vector3(0,2,12),ft:new THREE.Vector3(0,1.5,0),
-     tp:new THREE.Vector3(0,8,9),  tt:new THREE.Vector3(0,1,0),
-     ease:easeOutCubic,label:null,effect:'targets'},
-    {s:7500,e:8000,
-     fp:new THREE.Vector3(0,8,9),  ft:new THREE.Vector3(0,1,0),
-     tp:new THREE.Vector3(1.5,5.5,17),tt:new THREE.Vector3(0,.5,0),
-     ease:easeInOutQuad,label:null},
-  ]
-  return{
-    update(elapsed,co2){
-      const ph=phases.find(p=>elapsed>=p.s&&elapsed<p.e)
-      if(!ph)return null
-      const t=(elapsed-ph.s)/(ph.e-ph.s)
-      const p=ph.ease(t)
-      camera.position.copy(lerpV(ph.fp,ph.tp,p))
-      camera.lookAt(lerpV(ph.ft,ph.tt,p))
+buildSegBar()
 
-      // Trigger effects once
-      if(ph.effect&&t>.38&&!triggered[ph.effect]){
-        triggered[ph.effect]=true
-        if(ph.effect==='burst_cross'){
-          activeEffects.push(createBurst(new THREE.Vector3(crossX,crossY,0),0xfbbf24,300,.11))
-          for(let r=0;r<4;r++)activeEffects.push(createRing(new THREE.Vector3(crossX,crossY,0),0xfbbf24,r*.09))
-          goldLight.position.set(crossX,crossY+2,3);goldLight.intensity=10
-        }
-        if(ph.effect==='fib'&&co2){
-          [.382,.5,.618].forEach((lv,i)=>{
-            const y=lv*co2.CH
-            const pl=new THREE.Mesh(new THREE.PlaneGeometry(co2.CW+1.5,.025),
-              new THREE.MeshBasicMaterial({color:[0xa78bfa,0xfbbf24,0xa78bfa][i],transparent:true,opacity:.55,side:THREE.DoubleSide}))
-            pl.position.set(0,y,.25);chartGroup.add(pl)
-            const lbl=makeTextMesh(`Fib ${(lv*100).toFixed(1)}%`,{
-              fontSize:18,color:'#c4b5fd',width:180,height:44,meshH:.44
-            })
-            lbl.position.set(co2.CW/2+1,y,.25);chartGroup.add(lbl)
-          })
-        }
-        if(ph.effect==='targets'&&co2){
-          const sw=stockData[chartStockIdx].swing
-          const toY=price=>((price-co2.minP)/co2.range)*co2.CH
-          ;[
-            [sw.stop_loss,  '#ef4444','🛑 손절 '+fmtPrice(sw.stop_loss)],
-            [sw.entry_high, '#fbbf24','진입 '+fmtPrice(sw.entry_high)],
-            [sw.target1,    '#10b981','🎯 목표1 '+fmtPrice(sw.target1)],
-          ].forEach(([price,col,lbl])=>{
-            const y=toY(price)
-            if(isNaN(y)||y<-2||y>co2.CH+2)return
-            const pl=new THREE.Mesh(new THREE.PlaneGeometry(co2.CW+1.5,.025),
-              new THREE.MeshBasicMaterial({color:parseInt(col.replace('#',''),16),transparent:true,opacity:.8,side:THREE.DoubleSide}))
-            pl.position.set(0,y,.22);chartGroup.add(pl)
-            const lm=makeTextMesh(lbl,{fontSize:17,color:col,width:256,height:46,meshH:.5})
-            lm.position.set(-co2.CW/2-1.4,y,.22);chartGroup.add(lm)
-          })
-          const sy=toY(sw.stop_loss),ey=toY(sw.entry_high),t1y=toY(sw.target1)
-          if(!isNaN(sy)&&!isNaN(ey)&&ey>sy){
-            const dz=new THREE.Mesh(new THREE.BoxGeometry(co2.CW+1.5,ey-sy,.06),
-              new THREE.MeshBasicMaterial({color:0xef4444,transparent:true,opacity:.05,side:THREE.DoubleSide}))
-            dz.position.set(0,(sy+ey)/2,-.25);chartGroup.add(dz)
-          }
-          if(!isNaN(ey)&&!isNaN(t1y)&&t1y>ey){
-            const pz=new THREE.Mesh(new THREE.BoxGeometry(co2.CW+1.5,t1y-ey,.06),
-              new THREE.MeshBasicMaterial({color:0x10b981,transparent:true,opacity:.05,side:THREE.DoubleSide}))
-            pz.position.set(0,(ey+t1y)/2,-.25);chartGroup.add(pz)
-          }
-        }
-      }
-      // Label
-      if(ph.label&&t>.6)return{text:ph.label,color:ph.lc,alpha:easeOutCubic((t-.6)/.4)}
-      return ph.effect&&triggered[ph.effect]?{vol_glow:ph.effect==='vol_glow'}:null
+// ─────────────────────────────────────────────
+// [5] Data loader + mock data + genChart
+// ─────────────────────────────────────────────
+let DATA = null
+let scIdx = 0, scStart = null, lastTs = 0, paused = false
+
+function genChart(n=120) {
+  const closes = [], highs = [], lows = [], volumes = []
+  let p = 50000 + Math.random()*50000
+  for (let i=0; i<n; i++) {
+    const chg = (Math.random()-0.48)*p*0.025
+    p = Math.max(p+chg, 1000)
+    const h = p*(1+Math.random()*0.015)
+    const l = p*(1-Math.random()*0.015)
+    closes.push(Math.round(p))
+    highs.push(Math.round(h))
+    lows.push(Math.round(l))
+    volumes.push(Math.round(1e6 + Math.random()*9e6))
+  }
+  return { closes, highs, lows, volumes }
+}
+
+function normalizeSock(raw) {
+  const ch = raw.chart || {}
+  const closes  = ch.close  || ch.closes  || []
+  const highs   = ch.high   || ch.highs   || []
+  const lows    = ch.low    || ch.lows    || []
+  const volumes = ch.volume || ch.volumes || []
+  const n = closes.length
+  return {
+    ticker: raw.ticker || raw.symbol || 'UNKNOWN',
+    name:   raw.name || raw.ticker || 'Unknown',
+    price:  raw.price || closes[n-1] || 0,
+    change_pct: raw.change_pct || raw.change || 0,
+    sector: raw.sector || 'ETC',
+    score:  raw.score || 75,
+    signals: raw.signals || { golden_cross:false, volume_confirm:false, rsi_signal:false },
+    swing:  raw.swing || {
+      entry_low: closes[n-1]*0.98, entry_high: closes[n-1]*1.00,
+      stop_loss: closes[n-1]*0.92, stop_pct:8,
+      target1: closes[n-1]*1.12, target1_pct:12, target1_week:'3-4주',
+      target2: closes[n-1]*1.25, target2_pct:25, target2_week:'6-8주',
+      rr_ratio: 1.8, vol_multiple: 1.4,
     },
-    isVolGlow(){return!!triggered['vol_glow']}
+    chart_data: { closes, highs, lows, volumes },
   }
 }
-let chartCamSeq=null
 
-function setupChart(stock,si){
-  chartStockIdx=si
-  chartObj=buildChart3D(stock)
-  chartGroup=chartObj.group;scene.add(chartGroup)
-
-  // Float label (at z=-1 behind chart → max width 2*(12+1)*tan(15°)=6.97)
-  chartFloatMesh=makeTextMesh('',{fontSize:24,color:'#fbbf24',fontWeight:'700',glowColor:'#fbbf24',width:512,height:70,meshH:.88})
-  chartFloatMesh.position.set(0,5.5,-1);chartFloatMesh.material.opacity=0
-  scene.add(chartFloatMesh);chartFloatText=''
-
-  chartCamSeq=makeChartCamSeq(chartObj)
-}
-
-function renderChart3D(elapsed){
-  if(!chartGroup||!chartObj||!chartCamSeq)return
-  goldLight.intensity=Math.max(1.5,goldLight.intensity*.98)
-
-  // Phase 0: chart draws in left-to-right
-  const revP=easeOutCubic(prog(elapsed,0,2200))
-
-  // Price tube drawRange
-  if(chartObj.priceTube&&chartObj.priceTube.geometry.index){
-    chartObj.priceTube.geometry.setDrawRange(0,Math.floor(chartObj.priceTube.geometry.index.count*revP))
-  }
-
-  // Volume bars scale from bottom
-  chartGroup.children.forEach(c=>{
-    if(c.userData.type!=='volume')return
-    const s=Math.max(.001,easeOutQuint(clamp(revP*1.5-.15,0,1)))
-    c.scale.y=s;c.position.y=c.userData.bottomY-c.userData.targetH*s/2
-    if(chartCamSeq.isVolGlow()&&c.userData.isSpike){
-      c.material.emissiveIntensity=.3+.4*Math.sin(elapsed*.006)
-    }
-  })
-
-  // Camera + labels
-  const labelInfo=chartCamSeq.update(elapsed,chartObj)
-
-  // Floating label
-  if(chartFloatMesh){
-    if(labelInfo&&labelInfo.text){
-      if(labelInfo.text!==chartFloatText){
-        chartFloatText=labelInfo.text
-        const nt=makeTextTexture(labelInfo.text,{fontSize:24,color:labelInfo.color,fontWeight:'700',width:512,height:70,glowColor:labelInfo.color})
-        if(chartFloatMesh.material.map)chartFloatMesh.material.map.dispose()
-        chartFloatMesh.material.map=nt;chartFloatMesh.material.needsUpdate=true
-      }
-      chartFloatMesh.material.opacity=labelInfo.alpha
-      chartFloatMesh.lookAt(camera.position)
-    } else {
-      chartFloatMesh.material.opacity*=.95
-    }
-  }
-
-  chartGroup.rotation.y=Math.sin(elapsed*.00025)*.03
-}
-
-function cleanupChart(){
-  if(chartGroup){
-    scene.remove(chartGroup)
-    chartGroup.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material){if(c.material.map)c.material.map.dispose();c.material.dispose()}})
-    chartGroup=null;chartObj=null
-  }
-  if(chartFloatMesh){
-    scene.remove(chartFloatMesh);disposeObj(chartFloatMesh);chartFloatMesh=null
-  }
-  chartCamSeq=null
-}
-
-/* ═══════════════════════════════════════
-   SIGNALS SCENE
-   Card: canvas 480×660, meshW=(480/660)*5.5=4.0 units ✓
-═══════════════════════════════════════ */
-const SIG_MAP={golden_cross:'골든 크로스',volume_confirm:'거래량 확인',rsi_signal:'RSI 과매도 반등',
-  macd_cross:'MACD 크로스',ma_alignment:'이평 정배열',fib_support:'피보나치 지지',
-  relative_strength:'상대 강도',bollinger_break:'볼린저 돌파',stoch_signal:'스토캐스틱 반등'}
-
-function makeSignalCard(stock){
-  const sw=stock.swing,score=stock.score
-  const grade=score>=80?'강력 매수':score>=65?'매수 적극':'관심'
-  const gc=score>=80?'#f59e0b':score>=65?'#10b981':'#60a5fa'
-  const activeSigs=Object.entries(stock.signals||{}).filter(([,v])=>v).map(([k])=>SIG_MAP[k]||k)
-
-  const W=480,H=680,DPR=TEX_DPR
-  const cvs=document.createElement('canvas');cvs.width=W*DPR;cvs.height=H*DPR
-  const c=cvs.getContext('2d');c.scale(DPR,DPR)
-
-  // Background
-  const bg=c.createLinearGradient(0,0,0,H)
-  bg.addColorStop(0,'#0c0c1f');bg.addColorStop(1,'#06060e')
-  c.fillStyle=bg;c.fillRect(0,0,W,H)
-
-  // Border glow
-  c.shadowColor='#f59e0b';c.shadowBlur=12
-  c.strokeStyle='#f59e0b44';c.lineWidth=1.5
-  c.roundRect(2,2,W-4,H-4,14);c.stroke();c.shadowBlur=0
-
-  // Header
-  c.fillStyle='#f59e0b22';c.fillRect(0,0,W,62)
-  c.font=`900 30px "Noto Sans KR",sans-serif`
-  c.fillStyle='#f59e0b';c.textAlign='center';c.textBaseline='middle'
-  c.shadowColor='#f59e0b';c.shadowBlur=10
-  c.fillText(stock.ticker+' 스윙 분석',W/2,32);c.shadowBlur=0
-
-  // Signal rows
-  c.font=`400 21px "Noto Sans KR",sans-serif`
-  activeSigs.slice(0,5).forEach((sig,i)=>{
-    const y=74+i*52
-    // Green pill bg
-    c.fillStyle='#10b98114';c.roundRect(14,y-20,W-28,42,8);c.fill()
-    c.fillStyle='#10b981';c.textAlign='left';c.textBaseline='middle'
-    c.fillText('✓  '+sig,26,y+1)
-  })
-
-  // Divider
-  c.strokeStyle='#1e1e3a';c.lineWidth=1
-  c.beginPath();c.moveTo(14,350);c.lineTo(W-14,350);c.stroke()
-
-  // Trading data
-  const rows=[
-    ['진입 구간',`${fmtPrice(sw.entry_low)} ~ ${fmtPrice(sw.entry_high)}`,'#fff'],
-    ['목표가 1', `${fmtPrice(sw.target1)}  +${sw.target1_pct}%`,'#10b981'],
-    ['목표가 2', `${fmtPrice(sw.target2)}  +${sw.target2_pct}%`,'#10b981'],
-    ['손절가',   `${fmtPrice(sw.stop_loss)}  ${sw.stop_pct}%`,'#ef4444'],
-    ['손익비',   `${sw.rr_ratio} : 1`,sw.rr_ratio>=3?'#f59e0b':'#bbb'],
+function getMockData() {
+  const s0cd = genChart()
+  const s1cd = genChart()
+  const last0 = s0cd.closes[s0cd.closes.length-1]
+  const last1 = s1cd.closes[s1cd.closes.length-1]
+  return [
+    {
+      ticker:'AAPL', name:'Apple Inc.', price:last0, change_pct:3.7,
+      sector:'Technology', score:92,
+      signals:{ golden_cross:true, volume_confirm:true, rsi_signal:true },
+      swing:{
+        entry_low:last0*0.985, entry_high:last0*1.005,
+        stop_loss:last0*0.91, stop_pct:9,
+        target1:last0*1.15, target1_pct:15, target1_week:'3-4주',
+        target2:last0*1.28, target2_pct:28, target2_week:'6-8주',
+        rr_ratio:2.1, vol_multiple:1.8,
+      },
+      chart_data: s0cd,
+    },
+    {
+      ticker:'NVDA', name:'NVIDIA Corp.', price:last1, change_pct:5.2,
+      sector:'Semiconductor', score:87,
+      signals:{ golden_cross:true, volume_confirm:true, rsi_signal:false },
+      swing:{
+        entry_low:last1*0.99, entry_high:last1*1.01,
+        stop_loss:last1*0.925, stop_pct:7.5,
+        target1:last1*1.18, target1_pct:18, target1_week:'4-5주',
+        target2:last1*1.32, target2_pct:32, target2_week:'8-10주',
+        rr_ratio:2.5, vol_multiple:2.1,
+      },
+      chart_data: s1cd,
+    },
   ]
-  c.textBaseline='alphabetic'
-  rows.forEach(([lbl,val,col],i)=>{
-    const y=388+i*52
-    c.font=`400 19px "Noto Sans KR",sans-serif`;c.fillStyle='#666';c.textAlign='left'
-    c.fillText(lbl,18,y)
-    c.font=`700 21px "Noto Sans KR",sans-serif`;c.fillStyle=col;c.textAlign='right'
-    c.fillText(val,W-18,y)
-    c.strokeStyle='#18182e';c.lineWidth=.8
-    c.beginPath();c.moveTo(14,y+14);c.lineTo(W-14,y+14);c.stroke()
-  })
-
-  // Grade badge
-  c.fillStyle=gc+'22';c.roundRect(55,620,W-110,52,26);c.fill()
-  c.strokeStyle=gc;c.lineWidth=1.5;c.roundRect(55,620,W-110,52,26);c.stroke()
-  c.font=`900 26px "Noto Sans KR",sans-serif`
-  c.fillStyle=gc;c.shadowColor=gc;c.shadowBlur=12;c.textAlign='center'
-  c.fillText(`${grade}  ·  신호 ${score}점`,W/2,652);c.shadowBlur=0
-
-  const tex=new THREE.CanvasTexture(cvs);tex.needsUpdate=true
-  // meshW = (W/H)*meshH = (480/680)*5.5 = 3.88 ✓
-  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(3.88,5.5),
-    new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false}))
-  return mesh
 }
 
-function setupSignals(stock){
-  camera.position.set(0,2,12);camera.lookAt(0,0,0)
-  const card=makeSignalCard(stock)
-  card.position.set(0,1.5,-12);card.material.opacity=0;card.userData.r='card'
-  addSO(card)
-}
-function renderSignals(elapsed){
-  camera.position.set(0,2,12);camera.lookAt(0,0,0)
-  goldLight.position.set(0,5,5);goldLight.intensity=1.5+Math.sin(elapsed*.003)*.5
-  sceneObjs.forEach(obj=>{
-    if(obj.userData.r==='card'){
-      const p=easeOutQuint(prog(elapsed,100,900))
-      obj.material.opacity=p;obj.position.z=-12+p*12
+async function loadData() {
+  try {
+    const res = await fetch('../data.json')
+    if (!res.ok) throw new Error('fetch fail')
+    const json = await res.json()
+    const list = Array.isArray(json) ? json : (json.stocks || json.data || [json])
+    const filtered = list
+      .filter(s => {
+        const ch = s.chart || {}
+        const closes = ch.close || ch.closes || []
+        return closes.length >= 60 && (s.signals?.golden_cross || (s.score||0) >= 70)
+      })
+      .sort((a,b) => (b.score||0)-(a.score||0))
+      .slice(0, 2)
+    if (filtered.length >= 2) {
+      DATA = filtered.map(normalizeSock)
+    } else {
+      DATA = getMockData()
     }
-  })
+  } catch(e) {
+    DATA = getMockData()
+  }
+  requestAnimationFrame(masterLoop)
 }
 
-/* ═══════════════════════════════════════
-   TRANSITION
-═══════════════════════════════════════ */
-function renderTransition(elapsed){
-  const t=elapsed/1000
-  if(t<.3)     renderer.toneMappingExposure=1.1+(t/.3)*5.5
-  else if(t<.65)renderer.toneMappingExposure=6.6-((t-.3)/.35)*5.5
-  else          renderer.toneMappingExposure=1.1
-  if(t>.28&&t<.72){
-    const rp=(t-.28)/.44,angle=rp*Math.PI*2
-    camera.position.set(Math.sin(angle)*12,2,Math.cos(angle)*12);camera.lookAt(0,0,0)
-  } else if(t>=.72){
-    camera.position.set(0,2,12);camera.lookAt(0,0,0)
+// ─────────────────────────────────────────────
+// [6] Technical indicators
+// ─────────────────────────────────────────────
+function sma(arr, n) {
+  const out = new Array(arr.length).fill(null)
+  for (let i=n-1; i<arr.length; i++) {
+    let s=0; for(let j=0;j<n;j++) s+=arr[i-j]; out[i]=s/n
+  }
+  return out
+}
+
+function ema(arr, n) {
+  const k = 2/(n+1)
+  const out = new Array(arr.length).fill(null)
+  let i0 = -1
+  for (let i=0;i<arr.length;i++) if(arr[i]!=null){i0=i;break}
+  if (i0<0) return out
+  out[i0] = arr[i0]
+  for (let i=i0+1;i<arr.length;i++) {
+    out[i] = (arr[i]==null?out[i-1]:arr[i])*k + out[i-1]*(1-k)
+  }
+  return out
+}
+
+function calcBoll(closes, n=20, k=2) {
+  const mid = sma(closes, n)
+  const upper = [], lower = []
+  for (let i=0; i<closes.length; i++) {
+    if (mid[i]==null) { upper.push(null); lower.push(null); continue }
+    let sq=0
+    for (let j=0;j<n;j++) sq+=Math.pow(closes[i-j]-mid[i],2)
+    const sd = Math.sqrt(sq/n)
+    upper.push(mid[i]+k*sd)
+    lower.push(mid[i]-k*sd)
+  }
+  return { upper, mid, lower }
+}
+
+function calcFib(closes, highs, lows, lb=60) {
+  const sl = Math.max(0, closes.length-lb)
+  const subH = highs.slice(sl), subL = lows.slice(sl)
+  const hi = Math.max(...subH), lo = Math.min(...subL)
+  const d = hi - lo
+  return {
+    hi, lo,
+    f618: hi - d*0.618,
+    f500: hi - d*0.500,
+    f382: hi - d*0.382,
+    f236: hi - d*0.236,
   }
 }
 
-/* ═══════════════════════════════════════
-   FINAL SCENE
-   Cards: canvas 290×460, meshW=(290/460)*3.7=2.33 each
-   Center at ±1.35 → spans ±(1.35+1.165)=±2.515 → total 5.03 ✓
-═══════════════════════════════════════ */
-let finalBurst=false
-function setupFinal(){
-  finalBurst=false
-  camera.position.set(0,2,12);camera.lookAt(0,0,0)
+function findGoldenCross(ma5, ma20) {
+  for (let i=ma20.length-1; i>0; i--) {
+    if (ma5[i]!=null && ma20[i]!=null && ma5[i-1]!=null && ma20[i-1]!=null) {
+      if (ma5[i-1] <= ma20[i-1] && ma5[i] > ma20[i]) return i
+    }
+  }
+  return -1
+}
 
-  // Title — canvas 512×104, meshH=1.15, meshW=(512/104)*1.15=5.66 at z=0 max=6.4 ✓
-  const tt=makeTextMesh('오늘의 스윙 픽',{
-    fontSize:50,color:'#f59e0b',fontWeight:'900',glowColor:'#f59e0b',
-    width:512,height:104,meshH:1.15
+function findVolSpike(volumes, n=20) {
+  let best=-1, bv=0
+  for (let i=n; i<volumes.length; i++) {
+    let avg=0; for(let j=1;j<=n;j++) avg+=volumes[i-j]; avg/=n
+    const ratio = volumes[i]/avg
+    if (ratio>bv) { bv=ratio; best=i }
+  }
+  return { idx: best, ratio: bv }
+}
+
+// ─────────────────────────────────────────────
+// [7] Coordinate utils
+// ─────────────────────────────────────────────
+const CL=20, CR=346, CT=100, CB=380
+const VT=400, VB=480
+
+function normY(val, minP, maxP) {
+  return CT + (CB-CT)*(1-(val-minP)/(maxP-minP))
+}
+function normVY(val, maxV) {
+  return VB - (VB-VT)*(val/maxV)
+}
+function xArr(idx, n) {
+  return CL + (CR-CL)*(idx/(n-1))
+}
+
+function fmtPrice(v) {
+  if (v==null || v===0) return '-'
+  if (v>=1000000) return (v/1000000).toFixed(2)+'M'
+  if (v>=1000)    return Math.round(v).toLocaleString()
+  return v.toFixed(2)
+}
+function fmtShort(v) {
+  if (v>=1e9)  return (v/1e9).toFixed(1)+'B'
+  if (v>=1e6)  return (v/1e6).toFixed(1)+'M'
+  if (v>=1e3)  return (v/1e3).toFixed(1)+'K'
+  return String(v)
+}
+function fmtChange(v) {
+  return (v>=0?'+':'') + Number(v).toFixed(2) + '%'
+}
+
+function drawYLabels(ctx, minP, maxP, steps=4) {
+  ctx.save()
+  ctx.font = '10px "Noto Sans KR"'
+  ctx.fillStyle = C.gray
+  ctx.textAlign = 'right'
+  for (let i=0; i<=steps; i++) {
+    const val = minP + (maxP-minP)*(i/steps)
+    const y = normY(val, minP, maxP)
+    ctx.fillText(fmtPrice(val), CL-4, y+4)
+    ctx.strokeStyle = '#ffffff08'
+    ctx.lineWidth = 0.5
+    ctx.beginPath(); ctx.moveTo(CL, y); ctx.lineTo(CR, y); ctx.stroke()
+  }
+  ctx.restore()
+}
+
+function drawXLabels(ctx, n) {
+  const steps = 4
+  ctx.save()
+  ctx.font = '10px "Noto Sans KR"'
+  ctx.fillStyle = C.gray
+  ctx.textAlign = 'center'
+  for (let i=0; i<=steps; i++) {
+    const idx = Math.round((n-1)*i/steps)
+    const x = xArr(idx, n)
+    const daysAgo = n-1-idx
+    const label = daysAgo===0 ? '오늘' : `-${daysAgo}d`
+    ctx.fillText(label, x, CB+16)
+  }
+  ctx.restore()
+}
+
+// ─────────────────────────────────────────────
+// [8] drawCometLine
+// ─────────────────────────────────────────────
+function drawCometLine(ctx, xs, ys, progress, {
+  color='#6ee7b7', lw=2, glow=null, glowBlur=12,
+  comet=true, fill=false, fillColor=null,
+}={}) {
+  if (xs.length < 2) return
+  const n = xs.length
+  const endIdx = Math.floor(progress * (n-1))
+  if (endIdx < 1) return
+
+  ctx.save()
+  if (glow) {
+    ctx.shadowColor = glow
+    ctx.shadowBlur  = glowBlur
+  }
+
+  if (fill && fillColor) {
+    ctx.beginPath()
+    ctx.moveTo(xs[0], ys[0])
+    for (let i=1; i<=endIdx; i++) ctx.lineTo(xs[i], ys[i])
+    ctx.lineTo(xs[endIdx], CB)
+    ctx.lineTo(xs[0], CB)
+    ctx.closePath()
+    ctx.fillStyle = fillColor
+    ctx.fill()
+  }
+
+  ctx.beginPath()
+  ctx.moveTo(xs[0], ys[0])
+  for (let i=1; i<=endIdx; i++) ctx.lineTo(xs[i], ys[i])
+  ctx.strokeStyle = color
+  ctx.lineWidth = lw
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.stroke()
+
+  if (comet && endIdx < n-1) {
+    const cx = xs[endIdx], cy = ys[endIdx]
+    ctx.shadowBlur = 0
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 10)
+    grad.addColorStop(0, color)
+    grad.addColorStop(1, 'transparent')
+    ctx.beginPath()
+    ctx.arc(cx, cy, 4, 0, Math.PI*2)
+    ctx.fillStyle = grad
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(cx, cy, 2, 0, Math.PI*2)
+    ctx.fillStyle = color
+    ctx.fill()
+  }
+  ctx.restore()
+}
+
+// ─────────────────────────────────────────────
+// [9] drawBurst
+// ─────────────────────────────────────────────
+function drawBurst(ctx, cx, cy, progress, color, {
+  rings=4, maxR=52, pCount=12, flashA=0.18,
+}={}) {
+  if (!color) color = C.gold
+  ctx.save()
+  // flash
+  const fa = flashA * Math.max(0, 1-progress*3)
+  if (fa>0) {
+    ctx.globalAlpha = fa
+    ctx.fillStyle = color
+    ctx.beginPath(); ctx.arc(cx, cy, 60, 0, Math.PI*2); ctx.fill()
+    ctx.globalAlpha = 1
+  }
+  // rings
+  for (let r=0; r<rings; r++) {
+    const rp = clamp(progress - r*0.1, 0, 1)
+    if (rp<=0) continue
+    const radius = maxR * rp
+    const alpha  = (1-rp)*0.7
+    ctx.globalAlpha = alpha
+    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI*2)
+    ctx.strokeStyle = color
+    ctx.lineWidth = 2
+    ctx.stroke()
+  }
+  ctx.globalAlpha = 1
+  // particles
+  for (let p=0; p<pCount; p++) {
+    const angle = (p/pCount)*Math.PI*2
+    const dist  = maxR*1.4*progress
+    const pa    = clamp(1-progress, 0, 1)
+    const px = cx + Math.cos(angle)*dist
+    const py = cy + Math.sin(angle)*dist
+    ctx.globalAlpha = pa
+    ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI*2)
+    ctx.fillStyle = color
+    ctx.fill()
+  }
+  ctx.globalAlpha = 1
+  // center glow
+  const ca = Math.max(0, 0.9-progress*1.5)
+  if (ca > 0) {
+    const cg = ctx.createRadialGradient(cx, cy, 0, cx, cy, 20)
+    cg.addColorStop(0, '#ffffff')
+    cg.addColorStop(0.3, color)
+    cg.addColorStop(1, 'transparent')
+    ctx.globalAlpha = ca
+    ctx.beginPath(); ctx.arc(cx, cy, 20, 0, Math.PI*2)
+    ctx.fillStyle = cg; ctx.fill()
+    ctx.globalAlpha = 1
+  }
+  ctx.restore()
+}
+
+// ─────────────────────────────────────────────
+// [10] drawPopLabel
+// ─────────────────────────────────────────────
+function drawPopLabel(ctx, x, y, text, progress, color) {
+  if (!color) color = C.gold
+  if (progress<=0) return
+  const t = E.outElastic(clamp(progress*2, 0, 1))
+  const alpha = clamp(progress*3, 0, 1)
+  const py = y - 10*(1-t)
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.font = 'bold 11px "Noto Sans KR"'
+  ctx.textAlign = 'center'
+  const tw = ctx.measureText(text).width
+  const pad = 8
+  const rw = tw + pad*2, rh = 22
+  const rx = x - rw/2, ry = py - rh/2
+  ctx.fillStyle = color
+  ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, 11); ctx.fill()
+  ctx.fillStyle = '#000'
+  ctx.fillText(text, x, py+4)
+  ctx.restore()
+}
+
+// ─────────────────────────────────────────────
+// [11] drawHLine
+// ─────────────────────────────────────────────
+function drawHLine(ctx, y, L, R, label, color, {style='dashed', lw=1, labelRight=true}={}) {
+  ctx.save()
+  ctx.strokeStyle = color
+  ctx.lineWidth = lw
+  if (style==='dashed') ctx.setLineDash([6,4])
+  else if (style==='dotted') ctx.setLineDash([2,4])
+  else ctx.setLineDash([])
+  ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(R, y); ctx.stroke()
+  ctx.setLineDash([])
+  if (label) {
+    ctx.font = '10px "Noto Sans KR"'
+    ctx.fillStyle = color
+    ctx.textAlign = labelRight ? 'right' : 'left'
+    ctx.fillText(label, labelRight ? R : L, y-3)
+  }
+  ctx.restore()
+}
+
+// ─────────────────────────────────────────────
+// [12] UI state management
+// ─────────────────────────────────────────────
+const uiState = { key: null }
+function initUI(key, html) {
+  if (uiState.key === key) return
+  uiState.key = key
+  document.getElementById('ui').innerHTML = html
+}
+function clearUI() {
+  uiState.key = null
+  document.getElementById('ui').innerHTML = ''
+}
+
+// ─────────────────────────────────────────────
+// SIGI data
+// ─────────────────────────────────────────────
+const SIGI = {
+  face:  s => s>=90?'(=ↀωↀ=)✧':s>=80?'(=^ω^=)':s>=70?'(=･ω･=)':s>=60?'(=ↀ_ↀ=)':'(=ΦωΦ=)',
+  line1: s => s>=90?'이건 못 참아...':s>=80?'오늘 이거 진짜임':s>=70?'지금 눈에 띄는게 있는데':s>=60?'뭔가 보이긴 하는데':'음... 좀 지켜봐야 할 것 같기도',
+  line2: s => s>=90?'역대급 신호 포착됨 🔥':s>=80?'강한 매수 신호야 ⚡':s>=70?'괜찮은 그림이 나왔어':s>=60?'신호가 애매해':'아직은 관망이 낫겠는데',
+}
+
+// ─────────────────────────────────────────────
+// [13] Scene renderers
+// ─────────────────────────────────────────────
+
+// ─── SIGI (1500ms) ───
+function renderSigi(sc, el) {
+  const stock = DATA[sc.stock]
+  const s = stock.score
+  const t  = clamp(el/1500, 0, 1)
+
+  // bg
+  const grad = ctx.createLinearGradient(0, 0, 0, H)
+  grad.addColorStop(0, '#0a0a14')
+  grad.addColorStop(1, C.bg)
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, W, H)
+
+  // subtle grid lines
+  ctx.strokeStyle = '#ffffff05'
+  ctx.lineWidth = 0.5
+  for (let i=0;i<10;i++) {
+    ctx.beginPath(); ctx.moveTo(i*(W/10), 0); ctx.lineTo(i*(W/10), H); ctx.stroke()
+  }
+  for (let i=0;i<18;i++) {
+    ctx.beginPath(); ctx.moveTo(0, i*(H/18)); ctx.lineTo(W, i*(H/18)); ctx.stroke()
+  }
+
+  const cx=W/2, cy=H/2-40
+  const scoreColor = s>=80?C.gold:s>=60?C.green:C.blue
+  const ringR = 90
+
+  // score ring
+  const ringP = E.outCubic(clamp(t*2,0,1))
+  ctx.save()
+  ctx.strokeStyle = C.muted
+  ctx.lineWidth = 6
+  ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI*2); ctx.stroke()
+  ctx.strokeStyle = scoreColor
+  ctx.lineWidth = 6
+  ctx.lineCap = 'round'
+  ctx.shadowColor = scoreColor; ctx.shadowBlur = 16
+  ctx.beginPath()
+  ctx.arc(cx, cy, ringR, -Math.PI/2, -Math.PI/2 + Math.PI*2*(s/100)*ringP)
+  ctx.stroke()
+  ctx.restore()
+
+  // cat face
+  const faceA     = E.outCubic(clamp((t-0.1)*2.5, 0, 1))
+  const faceScale = E.outElastic(clamp((t-0.05)*1.8, 0, 1))
+  ctx.save()
+  ctx.globalAlpha = faceA
+  ctx.translate(cx, cy)
+  ctx.scale(faceScale, faceScale)
+  ctx.font = 'bold 26px monospace'
+  ctx.fillStyle = scoreColor
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.shadowColor = scoreColor; ctx.shadowBlur = 20
+  ctx.fillText(SIGI.face(s), 0, 0)
+  ctx.textBaseline = 'alphabetic'
+  ctx.restore()
+
+  // score number below ring
+  ctx.save()
+  ctx.globalAlpha = E.outCubic(clamp((t-0.2)*2, 0, 1))
+  ctx.font = 'bold 18px "Noto Sans KR"'
+  ctx.fillStyle = scoreColor
+  ctx.textAlign = 'center'
+  ctx.shadowColor = scoreColor; ctx.shadowBlur = 12
+  const scoreVal = Math.round(s * Math.min(1, t*3))
+  ctx.fillText(`${scoreVal}점`, cx, cy+ringR+30)
+  ctx.restore()
+
+  // line 1
+  ctx.save()
+  ctx.globalAlpha = E.outCubic(clamp((t-0.4)*3, 0, 1))
+  ctx.font = '700 17px "Noto Sans KR"'
+  ctx.fillStyle = C.white
+  ctx.textAlign = 'center'
+  ctx.fillText(SIGI.line1(s), cx, cy+ringR+70)
+  ctx.restore()
+
+  // line 2
+  ctx.save()
+  ctx.globalAlpha = E.outCubic(clamp((t-0.6)*3, 0, 1))
+  ctx.font = '700 15px "Noto Sans KR"'
+  ctx.fillStyle = scoreColor
+  ctx.textAlign = 'center'
+  ctx.shadowColor = scoreColor; ctx.shadowBlur = 8
+  ctx.fillText(SIGI.line2(s), cx, cy+ringR+100)
+  ctx.restore()
+}
+
+// ─── HOOK (2500ms) ───
+function renderHook(sc, el) {
+  const stock = DATA[sc.stock]
+  const t = clamp(el/2500, 0, 1)
+
+  ctx.fillStyle = C.bg
+  ctx.fillRect(0, 0, W, H)
+
+  const tickY = H*0.28
+
+  // ticker
+  const tickScale = E.outElastic(clamp(t*2, 0, 1))
+  ctx.save()
+  ctx.globalAlpha = clamp(t*3, 0, 1)
+  ctx.translate(W/2, tickY)
+  ctx.scale(tickScale, tickScale)
+  ctx.font = '900 48px "Noto Sans KR"'
+  ctx.fillStyle = C.white
+  ctx.textAlign = 'center'
+  ctx.fillText(stock.ticker, 0, 0)
+  ctx.restore()
+
+  // sector badge
+  ctx.save()
+  ctx.globalAlpha = E.outCubic(clamp((t-0.15)*3, 0, 1))
+  ctx.font = '12px "Noto Sans KR"'
+  ctx.textAlign = 'center'
+  const sw2 = ctx.measureText(stock.sector).width
+  const sx = W/2 - sw2/2 - 12, sy = tickY+22
+  ctx.fillStyle = C.muted
+  ctx.beginPath(); ctx.roundRect(sx, sy, sw2+24, 24, 12); ctx.fill()
+  ctx.fillStyle = C.gray
+  ctx.fillText(stock.sector, W/2, sy+16)
+  ctx.restore()
+
+  // price
+  ctx.save()
+  ctx.globalAlpha = E.outCubic(clamp((t-0.25)*3, 0, 1))
+  ctx.font = '700 38px "Noto Sans KR"'
+  ctx.fillStyle = C.white
+  ctx.textAlign = 'center'
+  ctx.fillText(fmtPrice(stock.price), W/2, H*0.46)
+  ctx.restore()
+
+  // change pct
+  const chgColor = stock.change_pct >= 0 ? C.green : C.red
+  ctx.save()
+  ctx.globalAlpha = E.outCubic(clamp((t-0.35)*3, 0, 1))
+  ctx.font = '700 22px "Noto Sans KR"'
+  ctx.fillStyle = chgColor
+  ctx.textAlign = 'center'
+  ctx.shadowColor = chgColor; ctx.shadowBlur = 12
+  ctx.fillText(fmtChange(stock.change_pct), W/2, H*0.54)
+  ctx.restore()
+
+  // signal pills
+  const sigs = [
+    ['골든크로스', stock.signals.golden_cross],
+    ['거래량확인', stock.signals.volume_confirm],
+    ['RSI신호',   stock.signals.rsi_signal],
+  ]
+  const pillY = H*0.64
+  const pillW = 104, pillGap = 8
+  const totalW = sigs.length*pillW + (sigs.length-1)*pillGap
+  let px = W/2 - totalW/2
+  sigs.forEach(([label, on], i) => {
+    const pa = E.outCubic(clamp((t-0.45-i*0.08)*4, 0, 1))
+    ctx.save()
+    ctx.globalAlpha = pa
+    ctx.font = '700 11px "Noto Sans KR"'
+    const bgColor = on ? C.green : C.muted
+    const txColor = on ? '#000' : C.gray
+    ctx.fillStyle = bgColor
+    if (on) { ctx.shadowColor = bgColor; ctx.shadowBlur = 10 }
+    ctx.beginPath(); ctx.roundRect(px, pillY, pillW, 28, 14); ctx.fill()
+    ctx.shadowBlur = 0
+    ctx.fillStyle = txColor
+    ctx.textAlign = 'center'
+    ctx.fillText((on?'✓ ':'')+label, px+pillW/2, pillY+18)
+    ctx.restore()
+    px += pillW + pillGap
   })
-  tt.position.set(0,4.8,0);tt.material.opacity=0;tt.userData.r='title';addSO(tt)
 
-  // Two stock cards
-  stockData.slice(0,2).forEach((stock,si)=>{
-    const W=290,H=460,DPR=TEX_DPR
-    const cvs=document.createElement('canvas');cvs.width=W*DPR;cvs.height=H*DPR
-    const c=cvs.getContext('2d');c.scale(DPR,DPR)
-    const bg=c.createLinearGradient(0,0,0,H)
-    bg.addColorStop(0,'#0f0f22');bg.addColorStop(1,'#07070f')
-    c.fillStyle=bg;c.fillRect(0,0,W,H)
-    c.shadowColor='#f59e0b';c.shadowBlur=8
-    c.strokeStyle='#f59e0b55';c.lineWidth=1.5;c.roundRect(1,1,W-2,H-2,12);c.stroke();c.shadowBlur=0
+  // RR badge
+  ctx.save()
+  ctx.globalAlpha = clamp((t-0.7)*5, 0, 1)
+  const rrScale = E.outElastic(clamp((t-0.7)*3, 0, 1))
+  ctx.font = '700 13px "Noto Sans KR"'
+  const rrText = `RR ${stock.swing.rr_ratio.toFixed(1)}:1`
+  const rrW = ctx.measureText(rrText).width + 24
+  ctx.translate(W/2, H*0.76+16)
+  ctx.scale(rrScale, rrScale)
+  ctx.fillStyle = C.gold
+  ctx.shadowColor = C.gold; ctx.shadowBlur = 16
+  ctx.beginPath(); ctx.roundRect(-rrW/2, -16, rrW, 32, 16); ctx.fill()
+  ctx.shadowBlur = 0
+  ctx.fillStyle = '#000'
+  ctx.textAlign = 'center'
+  ctx.fillText(rrText, 0, 5)
+  ctx.restore()
 
-    c.font=`900 42px "Noto Sans KR",sans-serif`;c.fillStyle='#f59e0b'
-    c.shadowColor='#f59e0b';c.shadowBlur=12;c.textAlign='center';c.textBaseline='alphabetic'
-    c.fillText(stock.ticker,W/2,54);c.shadowBlur=0
+  // name
+  ctx.save()
+  ctx.globalAlpha = E.outCubic(clamp((t-0.5)*3, 0, 1)) * 0.6
+  ctx.font = '14px "Noto Sans KR"'
+  ctx.fillStyle = C.gray
+  ctx.textAlign = 'center'
+  ctx.fillText(stock.name, W/2, H*0.86)
+  ctx.restore()
+}
 
-    c.font=`300 15px "Noto Sans KR",sans-serif`;c.fillStyle='#777'
-    c.fillText((stock.name||stock.ticker).slice(0,16),W/2,76)
+// ─── CARD (3000ms) HTML ───
+function renderCard(sc, el) {
+  ctx.fillStyle = C.bg
+  ctx.fillRect(0, 0, W, H)
+  const stock = DATA[sc.stock]
+  const swing = stock.swing
+  const chgColor = stock.change_pct >= 0 ? '#10b981' : '#ef4444'
+  const key = 'card_' + sc.id
 
-    c.font=`700 28px "Noto Sans KR",sans-serif`;c.fillStyle='#fff'
-    c.fillText(fmtPrice(stock.price),W/2,116)
+  initUI(key, `
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;animation:cardIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">
+    <style>
+    @keyframes cardIn{from{opacity:0;transform:translate(-50%,-54%) scale(0.92)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    .crow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #1a1a1a;}
+    .crow:last-child{border-bottom:none;}
+    .clbl{font-size:12px;color:#666;}
+    .cval{font-size:14px;font-weight:700;color:#fff;}
+    </style>
+    <div style="background:linear-gradient(135deg,#111 0%,#0d0d1a 100%);border:1px solid #222;border-radius:20px;padding:20px 24px;box-shadow:0 20px 60px rgba(0,0,0,0.8);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+        <div>
+          <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px;">${stock.ticker}</div>
+          <div style="font-size:11px;color:#555;margin-top:2px;">${stock.name}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:22px;font-weight:700;color:#fff;">${fmtPrice(stock.price)}</div>
+          <div style="font-size:14px;font-weight:700;color:${chgColor};margin-top:2px;">${fmtChange(stock.change_pct)}</div>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;animation:fadeUp 0.4s 0.2s both;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-size:11px;color:#555;">종합 점수</span>
+          <span style="font-size:13px;font-weight:700;color:#f59e0b;">${stock.score}점</span>
+        </div>
+        <div style="height:6px;background:#1a1a1a;border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:${stock.score}%;background:linear-gradient(90deg,#f59e0b,#ef4444);border-radius:3px;"></div>
+        </div>
+      </div>
+      <div style="animation:fadeUp 0.4s 0.35s both;">
+        <div class="crow"><span class="clbl">진입 구간</span><span class="cval">${fmtPrice(swing.entry_low)} – ${fmtPrice(swing.entry_high)}</span></div>
+        <div class="crow"><span class="clbl">손절 라인</span><span class="cval" style="color:#ef4444;">${fmtPrice(swing.stop_loss)} <span style="font-size:11px;opacity:0.7;">(-${swing.stop_pct}%)</span></span></div>
+        <div class="crow"><span class="clbl">목표1</span><span class="cval" style="color:#10b981;">${fmtPrice(swing.target1)} <span style="font-size:11px;opacity:0.7;">(+${swing.target1_pct}%)</span></span></div>
+        <div class="crow"><span class="clbl">목표2</span><span class="cval" style="color:#10b981;">${fmtPrice(swing.target2)} <span style="font-size:11px;opacity:0.7;">(+${swing.target2_pct}%)</span></span></div>
+        <div class="crow" style="border-bottom:none;"><span class="clbl">리스크 보상비</span><span class="cval" style="color:#f59e0b;">1 : ${swing.rr_ratio.toFixed(1)}</span></div>
+      </div>
+    </div>
+  </div>`)
+}
 
-    // Score mini bar
-    c.fillStyle='#1c1c2e';c.fillRect(14,126,W-28,8)
-    c.fillStyle='#f59e0b';c.fillRect(14,126,(W-28)*(stock.score/100),8)
+// ─── CHART (5000ms) ───
+function renderChart(sc, el) {
+  const stock = DATA[sc.stock]
+  const cd = stock.chart_data
+  const closes = cd.closes, highs = cd.highs, lows = cd.lows, volumes = cd.volumes
+  const n = closes.length
 
-    const sw=stock.swing
-    ;[['진입',fmtPrice(sw.entry_low),'#f59e0b'],
-      ['목표1',`+${sw.target1_pct}%`,'#10b981'],
-      ['목표2',`+${sw.target2_pct}%`,'#10b981'],
-      ['손절',`${sw.stop_pct}%`,'#ef4444'],
-      ['RR',`${sw.rr_ratio}:1`,sw.rr_ratio>=3?'#f59e0b':'#bbb'],
-      ['점수',`${stock.score}점`,'#f59e0b'],
-    ].forEach(([lbl,val,col],i)=>{
-      const y=150+i*44
-      c.font=`400 15px "Noto Sans KR",sans-serif`;c.fillStyle='#666';c.textAlign='left'
-      c.fillText(lbl,12,y)
-      c.font=`700 17px "Noto Sans KR",sans-serif`;c.fillStyle=col;c.textAlign='right'
-      c.fillText(val,W-12,y)
-      c.strokeStyle='#1a1a2e';c.lineWidth=.6;c.beginPath();c.moveTo(10,y+8);c.lineTo(W-10,y+8);c.stroke()
+  const ma5arr  = sma(closes, 5)
+  const ma20arr = sma(closes, 20)
+  const boll    = calcBoll(closes)
+  const fib     = calcFib(closes, highs, lows)
+  const swing   = stock.swing
+  const gcIdx   = findGoldenCross(ma5arr, ma20arr)
+  const volSpike = findVolSpike(volumes)
+
+  const minP = Math.min(Math.min(...lows), swing.stop_loss) * 0.995
+  const maxP = Math.max(Math.max(...highs), swing.target1)  * 1.005
+
+  const xs  = closes.map((_, i) => xArr(i, n))
+  const ys  = closes.map(v => normY(v, minP, maxP))
+  const maxV = Math.max(...volumes)
+
+  // bg
+  ctx.fillStyle = C.bg
+  ctx.fillRect(0, 0, W, H)
+
+  // header
+  ctx.save()
+  ctx.font = '700 14px "Noto Sans KR"'
+  ctx.fillStyle = C.white
+  ctx.textAlign = 'left'
+  ctx.fillText(stock.ticker, CL, 30)
+  ctx.font = '12px "Noto Sans KR"'
+  ctx.fillStyle = C.gray
+  ctx.fillText(stock.name, CL, 50)
+  const chgColor = stock.change_pct>=0?C.green:C.red
+  ctx.font = '700 16px "Noto Sans KR"'
+  ctx.fillStyle = chgColor
+  ctx.textAlign = 'right'
+  ctx.fillText(fmtChange(stock.change_pct), CR, 36)
+  ctx.font = '700 20px "Noto Sans KR"'
+  ctx.fillStyle = C.white
+  ctx.fillText(fmtPrice(stock.price), CR, 60)
+  ctx.restore()
+
+  // chart area border
+  ctx.save()
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1
+  ctx.strokeRect(CL, CT, CR-CL, CB-CT)
+  ctx.strokeRect(CL, VT+4, CR-CL, VB-VT-4)
+  ctx.restore()
+
+  drawYLabels(ctx, minP, maxP)
+  drawXLabels(ctx, n)
+
+  // Phase 1: Boll + price comet (0–1200ms)
+  const p1 = prog(el, 0, 1200)
+  if (p1 > 0) {
+    const bU = boll.upper.map(v => v!=null ? normY(v, minP, maxP) : null)
+    const bL = boll.lower.map(v => v!=null ? normY(v, minP, maxP) : null)
+    const bMid = boll.mid.map(v => v!=null ? normY(v, minP, maxP) : null)
+    const bEnd = Math.floor(p1*(n-1))
+
+    // Boll fill
+    ctx.save()
+    ctx.beginPath()
+    let bollStarted = false
+    for (let i=0; i<=bEnd; i++) {
+      if(bU[i]==null) continue
+      if(!bollStarted){ctx.moveTo(xs[i],bU[i]);bollStarted=true}
+      else ctx.lineTo(xs[i],bU[i])
+    }
+    for (let i=bEnd; i>=0; i--) {
+      if(bL[i]==null) continue
+      ctx.lineTo(xs[i],bL[i])
+    }
+    ctx.closePath()
+    ctx.fillStyle='rgba(96,165,250,0.07)'; ctx.fill()
+
+    // Boll mid dashed
+    ctx.setLineDash([3,5])
+    ctx.strokeStyle='rgba(96,165,250,0.3)'; ctx.lineWidth=0.8
+    ctx.beginPath()
+    let bmStarted=false
+    for(let i=0;i<=bEnd;i++){
+      if(bMid[i]==null) continue
+      if(!bmStarted){ctx.moveTo(xs[i],bMid[i]);bmStarted=true}
+      else ctx.lineTo(xs[i],bMid[i])
+    }
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.restore()
+
+    // price comet line
+    const vxs=[], vys=[]
+    xs.forEach((x,i)=>{ if(closes[i]!=null){vxs.push(x);vys.push(ys[i])} })
+    drawCometLine(ctx, vxs, vys, p1, {
+      color:C.green, lw:2,
+      glow:C.green, glowBlur:10,
+      fill:true, fillColor:'rgba(16,185,129,0.06)',
     })
+  }
 
-    const tex=new THREE.CanvasTexture(cvs);tex.needsUpdate=true
-    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(2.33,3.7),
-      new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false}))
-    const startX=si===0?-16:16,endX=si===0?-1.35:1.35
-    mesh.position.set(startX,1.5,0);mesh.material.opacity=0
-    mesh.userData={r:'card',startX,endX};addSO(mesh)
-  })
+  // Phase 2: MA lines + golden cross (1200–2200ms)
+  const p2 = prog(el, 1200, 2200)
+  if (p2 > 0) {
+    const endI = Math.floor(p2*(n-1))
+    const ma5xs=[], ma5ys=[], ma20xs=[], ma20ys=[]
+    for(let i=0;i<=endI;i++){
+      if(ma5arr[i]!=null){ma5xs.push(xs[i]);ma5ys.push(normY(ma5arr[i],minP,maxP))}
+      if(ma20arr[i]!=null){ma20xs.push(xs[i]);ma20ys.push(normY(ma20arr[i],minP,maxP))}
+    }
+    drawCometLine(ctx,ma5xs,ma5ys,1,{color:'#fbbf24',lw:1.5,comet:false})
+    drawCometLine(ctx,ma20xs,ma20ys,1,{color:'#a78bfa',lw:1.5,comet:false})
 
-  // CTA pill — canvas 512×74, meshH=.82, meshW=(512/74)*.82=5.67 at z=0 max=6.4 ✓
-  const cta=makeTextMesh('저장해두고 직접 확인해보세요 📌',{
-    fontSize:26,color:'#f59e0b',fontWeight:'700',glowColor:'#f59e0b44',
-    width:512,height:74,meshH:.82
-  })
-  cta.position.set(0,-2.8,0);cta.material.opacity=0;cta.userData.r='cta';addSO(cta)
+    // MA legend
+    ctx.save()
+    ctx.globalAlpha=clamp(p2*5,0,1)
+    ctx.font='10px "Noto Sans KR"'
+    ctx.fillStyle='#fbbf24'; ctx.fillRect(CL+4,CT+6,12,2)
+    ctx.fillText('MA5',CL+20,CT+11); ctx.fillStyle='#fbbf24'
+    ctx.fillStyle='#a78bfa'; ctx.fillRect(CL+4,CT+18,12,2)
+    ctx.fillStyle='#a78bfa'; ctx.fillText('MA20',CL+20,CT+23)
+    ctx.restore()
 
-  const br=makeTextMesh('TopStockDaily',{fontSize:26,color:'#ffffff55',fontWeight:'300',width:352,height:64,meshH:.72})
-  br.position.set(0,-3.8,0);br.material.opacity=0;br.userData.r='brand';addSO(br)
-}
-function renderFinal(elapsed){
-  camera.position.set(0,2,12);camera.lookAt(0,0,0)
-  goldLight.position.set(0,5,5);goldLight.intensity=1.5+Math.sin(elapsed*.0022)*.8
-  renderer.toneMappingExposure=1.1
-  sceneObjs.forEach(obj=>{
-    const r=obj.userData.r
-    if(r==='title'){
-      const p=easeOutCubic(prog(elapsed,0,700));obj.material.opacity=p
-      obj.position.y=4.8-(1-p)*2
+    if (gcIdx>=0 && endI>=gcIdx) {
+      const gcx = xs[gcIdx], gcy = normY(closes[gcIdx], minP, maxP)
+      drawBurst(ctx, gcx, gcy, clamp(p2*3-0.3, 0, 1), C.gold)
+      drawPopLabel(ctx, gcx, gcy-20, '골든크로스!', clamp((p2-0.2)*3, 0, 1), C.gold)
     }
-    if(r==='card'){
-      const p=easeOutElastic(prog(elapsed,250,950))
-      obj.material.opacity=clamp(p*1.5,0,1)
-      obj.position.x=lerp(obj.userData.startX,obj.userData.endX,p)
+  }
+
+  // Phase 3: Volume bars (2200–3200ms)
+  const p3 = prog(el, 2200, 3200)
+  if (p3 > 0) {
+    const barW = (CR-CL)/n * 0.6
+    const endI = Math.floor(p3*(n-1))
+    for (let i=0; i<=endI; i++) {
+      const vY = normVY(volumes[i], maxV)
+      const vH = VB - vY
+      if(vH<=0) continue
+      const isSpike = i===volSpike.idx
+      const vc = i>0 && closes[i] >= closes[i-1] ? C.green : C.red
+      ctx.save()
+      ctx.fillStyle = isSpike ? C.gold : vc
+      ctx.globalAlpha = isSpike ? 0.9 : 0.5
+      if(isSpike){ctx.shadowColor=C.gold;ctx.shadowBlur=12}
+      ctx.fillRect(xs[i]-barW/2, vY, barW, vH)
+      ctx.restore()
     }
-    if(r==='cta'){
-      const p=easeOutCubic(prog(elapsed,1000,700))
-      obj.material.opacity=p*(0.65+.35*Math.sin(elapsed*.0055))
+    if (volSpike.idx>=0 && endI>=volSpike.idx) {
+      drawPopLabel(ctx, xs[volSpike.idx], VT-8, `${volSpike.ratio.toFixed(1)}x 급등!`, clamp((p3-0.4)*4,0,1), C.gold)
     }
-    if(r==='brand')obj.material.opacity=easeOutCubic(prog(elapsed,1500,600))
-  })
-  if(elapsed>2350&&!finalBurst){
-    finalBurst=true
-    for(let i=0;i<7;i++){
-      activeEffects.push(createBurst(
-        new THREE.Vector3((Math.random()-.5)*9,(Math.random()-.5)*4,Math.random()),
-        0xf59e0b,80,.07))
+    ctx.save()
+    ctx.globalAlpha=clamp(p3*5,0,1)
+    ctx.font='10px "Noto Sans KR"'; ctx.fillStyle=C.gray; ctx.textAlign='left'
+    ctx.fillText('Volume', CL+4, VT+16)
+    ctx.restore()
+  }
+
+  // Phase 4: Fibonacci (3200–4200ms)
+  const p4 = prog(el, 3200, 4200)
+  if (p4 > 0) {
+    const fibs = [
+      [fib.f618,'Fib 61.8%','rgba(167,139,250,0.7)'],
+      [fib.f500,'Fib 50.0%','rgba(96,165,250,0.5)'],
+      [fib.f382,'Fib 38.2%','rgba(52,211,153,0.5)'],
+    ]
+    fibs.forEach(([val,lbl,col], i) => {
+      const fa = clamp((p4-i*0.15)*4, 0, 1)
+      if(fa<=0) return
+      const fy = normY(val, minP, maxP)
+      if(fy<CT||fy>CB) return
+      ctx.save(); ctx.globalAlpha=fa
+      drawHLine(ctx, fy, CL, CR, lbl, col, {style:'dotted',lw:0.8})
+      ctx.restore()
+    })
+    // entry zone
+    const ezA = clamp((p4-0.4)*3, 0, 1)
+    if(ezA>0){
+      const ey1 = normY(swing.entry_high, minP, maxP)
+      const ey2 = normY(swing.entry_low,  minP, maxP)
+      if(ey1>=CT && ey2<=CB){
+        ctx.save()
+        ctx.globalAlpha=ezA*0.25; ctx.fillStyle=C.gold
+        ctx.fillRect(CL, ey1, CR-CL, ey2-ey1)
+        ctx.globalAlpha=ezA*0.7; ctx.font='bold 10px "Noto Sans KR"'
+        ctx.fillStyle=C.gold; ctx.textAlign='right'
+        ctx.fillText('진입 구간', CR, ey1-3)
+        ctx.restore()
+      }
+    }
+  }
+
+  // Phase 5: Stop/Target + RR badge (4200–5000ms)
+  const p5 = prog(el, 4200, 5000)
+  if (p5 > 0) {
+    const stopY = normY(swing.stop_loss, minP, maxP)
+    const t1Y   = normY(swing.target1,   minP, maxP)
+    const t2Y   = normY(swing.target2,   minP, maxP)
+    ctx.save()
+    ctx.globalAlpha = clamp(p5*5, 0, 1)
+    if(stopY>=CT&&stopY<=CB) drawHLine(ctx,stopY,CL,CR,`손절 ${fmtPrice(swing.stop_loss)}`,C.red,{style:'dashed',lw:1.5})
+    if(t1Y>=CT&&t1Y<=CB)    drawHLine(ctx,t1Y,CL,CR,`목표1 ${fmtPrice(swing.target1)}`,C.green,{style:'dashed',lw:1.5})
+    if(t2Y>=CT&&t2Y<=CB)    drawHLine(ctx,t2Y,CL,CR,`목표2 ${fmtPrice(swing.target2)}`,'#6ee7b7',{style:'dashed',lw:1})
+    ctx.restore()
+
+    // RR badge
+    const rrAlpha = clamp((p5-0.3)*5, 0, 1)
+    if(rrAlpha>0){
+      const rrScale = E.outElastic(clamp((p5-0.3)*3, 0, 1))
+      ctx.save()
+      ctx.globalAlpha = rrAlpha
+      ctx.font = 'bold 12px "Noto Sans KR"'
+      const rrTxt = `RR 1:${swing.rr_ratio.toFixed(1)}`
+      const rw = ctx.measureText(rrTxt).width+20
+      ctx.translate(CL+rw/2, CB+40)
+      ctx.scale(rrScale, rrScale)
+      ctx.fillStyle=C.gold; ctx.shadowColor=C.gold; ctx.shadowBlur=14
+      ctx.beginPath(); ctx.roundRect(-rw/2,-12,rw,24,12); ctx.fill()
+      ctx.shadowBlur=0; ctx.fillStyle='#000'; ctx.textAlign='center'
+      ctx.fillText(rrTxt, 0, 4)
+      ctx.restore()
     }
   }
 }
 
-/* ═══════════════════════════════════════
-   SCENE MANAGEMENT
-═══════════════════════════════════════ */
-function onSceneEnter(plan){
-  clearSO()
-  renderer.toneMappingExposure=1.1
-  goldLight.position.set(0,5,5)
-  if(prevSceneType==='chart3d'&&plan.type!=='chart3d')cleanupChart()
-  const stock=plan.stock!==undefined?stockData[plan.stock]:null
-  switch(plan.type){
-    case'intro':      setupIntro();break
-    case'reveal':     setupReveal(stock);break
-    case'chart3d':    setupChart(stock,plan.stock);break
-    case'signals':    setupSignals(stock);break
-    case'final':      setupFinal();break
-  }
-  prevSceneType=plan.type
+// ─── SUMMARY (3000ms) HTML ───
+function renderSummary(sc, el) {
+  ctx.fillStyle = C.bg
+  ctx.fillRect(0, 0, W, H)
+  const stock = DATA[sc.stock]
+  const sw = stock.swing
+  const key = 'summary_' + sc.id
+  const sigItems = [
+    ['🔀 골든크로스', stock.signals.golden_cross],
+    ['📊 거래량 확인', stock.signals.volume_confirm],
+    ['📈 RSI 신호',   stock.signals.rsi_signal],
+  ]
+
+  initUI(key, `
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;animation:sumIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">
+    <style>
+    @keyframes sumIn{from{opacity:0;transform:translate(-50%,-56%) scale(0.9)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+    @keyframes row{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
+    </style>
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:28px;font-weight:900;color:#fff;">${stock.ticker}</div>
+      <div style="font-size:13px;color:#555;margin-top:4px;">스윙 트레이딩 요약</div>
+    </div>
+    <div style="background:#0d0d14;border:1px solid #1e1e2e;border-radius:16px;padding:16px 20px;margin-bottom:12px;">
+      ${sigItems.map(([lbl,on],i)=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:${i<2?'1px solid #111':'none'};animation:row 0.3s ${0.15+i*0.1}s both;">
+          <span style="font-size:13px;color:#aaa;">${lbl}</span>
+          <span style="font-size:13px;font-weight:700;color:${on?'#10b981':'#ef4444'}">${on?'✓ 확인':'✗ 미확인'}</span>
+        </div>`).join('')}
+    </div>
+    <div style="background:#0d0d14;border:1px solid #1e1e2e;border-radius:16px;padding:16px 20px;margin-bottom:12px;animation:sumIn 0.3s 0.2s both;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12px;color:#555;">진입</span><span style="font-size:13px;font-weight:700;color:#f59e0b;">${fmtPrice(sw.entry_low)} – ${fmtPrice(sw.entry_high)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12px;color:#555;">손절</span><span style="font-size:13px;font-weight:700;color:#ef4444;">${fmtPrice(sw.stop_loss)} (-${sw.stop_pct}%)</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12px;color:#555;">목표1 (${sw.target1_week})</span><span style="font-size:13px;font-weight:700;color:#10b981;">${fmtPrice(sw.target1)} (+${sw.target1_pct}%)</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="font-size:12px;color:#555;">목표2 (${sw.target2_week})</span><span style="font-size:13px;font-weight:700;color:#10b981;">${fmtPrice(sw.target2)} (+${sw.target2_pct}%)</span></div>
+    </div>
+    <div style="display:flex;gap:10px;animation:sumIn 0.3s 0.3s both;">
+      <div style="flex:1;background:#0d0d14;border:1px solid #1e1e2e;border-radius:12px;padding:12px;text-align:center;">
+        <div style="font-size:11px;color:#555;margin-bottom:4px;">리스크보상비</div>
+        <div style="font-size:20px;font-weight:900;color:#f59e0b;">1:${sw.rr_ratio.toFixed(1)}</div>
+      </div>
+      <div style="flex:1;background:#0d0d14;border:1px solid #1e1e2e;border-radius:12px;padding:12px;text-align:center;">
+        <div style="font-size:11px;color:#555;margin-bottom:4px;">거래량 배수</div>
+        <div style="font-size:20px;font-weight:900;color:#60a5fa;">${sw.vol_multiple.toFixed(1)}x</div>
+      </div>
+      <div style="flex:1;background:#0d0d14;border:1px solid #1e1e2e;border-radius:12px;padding:12px;text-align:center;">
+        <div style="font-size:11px;color:#555;margin-bottom:4px;">점수</div>
+        <div style="font-size:20px;font-weight:900;color:#a78bfa;">${stock.score}</div>
+      </div>
+    </div>
+  </div>`)
 }
-function renderSceneFrame(plan,elapsed){
-  const stock=plan.stock!==undefined?stockData[plan.stock]:null
-  switch(plan.type){
-    case'intro':      renderIntro(elapsed);break
-    case'reveal':     renderReveal(elapsed,stock);break
-    case'chart3d':    renderChart3D(elapsed);break
-    case'signals':    renderSignals(elapsed);break
-    case'transition': renderTransition(elapsed);break
-    case'final':      renderFinal(elapsed);break
+
+// ─── TRANSITION (500ms) ───
+function renderTransition(sc, el) {
+  const t = clamp(el/500, 0, 1)
+  ctx.fillStyle = C.bg
+  ctx.fillRect(0, 0, W, H)
+  const alpha = t < 0.3
+    ? E.outQuint(t/0.3)
+    : E.outCubic(1-(t-0.3)/0.7)
+  ctx.save()
+  ctx.globalAlpha = alpha * 0.85
+  ctx.fillStyle = C.white
+  ctx.fillRect(0, 0, W, H)
+  ctx.restore()
+  clearUI()
+}
+
+// ─── FINAL (2500ms) HTML ───
+function renderFinal(sc, el) {
+  ctx.fillStyle = C.bg
+  ctx.fillRect(0, 0, W, H)
+
+  // particle background
+  const t = clamp(el/2500, 0, 1)
+  for (let i=0; i<30; i++) {
+    const seed = i * 137.508
+    const px = (Math.sin(seed)*0.5+0.5)*W
+    const py = (Math.cos(seed*1.3)*0.5+0.5)*H
+    const phase = (t*2 + i*0.2) % 1
+    const sz = 1.5 + Math.sin(seed)*0.8
+    ctx.save()
+    ctx.globalAlpha = clamp(t*4,0,1) * (0.3+Math.sin(phase*Math.PI)*0.4)
+    ctx.fillStyle = [C.gold, C.green, C.blue][i%3]
+    ctx.beginPath(); ctx.arc(px, py, sz, 0, Math.PI*2); ctx.fill()
+    ctx.restore()
+  }
+
+  initUI('final', `
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;text-align:center;animation:finalIn 0.6s cubic-bezier(0.34,1.56,0.64,1) both;">
+    <style>
+    @keyframes finalIn{from{opacity:0;transform:translate(-50%,-60%) scale(0.85)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+    @keyframes pulse{0%,100%{opacity:0.6;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
+    </style>
+    <div style="font-size:40px;margin-bottom:8px;">🐱</div>
+    <div style="font-size:24px;font-weight:900;color:#fff;margin-bottom:4px;">오늘의 추천 완료</div>
+    <div style="font-size:13px;color:#555;margin-bottom:24px;">Top 2 스윙 트레이딩 종목</div>
+    ${DATA.map(s=>`
+    <div style="background:linear-gradient(135deg,#111,#0d0d1a);border:1px solid #222;border-radius:14px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="text-align:left;">
+        <div style="font-size:18px;font-weight:900;color:#fff;">${s.ticker}</div>
+        <div style="font-size:11px;color:#555;">${s.sector}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:15px;font-weight:700;color:#f59e0b;">${fmtChange(s.change_pct)}</div>
+        <div style="font-size:12px;color:#888;margin-top:2px;">점수 ${s.score}</div>
+      </div>
+    </div>`).join('')}
+    <div style="margin-top:16px;padding:10px 20px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:10px;font-size:11px;color:#f59e0b;animation:pulse 2s ease-in-out infinite;">⚠ 본 분석은 참고용입니다. 투자 결정은 본인 판단으로.</div>
+  </div>`)
+}
+
+// ─────────────────────────────────────────────
+// [14] renderScene dispatcher
+// ─────────────────────────────────────────────
+function renderScene(sc, el) {
+  switch(sc.type) {
+    case 'sigi':       renderSigi(sc, el);       break
+    case 'hook':       renderHook(sc, el);        break
+    case 'card':       renderCard(sc, el);        break
+    case 'chart':      renderChart(sc, el);       break
+    case 'summary':    renderSummary(sc, el);     break
+    case 'transition': renderTransition(sc, el);  break
+    case 'final':      renderFinal(sc, el);       break
   }
 }
 
-/* ═══════════════════════════════════════
-   SEGMENT BAR
-═══════════════════════════════════════ */
-function buildSegBar(){
-  const bar=document.getElementById('segbar')
-  bar.innerHTML=SCENE_PLAN.map(()=>'<div class="seg"><div class="seg-fill"></div></div>').join('')
-}
-function updateSegBar(idx,pct){
-  document.querySelectorAll('.seg-fill').forEach((f,i)=>{
-    f.style.width=i<idx?'100%':i===idx?(pct*100)+'%':'0%'
-  })
-}
-
-/* ═══════════════════════════════════════
-   MASTER LOOP
-═══════════════════════════════════════ */
-function masterLoop(ts){
+// ─────────────────────────────────────────────
+// [15] Master loop
+// ─────────────────────────────────────────────
+function masterLoop(ts) {
   requestAnimationFrame(masterLoop)
-  if(!initialized||paused){if(!initialized)renderer.render(scene,camera);return}
-  const dt=Math.min((ts-lastTs)/1000,.05);lastTs=ts
-  if(sceneStart===null)sceneStart=ts
-  const elapsed=ts-sceneStart
+  if (paused) return
+  if (!lastTs) lastTs = ts
+  lastTs = ts
+  if (!scStart) scStart = ts
+  const el = ts - scStart
 
-  ambientParticles.update(dt)
-  goldLight.intensity=Math.max(1,goldLight.intensity*.998)
-  activeEffects=activeEffects.filter(e=>{const a=e.update(dt);if(!a&&e.dispose)e.dispose();return a})
+  ctx.clearRect(0, 0, W, H)
+  ctx.fillStyle = C.bg
+  ctx.fillRect(0, 0, W, H)
 
-  renderSceneFrame(SCENE_PLAN[sceneIdx],elapsed)
-  updateSegBar(sceneIdx,elapsed/SCENE_PLAN[sceneIdx].dur)
+  const sc = SCENES[scIdx]
+  if (DATA) renderScene(sc, el)
+  updateSegBar(scIdx, el / sc.dur)
 
-  if(elapsed>=SCENE_PLAN[sceneIdx].dur){
-    sceneIdx=(sceneIdx+1)%SCENE_PLAN.length
-    sceneStart=ts;onSceneEnter(SCENE_PLAN[sceneIdx])
+  if (el >= sc.dur) {
+    scIdx = (scIdx + 1) % SCENES.length
+    scStart = ts
+    clearUI()
   }
-  renderer.render(scene,camera)
 }
 
-/* ═══════════════════════════════════════
-   MOCK DATA + LOADER
-═══════════════════════════════════════ */
-function getMockData(){
-  function mkChart(base,trend=1){
-    const close=[],high=[],low=[],volume=[],N=65;let p=base
-    for(let i=0;i<N;i++){
-      const chg=(Math.random()-.47)*p*.02*trend;p=Math.max(p*.8,p+chg)
-      close.push(+p.toFixed(2));high.push(+(p*(1+Math.random()*.013)).toFixed(2))
-      low.push(+(p*(1-Math.random()*.013)).toFixed(2))
-      volume.push(Math.floor(3e6+Math.random()*8e6*(i>52?2.6:1)))
-    }
-    return{close,high,low,volume,ma5:calcSMA(close,5),ma20:calcSMA(close,20)}
-  }
-  return{stocks:[
-    {ticker:'AAPL',name:'Apple Inc.',score:84,price:198.45,change_pct:1.23,
-     signals:{golden_cross:true,volume_confirm:true,rsi_signal:true,macd_cross:true,ma_alignment:true,fib_support:false,relative_strength:true},
-     swing:{entry_low:196.5,entry_high:199.2,stop_loss:188,stop_pct:-5.8,target1:218.5,target1_pct:11,target1_week:2,target2:234,target2_pct:19.3,target2_week:4,rr_ratio:3.8,vol_multiple:2.1},
-     chart:mkChart(185,1.1)},
-    {ticker:'NVDA',name:'NVIDIA Corporation',score:92,price:875.3,change_pct:3.45,
-     signals:{golden_cross:true,volume_confirm:true,macd_cross:true,ma_alignment:true,fib_support:true,relative_strength:true,bollinger_break:true},
-     swing:{entry_low:860,entry_high:880,stop_loss:820,stop_pct:-6.8,target1:950,target1_pct:8.6,target1_week:2,target2:1050,target2_pct:20,target2_week:5,rr_ratio:4.2,vol_multiple:2.8},
-     chart:mkChart(810,1.15)},
-  ]}
-}
-async function loadData(){
-  for(const p of['../data.json','https://kimjaeseung.github.io/stock-screener/data.json']){
-    try{const r=await fetch(p+'?t='+Date.now());if(!r.ok)continue;const j=await r.json();if(j.stocks?.length>=2)return j}catch(e){continue}
-  }
-  return getMockData()
-}
+// tap to pause
+document.getElementById('phone').addEventListener('click', () => { paused = !paused })
 
-/* ═══════════════════════════════════════
-   INIT — wait for fonts, then start
-═══════════════════════════════════════ */
-async function init(){
-  buildSegBar()
-
-  // Force font load before any canvas texture creation
-  try{
-    const probe=document.createElement('span')
-    probe.style.cssText='position:fixed;left:-9999px;font-family:"Noto Sans KR",sans-serif;font-size:20px'
-    probe.textContent='가나다 ABC'
-    document.body.appendChild(probe)
-    await document.fonts.ready
+// ─────────────────────────────────────────────
+// [16] Boot — wait for fonts then load data
+// ─────────────────────────────────────────────
+;(async () => {
+  await document.fonts.ready
+  try {
     await Promise.all([
-      document.fonts.load('300 20px "Noto Sans KR"'),
-      document.fonts.load('400 20px "Noto Sans KR"'),
-      document.fonts.load('700 20px "Noto Sans KR"'),
-      document.fonts.load('900 20px "Noto Sans KR"'),
+      document.fonts.load('400 14px "Noto Sans KR"'),
+      document.fonts.load('700 14px "Noto Sans KR"'),
+      document.fonts.load('900 14px "Noto Sans KR"'),
     ])
-    document.body.removeChild(probe)
-  }catch(e){}
-
-  ambientParticles=createAmbientParticles()
-  const data=await loadData()
-  stockData=data.stocks.slice(0,2)
-  onSceneEnter(SCENE_PLAN[0])
-  lastTs=performance.now()
-  initialized=true
-
-  // Hide loading
-  const ld=document.getElementById('loading')
-  ld.style.opacity='0';setTimeout(()=>ld.remove(),700)
-
-  requestAnimationFrame(masterLoop)
-}
-
-document.getElementById('phone').addEventListener('click',()=>{paused=!paused})
-init()
+  } catch(e) {}
+  await loadData()
+})()
 </script>
 </body>
 </html>
