@@ -222,12 +222,12 @@ function normalizeSock(raw) {
     sector:     raw.sector || 'NASDAQ',
     score:      raw.score  || 75,
     vol_ratio:  raw.vol_ratio || 1,
-    // pre-computed signals from screener (10 boolean flags)
+    // pre-computed signals from screener (13 boolean flags)
     signals: raw.signals || {
-      golden_cross:false, volume_confirm:false, rsi_signal:false,
-      rsi_divergence:false, macd_cross:false, bollinger_break:false,
-      stoch_signal:false, ma_alignment:false, relative_strength:false,
-      fib_support:false,
+      golden_cross:false, early_trend:false, volume_confirm:false, rsi_signal:false,
+      rsi_divergence:false, rsi_oversold:false, macd_cross:false, macd_turned:false,
+      bollinger_break:false, stoch_signal:false, ma_alignment:false,
+      relative_strength:false, fib_support:false,
     },
     swing,
     chart_data: { closes, highs, lows, volumes },
@@ -399,6 +399,247 @@ function calcMACD(closes) {
   const signal = ema(macd.map(v=>v||0), 9)
   const hist = macd.map((v,i) => (v!=null&&signal[i]!=null) ? v-signal[i] : null)
   return { macd, signal, hist }
+}
+
+// ─────────────────────────────────────────────
+// [7a] Chart Pattern Detection
+// ─────────────────────────────────────────────
+
+function _mean(arr)   { return arr.reduce((a,b)=>a+b,0)/arr.length }
+function _std(arr)    { const m=_mean(arr); return Math.sqrt(arr.reduce((a,b)=>a+(b-m)**2,0)/arr.length) }
+function _slope(arr)  {
+  const n=arr.length, mx=(n-1)/2, my=_mean(arr)
+  let num=0,den=0
+  arr.forEach((v,i)=>{num+=(i-mx)*(v-my);den+=(i-mx)**2})
+  return den ? num/den : 0
+}
+
+function _findExtrema(arr, win=4) {
+  const peaks=[],troughs=[]
+  for(let i=win;i<arr.length-win;i++){
+    if(arr[i]==null) continue
+    let pk=true,tr=true
+    for(let j=i-win;j<=i+win;j++){
+      if(j===i) continue
+      if(arr[j]==null){pk=false;tr=false;break}
+      if(arr[j]>=arr[i]) pk=false
+      if(arr[j]<=arr[i]) tr=false
+    }
+    if(pk) peaks.push(i)
+    if(tr) troughs.push(i)
+  }
+  return {peaks,troughs}
+}
+
+function detectPattern(closes, highs, lows) {
+  const n=closes.length
+  if(n<30) return null
+  const last=closes[n-1]
+  const {peaks,troughs}=_findExtrema(closes,4)
+  const pk=peaks, tr=troughs
+
+  // 1. 더블 바텀 (W패턴, 강세반전)
+  if(tr.length>=2){
+    const i1=tr[tr.length-2],i2=tr[tr.length-1]
+    if(i2-i1>=8){
+      const v1=closes[i1],v2=closes[i2]
+      if(Math.abs(v1-v2)/Math.max(v1,v2)<0.045){
+        let neck=closes[i1]
+        for(let i=i1+1;i<i2;i++) neck=Math.max(neck,closes[i])
+        const recov=(neck-Math.min(v1,v2))/Math.min(v1,v2)
+        if(recov>0.035 && last>neck*0.94)
+          return{type:'double_bottom',name:'더블 바텀',color:'#10b981',bull:true,i1,i2,neck,v1,v2}
+      }
+    }
+  }
+
+  // 2. 역 머리어깨 (강세반전)
+  if(tr.length>=3){
+    const ls=tr[tr.length-3],hd=tr[tr.length-2],rs=tr[tr.length-1]
+    const lsV=closes[ls],hdV=closes[hd],rsV=closes[rs]
+    if(rs-ls>=20){
+      const sim=Math.abs(lsV-rsV)/Math.max(lsV,rsV)
+      const depth=(Math.min(lsV,rsV)-hdV)/Math.min(lsV,rsV)
+      if(sim<0.07&&depth>0.04){
+        const neck=(lsV+rsV)/2
+        if(last>neck*0.96)
+          return{type:'inv_hs',name:'역 머리어깨',color:'#10b981',bull:true,ls,hd,rs,lsV,hdV,rsV,neck}
+      }
+    }
+  }
+
+  // 3. 컵앤핸들 (강세 지속)
+  for(let pi=0;pi<pk.length-1;pi++){
+    const p1=pk[pi],p2=pk[pi+1]
+    if(p2-p1<15||p2-p1>50) continue
+    const p1V=closes[p1],p2V=closes[p2]
+    if(Math.abs(p1V-p2V)/Math.max(p1V,p2V)>0.09) continue
+    let minV=p1V,minI=p1
+    for(let i=p1+1;i<p2;i++){if(closes[i]<minV){minV=closes[i];minI=i}}
+    const cupD=(Math.min(p1V,p2V)-minV)/Math.min(p1V,p2V)
+    if(cupD<0.07) continue
+    const handleLow=Math.min(...closes.slice(p2,n))
+    const handleD=(p2V-handleLow)/p2V
+    if(handleD<0.15&&last>=p2V*0.93)
+      return{type:'cup_handle',name:'컵앤핸들',color:'#f59e0b',bull:true,p1,cup:minI,p2,p1V,minV,p2V}
+  }
+
+  // 4. 라운딩 바텀 (소서형 — 느린 반전)
+  if(n>=40){
+    const seg=closes.slice(n-40)
+    const midMin=Math.min(...seg.slice(12,28))
+    const leftAvg=_mean(seg.slice(0,10))
+    const rightAvg=_mean(seg.slice(30,40))
+    if(midMin<leftAvg*0.94&&midMin<rightAvg*0.94&&rightAvg>=leftAvg*0.96)
+      return{type:'rounding_bottom',name:'라운딩 바텀',color:'#34d399',bull:true}
+  }
+
+  // 5. 강세 깃발 (급등 후 횡보)
+  if(n>=22){
+    const pole=closes.slice(n-22,n-7)
+    const flag=closes.slice(n-7,n)
+    const poleRise=(_mean(pole.slice(pole.length-3))-_mean(pole.slice(0,3)))/_mean(pole.slice(0,3))
+    const flagRange=(Math.max(...flag)-Math.min(...flag))/Math.max(...flag)
+    if(poleRise>0.07&&flagRange<0.045)
+      return{type:'bull_flag',name:'강세 깃발',color:'#a78bfa',bull:true}
+  }
+
+  // 6. 상승 삼각형 (수평저항 + 상승지지)
+  if(n>=20){
+    const rH=highs.slice(n-20),rL=lows.slice(n-20)
+    const hStd=_std(rH),hMean=_mean(rH)
+    const lSlope=_slope(rL)
+    if(hStd/hMean<0.028&&lSlope>0)
+      return{type:'asc_tri',name:'상승 삼각형',color:'#38bdf8',bull:true}
+  }
+
+  // 7. 하락 쐐기 돌파 (강세반전)
+  if(n>=20){
+    const rH=highs.slice(n-20),rL=lows.slice(n-20)
+    const hs=_slope(rH),ls=_slope(rL)
+    if(hs<0&&ls<0&&hs<ls*1.25&&last>_mean(rH)*0.99)
+      return{type:'falling_wedge',name:'하락 쐐기 돌파',color:'#10b981',bull:true}
+  }
+
+  // 8. 머리어깨 (하락반전 ⚠)
+  if(pk.length>=3){
+    const ls=pk[pk.length-3],hd=pk[pk.length-2],rs=pk[pk.length-1]
+    const lsV=closes[ls],hdV=closes[hd],rsV=closes[rs]
+    if(rs-ls>=20){
+      const sim=Math.abs(lsV-rsV)/Math.max(lsV,rsV)
+      const headH=(hdV-Math.max(lsV,rsV))/Math.max(lsV,rsV)
+      if(sim<0.07&&headH>0.03){
+        let n1=closes[ls],n2=closes[ls]
+        for(let i=ls+1;i<hd;i++) n1=Math.min(n1,closes[i])
+        for(let i=hd+1;i<rs;i++) n2=Math.min(n2,closes[i])
+        return{type:'head_shoulders',name:'머리어깨 ⚠',color:'#ef4444',bull:false,ls,hd,rs,lsV,hdV,rsV,neck:(n1+n2)/2}
+      }
+    }
+  }
+
+  // 9. 더블 탑 (하락반전 ⚠)
+  if(pk.length>=2){
+    const i1=pk[pk.length-2],i2=pk[pk.length-1]
+    if(i2-i1>=8){
+      const v1=closes[i1],v2=closes[i2]
+      if(Math.abs(v1-v2)/Math.max(v1,v2)<0.04){
+        let neck=closes[i1]
+        for(let i=i1+1;i<i2;i++) neck=Math.min(neck,closes[i])
+        if(last<=v1*1.01)
+          return{type:'double_top',name:'더블 탑 ⚠',color:'#f97316',bull:false,i1,i2,neck,v1,v2}
+      }
+    }
+  }
+
+  // 10. 상승 쐐기 (하락 경고 ⚠)
+  if(n>=20){
+    const rH=highs.slice(n-20),rL=lows.slice(n-20)
+    const hs=_slope(rH),ls=_slope(rL)
+    if(hs>0&&ls>0&&ls>hs*1.3)
+      return{type:'rising_wedge',name:'상승 쐐기 ⚠',color:'#fb923c',bull:false}
+  }
+
+  // 11. 하락 삼각형 (하방 돌파 ⚠)
+  if(n>=20){
+    const rH=highs.slice(n-20),rL=lows.slice(n-20)
+    const lStd=_std(rL),lMean=_mean(rL)
+    const hSlope=_slope(rH)
+    if(lStd/lMean<0.028&&hSlope<0)
+      return{type:'desc_tri',name:'하락 삼각형 ⚠',color:'#f97316',bull:false}
+  }
+
+  // 12. 강세 페넌트 (급등 후 수렴)
+  if(n>=18){
+    const seg=closes.slice(n-18)
+    const poleHigh=Math.max(...seg.slice(0,8))
+    const poleLow=seg[0]
+    const poleRise=(poleHigh-poleLow)/poleLow
+    const pennH=highs.slice(n-10),pennL=lows.slice(n-10)
+    const pennHSlope=_slope(pennH),pennLSlope=_slope(pennL)
+    if(poleRise>0.06&&pennHSlope<0&&pennLSlope>0)
+      return{type:'pennant',name:'강세 페넌트',color:'#c084fc',bull:true}
+  }
+
+  return null
+}
+
+function drawPatternOverlay(ctx, pattern, xs, closes, highs, lows, minP, maxP, alpha, n) {
+  if(!pattern||alpha<=0) return
+  ctx.save(); ctx.globalAlpha=alpha
+
+  const C2=pattern.color
+  // Pattern name badge (below MA legend)
+  ctx.font='bold 10px "Noto Sans KR"'
+  const lbl= pattern.bull ? '▲ '+pattern.name : '▽ '+pattern.name
+  const bw=ctx.measureText(lbl).width+14
+  ctx.fillStyle=C2+'22'; ctx.strokeStyle=C2+'99'; ctx.lineWidth=1
+  ctx.beginPath(); ctx.roundRect(CL+2,CT+38,bw,18,4); ctx.fill(); ctx.stroke()
+  ctx.fillStyle=C2; ctx.textAlign='left'
+  ctx.fillText(lbl, CL+7, CT+51)
+
+  // Pattern-specific overlays
+  const nY=v=>normY(v,minP,maxP)
+  ctx.setLineDash([4,3]); ctx.lineWidth=1.2
+
+  if(pattern.type==='double_bottom'||pattern.type==='double_top'){
+    [pattern.i1,pattern.i2].forEach(idx=>{
+      const px=xs[idx],py=nY(closes[idx])
+      ctx.beginPath(); ctx.arc(px,py,5,0,Math.PI*2)
+      ctx.strokeStyle=C2; ctx.stroke()
+    })
+    const ny=nY(pattern.neck)
+    if(ny>CT&&ny<CB){
+      ctx.strokeStyle=C2+'cc'
+      ctx.beginPath(); ctx.moveTo(xs[pattern.i1],ny); ctx.lineTo(xs[n-1],ny); ctx.stroke()
+    }
+  }
+
+  if(pattern.type==='inv_hs'||pattern.type==='head_shoulders'){
+    [pattern.ls,pattern.hd,pattern.rs].forEach((idx,i)=>{
+      const px=xs[idx],py=nY(closes[idx])
+      ctx.beginPath(); ctx.arc(px,py,4+i%2*2,0,Math.PI*2)
+      ctx.strokeStyle=C2; ctx.stroke()
+    })
+    const ny=nY(pattern.neck)
+    if(ny>CT&&ny<CB){
+      ctx.strokeStyle=C2+'bb'
+      ctx.beginPath(); ctx.moveTo(xs[pattern.ls],ny); ctx.lineTo(xs[n-1],ny); ctx.stroke()
+    }
+  }
+
+  if(pattern.type==='cup_handle'){
+    const px1=xs[pattern.p1],cupX=xs[pattern.cup],px3=xs[pattern.p2]
+    const py1=nY(pattern.p1V),cupY=nY(pattern.minV),py3=nY(pattern.p2V)
+    ctx.strokeStyle=C2+'88'; ctx.lineWidth=1.5
+    ctx.beginPath(); ctx.moveTo(px1,py1)
+    ctx.bezierCurveTo(px1+(cupX-px1)*0.5,cupY,cupX-(px3-cupX)*0.5,cupY,px3,py3)
+    ctx.stroke()
+    ctx.beginPath(); ctx.arc(px1,py1,4,0,Math.PI*2); ctx.stroke()
+    ctx.beginPath(); ctx.arc(px3,py3,4,0,Math.PI*2); ctx.stroke()
+    ctx.beginPath(); ctx.arc(cupX,cupY,3,0,Math.PI*2); ctx.stroke()
+  }
+
+  ctx.setLineDash([]); ctx.restore()
 }
 
 // ─────────────────────────────────────────────
@@ -1003,7 +1244,10 @@ function renderChart(sc, el) {
     })
   }
 
-  // Phase 2: MA lines + golden cross (1200–2200ms)
+  // Pattern detection (done once)
+  const pattern = detectPattern(closes, highs, lows)
+
+  // Phase 2: MA lines + short-term cross + pattern overlay (1200–2200ms)
   const p2 = prog(el, 1200, 2200)
   if (p2 > 0) {
     const endI = Math.floor(p2*(n-1))
@@ -1025,11 +1269,16 @@ function renderChart(sc, el) {
     ctx.fillStyle='#a78bfa'; ctx.fillText('MA20',CL+20,CT+23)
     ctx.restore()
 
+    // Short-term cross (MA5 > MA20) — 단기돌파 (골든크로스가 아님)
     if (gcIdx>=0 && endI>=gcIdx) {
       const gcx = xs[gcIdx], gcy = normY(closes[gcIdx], minP, maxP)
       drawBurst(ctx, gcx, gcy, clamp(p2*3-0.3, 0, 1), C.gold)
-      drawPopLabel(ctx, gcx, gcy-20, '골든크로스!', clamp((p2-0.2)*3, 0, 1), C.gold)
+      drawPopLabel(ctx, gcx, gcy-20, '단기 돌파!', clamp((p2-0.2)*3, 0, 1), C.gold)
     }
+
+    // Pattern overlay (fades in mid-phase)
+    drawPatternOverlay(ctx, pattern, xs, closes, highs, lows, minP, maxP,
+      clamp((p2-0.4)*4, 0, 1), n)
   }
 
   // Phase 3: Volume bars (2200–3200ms)
@@ -1208,24 +1457,27 @@ function renderSummary(sc, el) {
     const arr = calcRSI(cls); return arr[n-1] || 50
   })()
 
-  // 12개 기술 지표 — screener pre-computed signals 우선 사용
+  // 14개 기술 지표 — screener pre-computed signals (스코어링과 완전 정렬)
   const sigs = [
-    // 트렌드
+    // 트렌드 (② 조기추세+골든크로스 최대 13pt)
     ['📈 골든크로스 (MA20>MA60)',   S.golden_cross],
     ['📐 MA 완전 정렬 (5>20>60)',   S.ma_alignment],
-    ['💥 30일 추세 돌파',           trendBreakout],
-    // 모멘텀
+    ['🌱 조기 추세 전환 (MA5>MA20)', S.early_trend],
+    // 모멘텀 (③ MACD 최대 8pt)
     ['🔀 MACD 골든크로스',          S.macd_cross],
+    ['⚡ MACD 전환 (음→양)',        S.macd_turned],
     ['📊 MACD 히스토그램 상승',     macdHistRising],
-    ['⚡ RSI 모멘텀 (50-70)',       S.rsi_signal],
-    ['🔄 RSI 강세 다이버전스',      S.rsi_divergence],
-    // 거래량
+    // RSI (⑤ 최대 8pt)
+    ['🟢 RSI 모멘텀 (50-73)',       S.rsi_signal],
+    ['🔄 RSI 과매도 반등',          S.rsi_oversold],
+    // 거래량 (④ 최대 10pt)
     ['📦 거래량 급증 (1.5x+)',      S.volume_confirm],
     ['💪 SPY 대비 상대강도',        S.relative_strength],
-    // 패턴·구조
+    // 패턴·구조 (⑥⑦⑧⑨ 합계 최대 15pt)
     ['🎯 볼린저 밴드 돌파',         S.bollinger_break],
     ['🌀 피보나치 지지선',          S.fib_support],
     ['🌊 스토캐스틱 반등',          S.stoch_signal],
+    ['💥 30일 추세 돌파',           trendBreakout],
   ]
 
   const trueN = sigs.filter(([,v])=>v).length
@@ -1294,25 +1546,33 @@ function renderSummary(sc, el) {
       </div>
     </div>
 
-    <!-- 스탯 4개 -->
-    <div style="display:flex;gap:6px;">
-      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:8px 4px;text-align:center;">
-        <div style="font-size:9px;color:#555;margin-bottom:2px;">RR비</div>
-        <div style="font-size:16px;font-weight:900;color:#f59e0b;">1:${sw.rr_ratio.toFixed(1)}</div>
+    <!-- 스탯 5개 -->
+    ${(()=>{
+      const rsDiff = stock.rs_diff || 0
+      const rsColor = rsDiff>=15?'#10b981':rsDiff>=0?'#60a5fa':'#ef4444'
+      const rsText = (rsDiff>=0?'+':'')+rsDiff.toFixed(1)+'%'
+      return `<div style="display:flex;gap:4px;">
+      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:6px 2px;text-align:center;">
+        <div style="font-size:8px;color:#555;margin-bottom:2px;">RR비</div>
+        <div style="font-size:14px;font-weight:900;color:#f59e0b;">1:${sw.rr_ratio.toFixed(1)}</div>
       </div>
-      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:8px 4px;text-align:center;">
-        <div style="font-size:9px;color:#555;margin-bottom:2px;">거래량</div>
-        <div style="font-size:16px;font-weight:900;color:#60a5fa;">${sw.vol_multiple.toFixed(1)}x</div>
+      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:6px 2px;text-align:center;">
+        <div style="font-size:8px;color:#555;margin-bottom:2px;">거래량</div>
+        <div style="font-size:14px;font-weight:900;color:#60a5fa;">${sw.vol_multiple.toFixed(1)}x</div>
       </div>
-      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:8px 4px;text-align:center;">
-        <div style="font-size:9px;color:#555;margin-bottom:2px;">RSI</div>
-        <div style="font-size:16px;font-weight:900;color:${rsiVal>70?'#ef4444':rsiVal>50?'#10b981':'#60a5fa'};">${rsiVal.toFixed(0)}</div>
+      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:6px 2px;text-align:center;">
+        <div style="font-size:8px;color:#555;margin-bottom:2px;">RSI</div>
+        <div style="font-size:14px;font-weight:900;color:${rsiVal>70?'#ef4444':rsiVal>50?'#10b981':'#60a5fa'};">${rsiVal.toFixed(0)}</div>
       </div>
-      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:8px 4px;text-align:center;">
-        <div style="font-size:9px;color:#555;margin-bottom:2px;">점수</div>
-        <div style="font-size:16px;font-weight:900;color:#a78bfa;">${stock.score}</div>
+      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:6px 2px;text-align:center;">
+        <div style="font-size:8px;color:#555;margin-bottom:2px;">20일</div>
+        <div style="font-size:14px;font-weight:900;color:${rsColor};">${rsText}</div>
       </div>
-    </div>
+      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:6px 2px;text-align:center;">
+        <div style="font-size:8px;color:#555;margin-bottom:2px;">점수</div>
+        <div style="font-size:14px;font-weight:900;color:#a78bfa;">${stock.score}</div>
+      </div>
+    </div>`})()}
   </div>`)
 }
 
