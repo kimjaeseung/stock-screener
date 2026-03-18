@@ -283,19 +283,47 @@ async function loadData() {
     if (!res.ok) throw new Error('fetch fail')
     const json = await res.json()
     const list = Array.isArray(json) ? json : (json.stocks || json.data || [json])
-    const filtered = list
-      .filter(s => {
-        const ch = s.chart || {}
-        const closes = ch.close || ch.closes || []
-        return closes.length >= 60 && (s.signals?.golden_cross || (s.score||0) >= 70)
-      })
-      .sort((a,b) => (b.score||0)-(a.score||0))
-      .slice(0, 2)
-    if (filtered.length >= 2) {
-      DATA = filtered.map(normalizeSock)
-    } else {
-      DATA = getMockData()
+
+    // 기본 필터: 차트 데이터 충분한 종목
+    const valid = list.filter(s => {
+      const ch = s.chart || {}
+      const cd = s.chart_data || {}
+      const closes = cd.closes || ch.close || ch.closes || []
+      return closes.length >= 40
+    })
+
+    if (valid.length === 0) { DATA = getMockData(); requestAnimationFrame(masterLoop); return }
+
+    // ─ 1호: 최고점수 모멘텀 픽
+    const byScore = [...valid].sort((a,b) => (b.score||0)-(a.score||0))
+    const pick1 = byScore[0]
+
+    // ─ 2호: 최적 저점반등 후보
+    // 조건: rsi_oversold OR early_trend (바닥 탈출 초기)
+    //        + macd_turned (모멘텀 전환 시작)
+    //        + 손익비 높은 종목 우선
+    const reversalCandidates = valid.filter(s => {
+      const sig = s.signals || {}
+      const isReversal = sig.rsi_oversold || sig.early_trend || sig.macd_turned
+      const goodRR = (s.swing?.rr_ratio || 0) >= 1.8
+      return isReversal && goodRR && s.ticker !== pick1.ticker
+    })
+
+    // 저점반등 점수 = 손익비 * 2 + 신호 가산
+    const reversalScore = s => {
+      const sig = s.signals || {}
+      const rr  = s.swing?.rr_ratio || 1
+      return rr * 2
+        + (sig.rsi_oversold  ? 5 : 0)
+        + (sig.early_trend   ? 4 : 0)
+        + (sig.macd_turned   ? 3 : 0)
+        + (sig.fib_support   ? 2 : 0)
+        + (sig.volume_confirm? 2 : 0)
     }
+    reversalCandidates.sort((a,b) => reversalScore(b) - reversalScore(a))
+    const pick2 = reversalCandidates[0] || byScore[1] || byScore[0]
+
+    DATA = [pick1, pick2].map(normalizeSock)
   } catch(e) {
     DATA = getMockData()
   }
@@ -1524,17 +1552,29 @@ function renderSummary(sc, el) {
     </style>
 
     <!-- 헤더 -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    ${(()=>{
+      // 픽 유형 판단: 0번은 모멘텀, 1번은 저점반등
+      const isReversal = S.rsi_oversold || S.early_trend
+      const pickLabel  = isReversal
+        ? {txt:'🔄 저점 반등 픽', bg:'rgba(96,165,250,0.12)', bd:'rgba(96,165,250,0.3)', col:'#60a5fa'}
+        : {txt:'🚀 모멘텀 픽',    bg:'rgba(245,158,11,0.12)', bd:'rgba(245,158,11,0.3)',  col:'#f59e0b'}
+      return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <div>
-        <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px;">${stock.ticker}</div>
-        <div style="font-size:11px;color:#555;">스윙 트레이딩 신호 분석</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px;">${stock.ticker}</span>
+          <span style="font-size:9px;padding:3px 8px;border-radius:20px;font-weight:700;
+            background:${pickLabel.bg};border:1px solid ${pickLabel.bd};color:${pickLabel.col};">
+            ${pickLabel.txt}
+          </span>
+        </div>
+        <div style="font-size:11px;color:#555;margin-top:2px;">${stock.name}</div>
       </div>
       <div style="text-align:center;padding:6px 12px;border-radius:20px;
         background:${pctBg};border:1px solid ${pctBd};">
         <div style="font-size:18px;font-weight:900;color:${pctColor};">${pct}%</div>
         <div style="font-size:9px;color:${pctColor};opacity:0.8;">${trueN}/${sigs.length} 신호</div>
       </div>
-    </div>
+    </div>`})()}
 
     <!-- 지표 그리드 2열 -->
     <div style="background:#0a0a12;border:1px solid #1a1a2a;border-radius:14px;padding:10px 12px;margin-bottom:8px;">
