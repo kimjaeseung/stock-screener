@@ -48,6 +48,7 @@ jobs:
           mkdir -p dist/reels
           cp docs/reels/index.html dist/reels/index.html
           cp docs/data.json        dist/data.json
+          cp docs/kr_names.json    dist/kr_names.json
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

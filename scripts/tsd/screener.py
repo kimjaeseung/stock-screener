@@ -1,6 +1,7 @@
 """
-TA screener — 9 signals, all computed manually (no external TA libs).
-Returns top N stocks with score, signals, and chart data.
+TA screener — 11 signals, all computed manually (no external TA libs).
+Returns top N stocks with score, signals (dict), chart_data (reels format),
+swing data (ATR-based), and full indicator chart (SPA format).
 """
 import pandas as pd
 import numpy as np
@@ -43,7 +44,8 @@ def _bollinger(s: pd.Series, n: int = 20) -> tuple[pd.Series, pd.Series, pd.Seri
     return upper, mid, lower, bw
 
 
-def _stoch(high: pd.Series, low: pd.Series, close: pd.Series, k: int = 14, d: int = 3) -> tuple[pd.Series, pd.Series]:
+def _stoch(high: pd.Series, low: pd.Series, close: pd.Series,
+           k: int = 14, d: int = 3) -> tuple[pd.Series, pd.Series]:
     lowest_low = low.rolling(k).min()
     highest_high = high.rolling(k).max()
     pct_k = 100 * (close - lowest_low) / (highest_high - lowest_low + 1e-9)
@@ -51,183 +53,348 @@ def _stoch(high: pd.Series, low: pd.Series, close: pd.Series, k: int = 14, d: in
     return pct_k, pct_d
 
 
+def _atr(high: pd.Series, low: pd.Series, close: pd.Series, n: int = 14) -> pd.Series:
+    prev_close = close.shift(1)
+    tr = pd.concat([
+        high - low,
+        (high - prev_close).abs(),
+        (low - prev_close).abs(),
+    ], axis=1).max(axis=1)
+    return tr.rolling(n).mean()
+
+
+def _safe(s: pd.Series, i: int = -1) -> float:
+    """Safely get scalar from series, return NaN on error."""
+    try:
+        v = float(s.iloc[i])
+        return v if not np.isnan(v) else 0.0
+    except Exception:
+        return 0.0
+
+
+def _series_to_list(s: pd.Series, decimals: int = 2) -> list:
+    """Convert series to JSON-safe list, replacing NaN with None."""
+    return [round(float(v), decimals) if not np.isnan(v) else None for v in s]
+
+
 # ── scoring ───────────────────────────────────────────────────────────────────
 
 def score_stock(ticker: str, df: pd.DataFrame) -> Optional[dict]:
     """
-    Compute 9-signal score. Returns None if data insufficient.
-    Signals:
-      1. Golden Cross (MA20 > MA60) +15
-      2. Volume surge (vol > 1.5× 20d avg) +10
-      3. RSI momentum (50-70) +10
-      4. MACD crossover +10
-      5. Bollinger squeeze +10
-      6. Stochastic oversold recovery +10
-      7. 52-week high proximity +10
-      8. 5-day momentum +10
-      9. Relative strength (vs SPY approx) +15
-    Total max: 100
+    Compute 11-signal score. Returns None if data insufficient.
+
+    Signals returned as boolean dict (keys match SIGNAL_LABELS in reels):
+      golden_cross    — MA20 > MA60 (bonus if recent crossover)
+      volume_confirm  — recent volume spike ≥ 1.5× 20d avg
+      rsi_signal      — RSI 50-70 zone
+      rsi_divergence  — bullish RSI divergence (price lower, RSI higher)
+      bollinger_break — BB squeeze or upper-band breakout
+      macd_cross      — MACD line > signal (bonus if recent crossover)
+      stoch_signal    — stochastic recovering from oversold
+      ma_alignment    — MA5 > MA20 > MA60 (full bullish stack)
+      relative_strength — 20d return > SPY (set in run_screener)
+      fib_support     — price within 1.5×ATR of Fib 38.2/50/61.8%
+
+    Chart data in REELS format: {closes, highs, lows, volumes}
+    Chart data in SPA format:   {dates, open, high, low, close, volume, ma5, ma20, ...}
+    Swing data: ATR-based entry/stop/target with R:R ratio.
     """
     if len(df) < 60:
         return None
 
-    close = df["Close"]
-    high = df["High"]
-    low = df["Low"]
+    close  = df["Close"]
+    high   = df["High"]
+    low    = df["Low"]
     volume = df["Volume"]
 
-    # Dollar volume filter — $1M/day minimum
+    # Dollar volume filter — $500K/day minimum (lowered from 1M for wider coverage)
     avg_vol_20 = float(volume.tail(20).mean())
     last_close = float(close.iloc[-1])
-    if avg_vol_20 * last_close < 1_000_000:
+    if avg_vol_20 * last_close < 500_000:
         return None
 
-    score = 0
-    signals: list[str] = []
-    details: dict = {}
+    score    = 0
+    signals  = {}   # dict[str, bool] — keys match SIGNAL_LABELS in reels
+    details  = {}
 
-    # ── 1. Golden Cross ──
-    ma20 = _sma(close, 20)
-    ma60 = _sma(close, 60)
-    if float(ma20.iloc[-1]) > float(ma60.iloc[-1]):
-        score += 15
-        signals.append("Golden Cross (MA20>60) ✨")
-    details["golden_cross"] = float(ma20.iloc[-1]) > float(ma60.iloc[-1])
+    # ── Compute all indicators upfront ──
+    ma5      = _sma(close, 5)
+    ma20     = _sma(close, 20)
+    ma60     = _sma(close, 60)
+    rsi_s    = _rsi(close)
+    macd_l, macd_sig, macd_hist = _macd(close)
+    bb_up, _, bb_lo, bw         = _bollinger(close)
+    stk, stk_d = _stoch(high, low, close)
+    atr_s    = _atr(high, low, close, 14)
+
+    ma5_v    = _safe(ma5)
+    ma20_v   = _safe(ma20)
+    ma60_v   = _safe(ma60)
+    rsi_v    = _safe(rsi_s)
+    ml       = _safe(macd_l)
+    ms       = _safe(macd_sig)
+    mh       = _safe(macd_hist)
+    mh_prev  = _safe(macd_hist, -2)
+    bw_v     = _safe(bw)
+    bw_20ago = _safe(bw.tail(21).iloc[0:1].squeeze()) if len(bw) >= 21 else bw_v
+    bb_up_v  = _safe(bb_up)
+    bb_lo_v  = _safe(bb_lo)
+    stk_v    = _safe(stk)
+    stk_d_v  = _safe(stk_d)
+    stk_prev = _safe(stk, -2)
+    atr_v    = _safe(atr_s)
+    if atr_v <= 0:
+        atr_v = last_close * 0.02  # fallback: 2% of price
+
+    vol_ratio     = float(volume.iloc[-1]) / (avg_vol_20 + 1)
+    max_vol_5d    = float(volume.tail(5).max()) / (avg_vol_20 + 1)
+    effective_vol = max(vol_ratio, max_vol_5d)
+
+    # ── 1. Golden Cross (MA20 > MA60) ──
+    is_golden    = ma20_v > ma60_v
+    # Detect actual crossover within last 10 bars
+    recent_gc    = False
+    if len(ma20) >= 11 and len(ma60) >= 11:
+        for i in range(-10, -1):
+            try:
+                prev_a, prev_b = float(ma20.iloc[i - 1]), float(ma60.iloc[i - 1])
+                curr_a, curr_b = float(ma20.iloc[i]),     float(ma60.iloc[i])
+                if prev_a <= prev_b and curr_a > curr_b:
+                    recent_gc = True
+                    break
+            except Exception:
+                pass
+
+    if is_golden:
+        score += 12
+        if recent_gc:
+            score += 5  # fresh crossover bonus
+    signals["golden_cross"] = is_golden
+    details["golden_cross"]  = is_golden
+    details["recent_gc"]     = recent_gc
 
     # ── 2. Volume surge ──
-    vol_ratio = float(volume.iloc[-1]) / (avg_vol_20 + 1)
-    if vol_ratio >= 2.0:
+    is_vol_confirmed = effective_vol >= 1.5
+    if effective_vol >= 2.5:
         score += 10
-        signals.append(f"Volume Surge {vol_ratio:.1f}× 🔥")
-    elif vol_ratio >= 1.5:
+    elif effective_vol >= 2.0:
+        score += 8
+    elif effective_vol >= 1.5:
         score += 6
-        signals.append(f"Volume Up {vol_ratio:.1f}×")
-    elif vol_ratio >= 1.2:
+    elif effective_vol >= 1.2:
         score += 3
-    details["vol_ratio"] = round(vol_ratio, 2)
+    signals["volume_confirm"] = is_vol_confirmed
+    details["vol_ratio"]      = round(vol_ratio, 2)
+    details["max_vol_5d"]     = round(max_vol_5d, 2)
 
     # ── 3. RSI momentum ──
-    rsi = _rsi(close)
-    rsi_val = float(rsi.iloc[-1])
-    if 55 <= rsi_val <= 70:
+    is_rsi_ok = 50 <= rsi_v <= 70
+    if 57 <= rsi_v <= 70:
         score += 10
-        signals.append(f"RSI Strong Zone ({rsi_val:.0f}) 📈")
-    elif 50 <= rsi_val < 55:
+    elif 50 <= rsi_v < 57:
         score += 6
-        signals.append(f"RSI Rising ({rsi_val:.0f})")
-    elif 70 < rsi_val <= 80:
-        score += 5
-    elif rsi_val > 80:
-        score += 2  # overbought
-    details["rsi"] = round(rsi_val, 1)
+    elif 70 < rsi_v <= 80:
+        score += 4
+    elif rsi_v > 80:
+        score += 1  # overbought
+    signals["rsi_signal"] = is_rsi_ok
+    details["rsi"]        = round(rsi_v, 1)
 
-    # ── 4. MACD crossover ──
-    macd_line, macd_signal, macd_hist = _macd(close)
-    ml = float(macd_line.iloc[-1])
-    ms = float(macd_signal.iloc[-1])
-    mh_now = float(macd_hist.iloc[-1])
-    mh_prev = float(macd_hist.iloc[-2]) if len(macd_hist) >= 2 else 0.0
-    if ml > ms and mh_now > mh_prev and mh_now > 0:
+    # ── 4. RSI Divergence (bullish: price lower, RSI higher) ──
+    rsi_div = False
+    if len(close) >= 21 and len(rsi_s) >= 21:
+        p_now, p_10 = float(close.iloc[-1]), float(close.iloc[-10])
+        r_now, r_10 = float(rsi_s.iloc[-1]), float(rsi_s.iloc[-10])
+        if p_now < p_10 and r_now > r_10 and rsi_v < 55:
+            rsi_div = True
+            score += 6
+    signals["rsi_divergence"] = rsi_div
+
+    # ── 5. MACD crossover ──
+    is_macd_bull   = ml > ms
+    # Detect actual crossover within last 5 bars
+    macd_crossed   = False
+    if len(macd_l) >= 6:
+        for i in range(-5, -1):
+            try:
+                if (float(macd_l.iloc[i - 1]) <= float(macd_sig.iloc[i - 1]) and
+                        float(macd_l.iloc[i]) > float(macd_sig.iloc[i])):
+                    macd_crossed = True
+                    break
+            except Exception:
+                pass
+
+    if macd_crossed:
         score += 10
-        signals.append("MACD Bullish Cross 🟢")
-    elif ml > ms and mh_now > 0:
-        score += 6
+    elif ml > ms and mh > mh_prev and mh > 0:
+        score += 8
+    elif ml > ms and mh > 0:
+        score += 5
     elif ml > ms:
         score += 3
-    details["macd"] = round(ml - ms, 4)
+    signals["macd_cross"]       = is_macd_bull
+    details["macd"]             = round(ml - ms, 4)
+    details["macd_cross_recent"] = macd_crossed
 
-    # ── 5. Bollinger squeeze ──
-    _, _, _, bw = _bollinger(close)
-    bw_now = float(bw.iloc[-1])
-    bw_20ago = float(bw.tail(21).iloc[0]) if len(bw) >= 21 else bw_now
-    if bw_now < bw_20ago * 0.70:
-        score += 10
-        signals.append("Bollinger Squeeze 🎯")
-    elif bw_now < bw_20ago * 0.85:
-        score += 6
-        signals.append("BB Narrowing")
-    elif bw_now < bw_20ago * 0.93:
-        score += 3
-    details["bb_squeeze"] = round(bw_now / (bw_20ago + 1e-9), 3)
+    # ── 6. Bollinger Squeeze + Breakout ──
+    bb_ratio     = bw_v / (bw_20ago + 1e-9)
+    is_squeeze   = bw_v < bw_20ago * 0.75
+    bb_pos       = (last_close - bb_lo_v) / (bb_up_v - bb_lo_v + 1e-9)
+    is_bb        = is_squeeze or bb_pos > 0.80
 
-    # ── 6. Stochastic recovery ──
-    stk, std_d = _stoch(high, low, close)
-    stk_val = float(stk.iloc[-1])
-    std_val = float(std_d.iloc[-1])
-    stk_prev = float(stk.iloc[-2]) if len(stk) >= 2 else stk_val
-    if stk_prev < 20 and stk_val > stk_prev and stk_val > std_val:
-        score += 10
-        signals.append(f"Stoch Oversold Recovery ({stk_val:.0f}) 🔄")
-    elif stk_val < 30 and stk_val > stk_prev:
-        score += 5
-    elif 40 < stk_val < 60 and stk_val > std_val:
-        score += 3
-    details["stoch_k"] = round(stk_val, 1)
-
-    # ── 7. 52-week high proximity ──
-    hi52 = float(high.tail(252).max()) if len(high) >= 252 else float(high.max())
-    dist = (hi52 - last_close) / (hi52 + 1e-9)
-    if dist <= 0.03:
-        score += 10
-        signals.append(f"Near 52W High ({dist*100:.1f}% below) 🏔")
-    elif dist <= 0.10:
-        score += 7
-        signals.append(f"52W High Proximity ({dist*100:.1f}%)")
-    elif dist <= 0.20:
+    if is_squeeze:
+        score += 8
+    elif bw_v < bw_20ago * 0.88:
         score += 4
-    details["dist_52w"] = round(dist, 4)
+    if bb_pos > 0.85:
+        score += 3  # upper-band breakout bonus
+    signals["bollinger_break"] = is_bb
+    details["bb_squeeze"]      = round(bb_ratio, 3)
+    details["bb_position"]     = round(bb_pos, 3)
 
-    # ── 8. 5-day momentum ──
+    # ── 7. Stochastic recovery ──
+    is_stoch = stk_prev < 25 and stk_v > stk_prev and stk_v > stk_d_v
+    if is_stoch:
+        score += 10
+    elif stk_v < 30 and stk_v > stk_prev:
+        score += 5
+    elif 40 < stk_v < 60 and stk_v > stk_d_v:
+        score += 3
+    signals["stoch_signal"] = is_stoch
+    details["stoch_k"]      = round(stk_v, 1)
+
+    # ── 8. MA Alignment (MA5 > MA20 > MA60) ──
+    is_aligned = ma5_v > ma20_v > ma60_v
+    if is_aligned:
+        score += 8
+    elif ma20_v > ma60_v:
+        score += 3  # partial alignment
+    signals["ma_alignment"] = is_aligned
+    details["ma5"]          = round(ma5_v, 2)
+    details["ma20"]         = round(ma20_v, 2)
+    details["ma60"]         = round(ma60_v, 2)
+
+    # ── 9. 52-week high proximity ──
+    hi52 = float(high.tail(252).max()) if len(high) >= 252 else float(high.max())
+    dist_52w = (hi52 - last_close) / (hi52 + 1e-9)
+    if dist_52w <= 0.03:
+        score += 10
+    elif dist_52w <= 0.10:
+        score += 6
+    elif dist_52w <= 0.20:
+        score += 3
+    details["dist_52w"] = round(dist_52w, 4)
+
+    # ── 10. 5-day momentum ──
+    ret5 = 0.0
     if len(close) >= 6:
         ret5 = float(close.iloc[-1] / close.iloc[-6] - 1) * 100
-        if ret5 >= 10:
-            score += 10
-            signals.append(f"5D Return +{ret5:.1f}% 🚀")
-        elif ret5 >= 5:
-            score += 7
-            signals.append(f"5D Return +{ret5:.1f}%")
-        elif ret5 >= 2:
-            score += 4
+        if ret5 >= 8:
+            score += 8
+        elif ret5 >= 4:
+            score += 5
+        elif ret5 >= 1.5:
+            score += 3
         elif ret5 < -5:
             score -= 3
-        details["ret_5d"] = round(ret5, 2)
+    details["ret_5d"] = round(ret5, 2)
 
-    # ── 9. Relative strength (20d vs market, approx) ──
-    # We use the stock's own 20d return vs a fixed benchmark proxy
-    # Actual SPY comparison is done in main.py and injected as benchmark_20d
+    # ── 11. 20-day return (RS vs SPY set in run_screener) ──
+    ret20 = 0.0
     if len(close) >= 21:
         ret20 = float(close.iloc[-1] / close.iloc[-21] - 1) * 100
-        details["ret_20d"] = round(ret20, 2)
-    else:
-        details["ret_20d"] = 0.0
+    details["ret_20d"] = round(ret20, 2)
+    signals["relative_strength"] = False  # filled in by run_screener
 
-    # Build chart series (last 60 candles)
-    chart_df = df.tail(60).copy()
+    # ── 12. Fibonacci Support ──
+    hi60   = float(high.tail(60).max())
+    lo60   = float(low.tail(60).min())
+    rng60  = hi60 - lo60
+    fib382 = hi60 - 0.382 * rng60
+    fib500 = hi60 - 0.500 * rng60
+    fib618 = hi60 - 0.618 * rng60
+    tol    = atr_v * 1.5
+    is_fib = any(abs(last_close - f) <= tol for f in [fib382, fib500, fib618])
+    if is_fib:
+        score += 7
+    signals["fib_support"] = is_fib
+    details["fib_levels"]  = {
+        "h60": round(hi60, 2), "l60": round(lo60, 2),
+        "r382": round(fib382, 2), "r500": round(fib500, 2), "r618": round(fib618, 2),
+    }
+
+    # ── Swing Data (ATR-based) ──
+    entry_low   = round(last_close * 0.995, 2)
+    entry_high  = round(last_close * 1.005, 2)
+    # Stop: 2.0×ATR or 7% max, whichever is tighter; floor at 60-day low
+    stop_dist   = min(2.0 * atr_v, last_close * 0.07)
+    stop_loss   = round(max(last_close - stop_dist, lo60 * 0.99), 2)
+    stop_pct    = round((stop_loss - last_close) / last_close * 100, 1)
+    target1     = round(last_close + 3.0 * atr_v, 2)
+    target1_pct = round((target1 - last_close) / last_close * 100, 1)
+    target2     = round(last_close + 6.0 * atr_v, 2)
+    target2_pct = round((target2 - last_close) / last_close * 100, 1)
+    risk        = last_close - stop_loss
+    reward      = target2 - last_close
+    rr_ratio    = round(reward / risk, 1) if risk > 0.01 else 1.5
+
+    swing = {
+        "entry_low":   entry_low,    "entry_high":   entry_high,
+        "stop_loss":   stop_loss,    "stop_pct":     stop_pct,
+        "target1":     target1,      "target1_pct":  target1_pct,  "target1_week": 2,
+        "target2":     target2,      "target2_pct":  target2_pct,  "target2_week": 4,
+        "rr_ratio":    rr_ratio,     "vol_multiple": round(effective_vol, 1),
+    }
+
+    # ── Chart data (REELS format: closes/highs/lows/volumes) ──
+    chart_df   = df.tail(65).copy()
+    ch_closes  = [round(float(v), 2) for v in chart_df["Close"]]
+    ch_highs   = [round(float(v), 2) for v in chart_df["High"]]
+    ch_lows    = [round(float(v), 2) for v in chart_df["Low"]]
+    ch_volumes = [int(v) for v in chart_df["Volume"]]
+
     chart_data = {
-        "dates": [str(d.date()) for d in chart_df.index],
-        "open":   [round(float(v), 2) for v in chart_df["Open"]],
-        "high":   [round(float(v), 2) for v in chart_df["High"]],
-        "low":    [round(float(v), 2) for v in chart_df["Low"]],
-        "close":  [round(float(v), 2) for v in chart_df["Close"]],
-        "volume": [int(v) for v in chart_df["Volume"]],
-        "ma20":   [round(float(v), 2) if not np.isnan(v) else None for v in _sma(chart_df["Close"], 20)],
-        "ma60":   [round(float(v), 2) if not np.isnan(v) else None for v in _sma(chart_df["Close"], 60)],
-        "bb_upper": [round(float(v), 2) if not np.isnan(v) else None for v in _bollinger(chart_df["Close"])[0]],
-        "bb_lower": [round(float(v), 2) if not np.isnan(v) else None for v in _bollinger(chart_df["Close"])[2]],
-        "rsi":    [round(float(v), 1) if not np.isnan(v) else None for v in _rsi(chart_df["Close"])],
-        "macd_hist": [round(float(v), 4) if not np.isnan(v) else None for v in _macd(chart_df["Close"])[2]],
-        "stoch_k": [round(float(v), 1) if not np.isnan(v) else None for v in _stoch(chart_df["High"], chart_df["Low"], chart_df["Close"])[0]],
-        "stoch_d": [round(float(v), 1) if not np.isnan(v) else None for v in _stoch(chart_df["High"], chart_df["Low"], chart_df["Close"])[1]],
+        "closes":  ch_closes,
+        "highs":   ch_highs,
+        "lows":    ch_lows,
+        "volumes": ch_volumes,
+    }
+
+    # ── Chart data (SPA format: full indicators) ──
+    cclose = chart_df["Close"]
+    chart = {
+        "dates":     [str(d.date()) for d in chart_df.index],
+        "open":      [round(float(v), 2) for v in chart_df["Open"]],
+        "high":      ch_highs,
+        "low":       ch_lows,
+        "close":     ch_closes,
+        "volume":    ch_volumes,
+        "ma5":       _series_to_list(_sma(cclose, 5)),
+        "ma20":      _series_to_list(_sma(cclose, 20)),
+        "ma60":      _series_to_list(_sma(cclose, 60)),
+        "bb_upper":  _series_to_list(_bollinger(cclose)[0]),
+        "bb_lower":  _series_to_list(_bollinger(cclose)[2]),
+        "rsi":       _series_to_list(_rsi(cclose), 1),
+        "macd_hist": _series_to_list(_macd(cclose)[2], 4),
+        "stoch_k":   _series_to_list(_stoch(chart_df["High"], chart_df["Low"], cclose)[0], 1),
+        "stoch_d":   _series_to_list(_stoch(chart_df["High"], chart_df["Low"], cclose)[1], 1),
+        "fib": {
+            "h60": round(hi60, 2), "l60": round(lo60, 2),
+            "r382": round(fib382, 2), "r500": round(fib500, 2), "r618": round(fib618, 2),
+        },
     }
 
     return {
-        "ticker": ticker,
-        "score": score,
-        "signals": signals[:5],  # top 5 signals
-        "details": details,
-        "price": round(last_close, 2),
+        "ticker":    ticker,
+        "score":     score,
+        "signals":   signals,    # dict[str, bool] — reels-compatible
+        "details":   details,
+        "price":     round(last_close, 2),
         "vol_ratio": round(vol_ratio, 2),
-        "chart": chart_data,
+        "chart_data": chart_data,  # reels: closes/highs/lows/volumes
+        "chart":      chart,       # SPA: full indicator arrays
+        "swing":      swing,
+        "atr":        round(atr_v, 2),
     }
 
 
@@ -238,32 +405,50 @@ def run_screener(
 ) -> list[dict]:
     """
     Score all fetched stocks, apply RS bonus vs SPY, return top N.
+    Sets signals['relative_strength'] based on actual SPY comparison.
     """
     results = []
     for ticker, df in data.items():
         if df is None:
             continue
-        res = score_stock(ticker, df)
+        try:
+            res = score_stock(ticker, df)
+        except Exception as e:
+            print(f"[screener] {ticker} error: {e}")
+            continue
         if res is None:
             continue
 
-        # RS bonus
-        rs_diff = res["details"].get("ret_20d", 0.0) - spy_20d
+        # RS bonus vs SPY
+        rs_diff  = res["details"].get("ret_20d", 0.0) - spy_20d
         rs_bonus = 0
         if rs_diff >= 15:
             rs_bonus = 15
-            res["signals"].insert(0, f"RS +{rs_diff:.0f}% vs SPY 💪")
+            res["signals"]["relative_strength"] = True
         elif rs_diff >= 8:
             rs_bonus = 10
+            res["signals"]["relative_strength"] = True
         elif rs_diff >= 3:
             rs_bonus = 6
+            res["signals"]["relative_strength"] = True
         elif rs_diff >= 0:
             rs_bonus = 3
-        res["score"] += rs_bonus
-        res["rs_bonus"] = rs_bonus
-        res["rs_diff"] = round(rs_diff, 2)
+            res["signals"]["relative_strength"] = False
+        else:
+            res["signals"]["relative_strength"] = False
+
+        res["score"]    += rs_bonus
+        res["rs_bonus"]  = rs_bonus
+        res["rs_diff"]   = round(rs_diff, 2)
 
         results.append(res)
 
     results.sort(key=lambda x: x["score"], reverse=True)
-    return results[:top_n]
+    top = results[:top_n]
+
+    # Print scoring breakdown for top stocks
+    for r in top[:3]:
+        sig_on = [k for k, v in r.get("signals", {}).items() if v]
+        print(f"  {r['ticker']:<6} score={r['score']:3d}  signals={sig_on}")
+
+    return top

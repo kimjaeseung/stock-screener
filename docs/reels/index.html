@@ -356,8 +356,30 @@ function getMockData() {
   }
 }
 
+/* ── 한국어명 헬퍼 ───────────────────────────────────────── */
+window.KR_NAMES = {}
+function getKrName(ticker, englishName) {
+  return window.KR_NAMES[ticker] || englishName || ticker
+}
+
+/* ── kr_names.json 로더 ─────────────────────────────────── */
+async function loadKrNames() {
+  const paths = ['../kr_names.json', '/stock-screener/kr_names.json']
+  for (const p of paths) {
+    try {
+      const r = await fetch(p)
+      if (!r.ok) continue
+      window.KR_NAMES = await r.json()
+      return
+    } catch(e) {}
+  }
+}
+
 /* ── data.json 로더 ──────────────────────────────────────── */
 async function loadData() {
+  // kr_names 와 data.json 을 동시에 요청
+  await loadKrNames()
+
   const paths = [
     '../data.json',
     '/stock-screener/data.json',
@@ -377,22 +399,55 @@ async function loadData() {
 /* 실데이터 방어적 전처리 */
 function prepareData(data) {
   data.stocks = data.stocks.slice(0,2).map(s => {
-    if (!s.chart_data) s.chart_data = generateMockChart(s.price||100, 65)
-    if (!s.swing) {
-      const p = s.price||100
-      s.swing = {
-        entry_low:+(p*0.99).toFixed(2),  entry_high:+(p*1.005).toFixed(2),
-        stop_loss:+(p*0.96).toFixed(2),  stop_pct:-4.0,
-        target1:+(p*1.085).toFixed(2),   target1_pct:8.5,  target1_week:2,
-        target2:+(p*1.165).toFixed(2),   target2_pct:16.5, target2_week:4,
-        rr_ratio:2.5, vol_multiple:2.0,
+    /* chart_data: 스크리너가 {closes,highs,lows,volumes} 로 내보냄.
+       구버전은 s.chart 에 {close,high,low,volume} (단수) 형태로 있을 수 있음. */
+    if (!s.chart_data) {
+      if (s.chart && s.chart.close) {
+        // 구버전 SPA chart 형식 → reels 형식으로 변환
+        s.chart_data = {
+          closes:  s.chart.close  || [],
+          highs:   s.chart.high   || [],
+          lows:    s.chart.low    || [],
+          volumes: s.chart.volume || [],
+        }
+      } else {
+        s.chart_data = generateMockChart(s.price||100, 65)
       }
     }
-    /* signals: 리스트 → 딕셔너리 변환 */
+    /* swing: 없으면 ATR 근사치로 생성 */
+    if (!s.swing) {
+      const p = s.price||100
+      const atr = s.atr || p * 0.025  // fallback: 2.5% of price
+      s.swing = {
+        entry_low:  +(p*0.995).toFixed(2),     entry_high: +(p*1.005).toFixed(2),
+        stop_loss:  +(p - 2.5*atr).toFixed(2), stop_pct:   +(-2.5*atr/p*100).toFixed(1),
+        target1:    +(p + 3*atr).toFixed(2),   target1_pct:+(3*atr/p*100).toFixed(1), target1_week:2,
+        target2:    +(p + 6*atr).toFixed(2),   target2_pct:+(6*atr/p*100).toFixed(1), target2_week:4,
+        rr_ratio:   2.5, vol_multiple: s.vol_ratio||2.0,
+      }
+    }
+    /* signals: 스크리너가 dict[str,bool]로 내보냄.
+       구버전 문자열 리스트라면 키 이름 매핑 시도. */
     if (Array.isArray(s.signals)) {
       const arr = s.signals
-      s.signals = {}
-      Object.keys(SIGNAL_LABELS).forEach(k => { s.signals[k] = arr.includes(k) })
+      const keyMap = {
+        'golden_cross':     ['golden','Golden Cross','MA20'],
+        'volume_confirm':   ['Volume Surge','Volume Up','volume'],
+        'rsi_signal':       ['RSI Strong','RSI Rising','RSI'],
+        'macd_cross':       ['MACD Bullish','MACD Cross'],
+        'bollinger_break':  ['Bollinger','BB'],
+        'stoch_signal':     ['Stoch'],
+        'ma_alignment':     ['alignment','MA5','정배열'],
+        'relative_strength':['RS +','Relative'],
+        'fib_support':      ['Fibonacci','fib'],
+        'rsi_divergence':   ['Divergence','divergence'],
+      }
+      const newSigs = {}
+      Object.keys(SIGNAL_LABELS).forEach(k => {
+        const patterns = keyMap[k] || [k]
+        newSigs[k] = arr.some(item => patterns.some(p => item.includes(p)))
+      })
+      s.signals = newSigs
     }
     if (!s.signals) s.signals = {}
     if (!s.sector)  s.sector = 'NASDAQ'
@@ -760,12 +815,12 @@ function renderSummary(elapsed, stock) {
 
   const sigsHTML = sigs.map((label, i) => {
     const p = easeOutCubic(prog(elapsed, 100+i*120, 380))
-    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;
-                margin-bottom:6px;background:#070707;border:1px solid #111;
-                border-radius:10px;opacity:${p};transform:translateX(${(1-p)*38}px)">
-      <div style="width:18px;height:18px;border-radius:50%;background:#f59e0b;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;
+                margin-bottom:3px;background:#070707;border:1px solid #111;
+                border-radius:8px;opacity:${p};transform:translateX(${(1-p)*38}px)">
+      <div style="width:16px;height:16px;border-radius:50%;background:#f59e0b;
                   display:flex;align-items:center;justify-content:center;
-                  flex-shrink:0;font-size:10px;font-weight:700;color:#000">✓</div>
+                  flex-shrink:0;font-size:9px;font-weight:700;color:#000">✓</div>
       <span style="font-size:12px;color:#999">${label}</span>
     </div>`
   }).join('')
@@ -778,11 +833,11 @@ function renderSummary(elapsed, stock) {
   const gP = easeOutElastic(prog(elapsed, 2200, 650))
 
   setUI(`
-    <div style="position:absolute;inset:0;display:flex;flex-direction:column;padding:44px 20px 20px">
-      <div style="font-size:18px;font-weight:700;color:#f59e0b;margin-bottom:16px;opacity:${hA}">
+    <div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:28px 20px 10px">
+      <div style="font-size:18px;font-weight:700;color:#f59e0b;margin-bottom:8px;opacity:${hA}">
         이 조건이면 진입
       </div>
-      <div style="flex:1;overflow:hidden">${sigsHTML}</div>
+      <div style="margin-bottom:6px">${sigsHTML}</div>
       <div style="opacity:${rA}">
         ${[
           {icon:'🛑', l:'손절가', v:`${fmtPrice(sw.stop_loss)} (${sw.stop_pct}%)`, c:'#ef4444'},
@@ -790,15 +845,15 @@ function renderSummary(elapsed, stock) {
           {icon:'⚖️', l:'손익비', v:`${sw.rr_ratio}:1`, c:sw.rr_ratio>=2?'#f59e0b':'#888'},
         ].map(r=>`
           <div style="display:flex;justify-content:space-between;align-items:center;
-                      padding:9px 14px;background:#0a0a0a;border:1px solid #111;
-                      border-radius:10px;margin-bottom:7px">
+                      padding:6px 10px;background:#0a0a0a;border:1px solid #111;
+                      border-radius:8px;margin-bottom:4px">
             <span style="font-size:12px;color:#555">${r.icon} ${r.l}</span>
             <span style="font-size:13px;font-weight:700;color:${r.c}">${r.v}</span>
           </div>`).join('')}
       </div>
-      <div style="text-align:center;margin-top:14px;
+      <div style="text-align:center;margin-top:8px;
                   opacity:${clamp(gP,0,1)};transform:scale(${clamp(gP,0.2,1)})">
-        <div style="display:inline-block;padding:12px 28px;background:#0a0a0a;
+        <div style="display:inline-block;padding:10px 24px;background:#0a0a0a;
                     border:2px solid ${gradeColor};border-radius:50px;
                     font-size:15px;font-weight:700;color:${gradeColor};
                     box-shadow:0 0 22px ${gradeColor}44">${gradeText}</div>
