@@ -148,10 +148,7 @@ const SIGNAL_LABELS = {
 ════════════════════════════════════════════════════════════ */
 const W = 390, H = 844
 let DPR = 1
-let canvas, mainCtx, drawCtx
-let bufCanvas, bufCtx
-let isRecording = false
-const REELS_ONE_CYCLE_MS = 30 * 1000  // SCENE_PLAN 한 바퀴
+let canvas, ctx
 
 /* ═══════════════════════════════════════════════════════════
    6. 마스터 루프 상태
@@ -224,11 +221,11 @@ function drawCometLine(ctx, xs, ys, progress, {
   const n = xs.length
   const end = (n-1) * easeOutCubic(progress)
   const drawn = Math.floor(end), frac = end - drawn
-  drawCtx.save()
-  drawCtx.strokeStyle = color; drawCtx.lineWidth = lineWidth
-  drawCtx.lineJoin = 'round'; drawCtx.lineCap = 'round'
-  if (glowColor) { drawCtx.shadowColor = glowColor; drawCtx.shadowBlur = glowBlur }
-  drawCtx.beginPath()
+  ctx.save()
+  ctx.strokeStyle = color; ctx.lineWidth = lineWidth
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+  if (glowColor) { ctx.shadowColor = glowColor; ctx.shadowBlur = glowBlur }
+  ctx.beginPath()
   let started = false
   for (let i = 0; i <= Math.min(drawn+1, n-1); i++) {
     const y = ys[i]; if (y == null) { started = false; continue }
@@ -236,21 +233,21 @@ function drawCometLine(ctx, xs, ys, progress, {
     if (i === drawn+1 && drawn < n-1 && ys[drawn] != null) {
       x = lerp(xs[drawn], x, frac)
       const yy = lerp(ys[drawn], y, frac)
-      started ? drawCtx.lineTo(x, yy) : (drawCtx.moveTo(x, yy), started = true)
+      started ? ctx.lineTo(x, yy) : (ctx.moveTo(x, yy), started = true)
       continue
     }
-    started ? drawCtx.lineTo(x, y) : (drawCtx.moveTo(x, y), started = true)
+    started ? ctx.lineTo(x, y) : (ctx.moveTo(x, y), started = true)
   }
-  drawCtx.stroke()
+  ctx.stroke()
   if (comet && progress > 0.02 && progress < 0.97 && ys[drawn] != null) {
     const hi = Math.min(drawn+1, n-1)
     const hx = lerp(xs[drawn], xs[hi], frac)
     const hy = lerp(ys[drawn], ys[hi] ?? ys[drawn], frac)
-    drawCtx.shadowColor = glowColor||color; drawCtx.shadowBlur = 24
-    drawCtx.fillStyle = '#fff'
-    drawCtx.beginPath(); drawCtx.arc(hx, hy, lineWidth*1.9, 0, Math.PI*2); drawCtx.fill()
+    ctx.shadowColor = glowColor||color; ctx.shadowBlur = 24
+    ctx.fillStyle = '#fff'
+    ctx.beginPath(); ctx.arc(hx, hy, lineWidth*1.9, 0, Math.PI*2); ctx.fill()
   }
-  drawCtx.restore()
+  ctx.restore()
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -260,34 +257,34 @@ function drawBurst(ctx, cx, cy, progress, color='#f59e0b') {
   const p = clamp(progress, 0, 1)
   const fa = Math.sin(clamp(p/0.4,0,1)*Math.PI)*0.22
   if (fa > 0.01) {
-    drawCtx.save(); drawCtx.globalAlpha=fa; drawCtx.fillStyle=color
-    drawCtx.fillRect(0,0,W,H); drawCtx.restore()
+    ctx.save(); ctx.globalAlpha=fa; ctx.fillStyle=color
+    ctx.fillRect(0,0,W,H); ctx.restore()
   }
   for (let r=0; r<4; r++) {
     const rp = easeOutCubic(clamp(p*3-r*0.3, 0, 1))
     if (rp <= 0.01) continue
-    drawCtx.save(); drawCtx.globalAlpha = (1-rp)*0.9
-    drawCtx.strokeStyle=color; drawCtx.lineWidth = 2.5*(1-rp*0.7)
-    drawCtx.shadowColor=color; drawCtx.shadowBlur = 14*(1-rp)
-    drawCtx.beginPath(); drawCtx.arc(cx, cy, rp*55, 0, Math.PI*2); drawCtx.stroke()
-    drawCtx.restore()
+    ctx.save(); ctx.globalAlpha = (1-rp)*0.9
+    ctx.strokeStyle=color; ctx.lineWidth = 2.5*(1-rp*0.7)
+    ctx.shadowColor=color; ctx.shadowBlur = 14*(1-rp)
+    ctx.beginPath(); ctx.arc(cx, cy, rp*55, 0, Math.PI*2); ctx.stroke()
+    ctx.restore()
   }
   const pp = easeOutQuint(clamp(p*1.8, 0, 1))
   if (pp > 0.01 && pp < 0.99) {
     for (let i=0; i<12; i++) {
       const a = (i/12)*Math.PI*2
-      drawCtx.save(); drawCtx.globalAlpha = (1-pp)*0.95
-      drawCtx.fillStyle=color; drawCtx.shadowColor=color; drawCtx.shadowBlur=8
-      drawCtx.beginPath()
-      drawCtx.arc(cx+Math.cos(a)*pp*58, cy+Math.sin(a)*pp*58, 2.8*(1-pp*0.85), 0, Math.PI*2)
-      drawCtx.fill(); drawCtx.restore()
+      ctx.save(); ctx.globalAlpha = (1-pp)*0.95
+      ctx.fillStyle=color; ctx.shadowColor=color; ctx.shadowBlur=8
+      ctx.beginPath()
+      ctx.arc(cx+Math.cos(a)*pp*58, cy+Math.sin(a)*pp*58, 2.8*(1-pp*0.85), 0, Math.PI*2)
+      ctx.fill(); ctx.restore()
     }
   }
-  drawCtx.save()
-  drawCtx.globalAlpha = clamp(p*4,0,1) * (1-clamp((p-0.7)/0.3,0,1))
-  drawCtx.shadowColor=color; drawCtx.shadowBlur=30
-  drawCtx.fillStyle='#fff'; drawCtx.beginPath(); drawCtx.arc(cx,cy,5.5,0,Math.PI*2); drawCtx.fill()
-  drawCtx.restore()
+  ctx.save()
+  ctx.globalAlpha = clamp(p*4,0,1) * (1-clamp((p-0.7)/0.3,0,1))
+  ctx.shadowColor=color; ctx.shadowBlur=30
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx,cy,5.5,0,Math.PI*2); ctx.fill()
+  ctx.restore()
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -297,16 +294,16 @@ function drawPopLabel(ctx, x, y, text, progress, color='#f59e0b') {
   const p = easeOutElastic(clamp(progress, 0, 1))
   const alpha = clamp(p*2, 0, 1); if (alpha < 0.01) return
   const offsetY = (1-p)*18
-  drawCtx.save(); drawCtx.globalAlpha = alpha
-  drawCtx.font = '700 11px "Noto Sans KR",sans-serif'
-  drawCtx.textAlign = 'center'; drawCtx.textBaseline = 'alphabetic'
-  const tw = drawCtx.measureText(text).width
+  ctx.save(); ctx.globalAlpha = alpha
+  ctx.font = '700 11px "Noto Sans KR",sans-serif'
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+  const tw = ctx.measureText(text).width
   const bw = tw+22, bh=24, r=12
-  drawCtx.fillStyle='#050505ee'; drawCtx.shadowColor=color; drawCtx.shadowBlur=18
-  drawCtx.beginPath(); drawCtx.roundRect(x-bw/2, y-offsetY-bh, bw, bh, r); drawCtx.fill()
-  drawCtx.fillStyle=color; drawCtx.shadowBlur=8
-  drawCtx.fillText(text, x, y-offsetY-7)
-  drawCtx.restore()
+  ctx.fillStyle='#050505ee'; ctx.shadowColor=color; ctx.shadowBlur=18
+  ctx.beginPath(); ctx.roundRect(x-bw/2, y-offsetY-bh, bw, bh, r); ctx.fill()
+  ctx.fillStyle=color; ctx.shadowBlur=8
+  ctx.fillText(text, x, y-offsetY-7)
+  ctx.restore()
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -490,47 +487,47 @@ function renderHook(ctx, elapsed, stock) {
   /* 황금 플래시 배경 */
   const fp = prog(elapsed, 1200, 280)
   if (fp > 0 && fp < 1) {
-    drawCtx.save(); drawCtx.globalAlpha = Math.sin(fp*Math.PI)*0.38
-    drawCtx.fillStyle='#f59e0b'; drawCtx.fillRect(0,0,W,H); drawCtx.restore()
+    ctx.save(); ctx.globalAlpha = Math.sin(fp*Math.PI)*0.38
+    ctx.fillStyle='#f59e0b'; ctx.fillRect(0,0,W,H); ctx.restore()
   }
 
   /* 라인1: "오늘의 스윙 기회" */
   const a1 = easeOutCubic(prog(elapsed, 0, 400))
   if (a1 > 0.01) {
-    drawCtx.save(); drawCtx.globalAlpha = a1
-    drawCtx.fillStyle='#f59e0b'
-    drawCtx.font = '300 11px "Noto Sans KR",sans-serif'
-    drawCtx.textAlign='center'; drawCtx.textBaseline='alphabetic'
-    drawCtx.letterSpacing = '4px'
-    drawCtx.fillText('오늘의 스윙 기회', cx, H/2-92)
-    drawCtx.letterSpacing = '0px'
-    drawCtx.restore()
+    ctx.save(); ctx.globalAlpha = a1
+    ctx.fillStyle='#f59e0b'
+    ctx.font = '300 11px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.letterSpacing = '4px'
+    ctx.fillText('오늘의 스윙 기회', cx, H/2-92)
+    ctx.letterSpacing = '0px'
+    ctx.restore()
   }
 
   /* 라인2: "4주 안에 +X% 가능" — slideUp */
   const a2 = easeOutCubic(prog(elapsed, 600, 450))
   if (a2 > 0.01) {
-    drawCtx.save(); drawCtx.globalAlpha = a2
-    drawCtx.fillStyle='#ffffff'
-    drawCtx.font = '700 33px "Noto Sans KR",sans-serif'
-    drawCtx.textAlign='center'; drawCtx.textBaseline='alphabetic'
-    drawCtx.fillText(`4주 안에 +${sw.target2_pct}% 가능`, cx, H/2-42 + (1-a2)*22)
-    drawCtx.restore()
+    ctx.save(); ctx.globalAlpha = a2
+    ctx.fillStyle='#ffffff'
+    ctx.font = '700 33px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.fillText(`4주 안에 +${sw.target2_pct}% 가능`, cx, H/2-42 + (1-a2)*22)
+    ctx.restore()
   }
 
   /* 라인3: TICKER — easeOutElastic + 글로우 */
   const a3 = easeOutElastic(prog(elapsed, 1200, 900))
   if (a3 > 0.01) {
     const scale = clamp(a3, 0.1, 1.25)
-    drawCtx.save(); drawCtx.globalAlpha = Math.min(1, a3*1.3)
-    drawCtx.fillStyle='#f59e0b'
-    drawCtx.shadowColor='#f59e0b'; drawCtx.shadowBlur = 28*Math.min(1,a3)
-    drawCtx.font = '900 72px "Noto Sans KR",sans-serif'
-    drawCtx.textAlign='center'; drawCtx.textBaseline='alphabetic'
-    drawCtx.translate(cx, H/2+28)
-    drawCtx.scale(scale, scale)
-    drawCtx.fillText(stock.ticker, 0, 0)
-    drawCtx.restore()
+    ctx.save(); ctx.globalAlpha = Math.min(1, a3*1.3)
+    ctx.fillStyle='#f59e0b'
+    ctx.shadowColor='#f59e0b'; ctx.shadowBlur = 28*Math.min(1,a3)
+    ctx.font = '900 72px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.translate(cx, H/2+28)
+    ctx.scale(scale, scale)
+    ctx.fillText(stock.ticker, 0, 0)
+    ctx.restore()
   }
 
   /* 라인4: 한국어명 + sector */
@@ -538,15 +535,15 @@ function renderHook(ctx, elapsed, stock) {
   if (a4 > 0.01) {
     const krName = getKrName(stock.ticker, stock.name)
     const sectorTxt = stock.sector && stock.sector !== 'NASDAQ' ? stock.sector : 'NASDAQ'
-    drawCtx.save(); drawCtx.globalAlpha = a4
-    drawCtx.fillStyle='#888888'
-    drawCtx.font = '400 12px "Noto Sans KR",sans-serif'
-    drawCtx.textAlign='center'; drawCtx.textBaseline='alphabetic'
-    drawCtx.fillText(krName, cx, H/2+58)
-    drawCtx.fillStyle='#555555'
-    drawCtx.font = '300 11px "Noto Sans KR",sans-serif'
-    drawCtx.fillText(sectorTxt + ' · NASDAQ', cx, H/2+74)
-    drawCtx.restore()
+    ctx.save(); ctx.globalAlpha = a4
+    ctx.fillStyle='#888888'
+    ctx.font = '400 12px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.fillText(krName, cx, H/2+58)
+    ctx.fillStyle='#555555'
+    ctx.font = '300 11px "Noto Sans KR",sans-serif'
+    ctx.fillText(sectorTxt + ' · NASDAQ', cx, H/2+74)
+    ctx.restore()
   }
 }
 
@@ -652,15 +649,15 @@ function renderChart(ctx, elapsed, stock) {
   /* 헤더 */
   const hA = easeOutCubic(prog(elapsed, 0, 350))
   if (hA > 0.01) {
-    drawCtx.save(); drawCtx.globalAlpha = hA
-    drawCtx.fillStyle='#fff'; drawCtx.font='900 20px "Noto Sans KR",sans-serif'
-    drawCtx.textAlign='left'; drawCtx.textBaseline='alphabetic'
-    drawCtx.fillText(stock.ticker, 16, 52)
-    drawCtx.fillStyle='#10b981'; drawCtx.font='400 12px "Noto Sans KR",sans-serif'
-    drawCtx.fillText(fmtPrice(stock.price) + '  ' + fmtChange(stock.change_pct), 16, 70)
-    drawCtx.fillStyle='#666'; drawCtx.font='300 10px "Noto Sans KR",sans-serif'
-    drawCtx.fillText('60일 캔들 차트', 16, 88)
-    drawCtx.restore()
+    ctx.save(); ctx.globalAlpha = hA
+    ctx.fillStyle='#fff'; ctx.font='900 20px "Noto Sans KR",sans-serif'
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic'
+    ctx.fillText(stock.ticker, 16, 52)
+    ctx.fillStyle='#10b981'; ctx.font='400 12px "Noto Sans KR",sans-serif'
+    ctx.fillText(fmtPrice(stock.price) + '  ' + fmtChange(stock.change_pct), 16, 70)
+    ctx.fillStyle='#666'; ctx.font='300 10px "Noto Sans KR",sans-serif'
+    ctx.fillText('60일 캔들 차트', 16, 88)
+    ctx.restore()
   }
 
   /* ── 13. Phase 0: 가격선 혜성 + 일목 구름 (0~1200ms) ── */
@@ -669,19 +666,19 @@ function renderChart(ctx, elapsed, stock) {
     /* 구름 (MA5↔MA20 사이 반투명 채우기) */
     const cA = easeOutCubic(prog(elapsed, 0, 700))*0.25
     if (cA > 0.01) {
-      drawCtx.save(); drawCtx.globalAlpha = cA
-      drawCtx.beginPath(); let ok=false
+      ctx.save(); ctx.globalAlpha = cA
+      ctx.beginPath(); let ok=false
       for (let i=0; i<DN; i++) {
         if (ma5Y[i]==null) continue
-        ok ? drawCtx.lineTo(xs[i], ma5Y[i]) : (drawCtx.moveTo(xs[i], ma5Y[i]), ok=true)
+        ok ? ctx.lineTo(xs[i], ma5Y[i]) : (ctx.moveTo(xs[i], ma5Y[i]), ok=true)
       }
       for (let i=DN-1; i>=0; i--) {
-        if (ma20Y[i]==null) continue; drawCtx.lineTo(xs[i], ma20Y[i])
+        if (ma20Y[i]==null) continue; ctx.lineTo(xs[i], ma20Y[i])
       }
-      drawCtx.closePath()
-      const grad = drawCtx.createLinearGradient(CL, CT, CL, CB)
+      ctx.closePath()
+      const grad = ctx.createLinearGradient(CL, CT, CL, CB)
       grad.addColorStop(0,'#10b98140'); grad.addColorStop(1,'#10b98108')
-      drawCtx.fillStyle = grad; drawCtx.fill(); drawCtx.restore()
+      ctx.fillStyle = grad; ctx.fill(); ctx.restore()
     }
     /* 혜성 가격선 */
     drawCometLine(ctx, xs, closeY, p0, {
@@ -702,22 +699,22 @@ function renderChart(ctx, elapsed, stock) {
       const fp = easeOutCubic(prog(elapsed, 1200+fi*220, 380))
       if (fp < 0.01) return
       const fy = toY(swHigh - r*(swHigh-swLow))
-      drawCtx.save(); drawCtx.globalAlpha = fp*0.55
-      drawCtx.strokeStyle=color; drawCtx.lineWidth=1; drawCtx.setLineDash([6,4])
-      drawCtx.beginPath(); drawCtx.moveTo(CL, fy); drawCtx.lineTo(CR, fy); drawCtx.stroke()
-      drawCtx.setLineDash([])
-      drawCtx.fillStyle=color; drawCtx.font='500 9px "Noto Sans KR",sans-serif'
-      drawCtx.textAlign='left'; drawCtx.textBaseline='middle'
-      drawCtx.globalAlpha=fp*0.75; drawCtx.fillText(label, CR+5, fy)
-      drawCtx.restore()
+      ctx.save(); ctx.globalAlpha = fp*0.55
+      ctx.strokeStyle=color; ctx.lineWidth=1; ctx.setLineDash([6,4])
+      ctx.beginPath(); ctx.moveTo(CL, fy); ctx.lineTo(CR, fy); ctx.stroke()
+      ctx.setLineDash([])
+      ctx.fillStyle=color; ctx.font='500 9px "Noto Sans KR",sans-serif'
+      ctx.textAlign='left'; ctx.textBaseline='middle'
+      ctx.globalAlpha=fp*0.75; ctx.fillText(label, CR+5, fy)
+      ctx.restore()
     })
 
     /* 진입 구간 황금 하이라이트 */
     const ezA = easeOutCubic(prog(elapsed, 1550, 380))*0.14
     if (ezA > 0.01) {
       const ey1 = toY(sw.entry_high), ey2 = toY(sw.entry_low)
-      drawCtx.save(); drawCtx.globalAlpha=ezA; drawCtx.fillStyle='#f59e0b'
-      drawCtx.fillRect(CL, ey1, CR-CL, ey2-ey1); drawCtx.restore()
+      ctx.save(); ctx.globalAlpha=ezA; ctx.fillStyle='#f59e0b'
+      ctx.fillRect(CL, ey1, CR-CL, ey2-ey1); ctx.restore()
     }
 
     /* popLabel: 핵심 지지구간 진입 중 */
@@ -761,11 +758,11 @@ function renderChart(ctx, elapsed, stock) {
       const bh = (vol/maxVol)*(VB-VT)
       const isSpike = vol > avgVol*1.8
       const pulse = isSpike ? (Math.sin(elapsed*0.007)*0.3+0.85) : 1
-      drawCtx.save(); drawCtx.globalAlpha = vp * (isSpike?pulse:0.55)
-      drawCtx.fillStyle = isSpike ? '#10b981' : '#1d3d2d'
-      if (isSpike) { drawCtx.shadowColor='#10b981'; drawCtx.shadowBlur=10 }
-      drawCtx.fillRect(xs[i]-bw/2, VB-bh*vp, bw, bh*vp)
-      drawCtx.restore()
+      ctx.save(); ctx.globalAlpha = vp * (isSpike?pulse:0.55)
+      ctx.fillStyle = isSpike ? '#10b981' : '#1d3d2d'
+      if (isSpike) { ctx.shadowColor='#10b981'; ctx.shadowBlur=10 }
+      ctx.fillRect(xs[i]-bw/2, VB-bh*vp, bw, bh*vp)
+      ctx.restore()
     })
 
     /* 거래량 popLabel */
@@ -784,12 +781,12 @@ function renderChart(ctx, elapsed, stock) {
     const hLineData = []
     function hLine(price, color, dashed) {
       const ly = clamp(toY(price), CT+2, CB-2)
-      drawCtx.save(); drawCtx.globalAlpha=lA*0.88
-      drawCtx.strokeStyle=color; drawCtx.lineWidth=1.5
-      if (dashed) drawCtx.setLineDash([5,3])
-      drawCtx.beginPath(); drawCtx.moveTo(CL, ly); drawCtx.lineTo(CR, ly); drawCtx.stroke()
-      drawCtx.setLineDash([])
-      drawCtx.restore()
+      ctx.save(); ctx.globalAlpha=lA*0.88
+      ctx.strokeStyle=color; ctx.lineWidth=1.5
+      if (dashed) ctx.setLineDash([5,3])
+      ctx.beginPath(); ctx.moveTo(CL, ly); ctx.lineTo(CR, ly); ctx.stroke()
+      ctx.setLineDash([])
+      ctx.restore()
       return ly
     }
 
@@ -807,36 +804,36 @@ function renderChart(ctx, elapsed, stock) {
     for (let i=1; i<lbls.length; i++) {
       if (lbls[i].ly - lbls[i-1].ly < 13) lbls[i].ly = lbls[i-1].ly + 13
     }
-    drawCtx.save(); drawCtx.globalAlpha=lA
-    drawCtx.font='bold 10px "Noto Sans KR",sans-serif'
-    drawCtx.textAlign='left'; drawCtx.textBaseline='middle'
+    ctx.save(); ctx.globalAlpha=lA
+    ctx.font='bold 10px "Noto Sans KR",sans-serif'
+    ctx.textAlign='left'; ctx.textBaseline='middle'
     for (const {color, txt, ly} of lbls) {
-      drawCtx.fillStyle=color; drawCtx.fillText(txt, CR+4, ly)
+      ctx.fillStyle=color; ctx.fillText(txt, CR+4, ly)
     }
-    drawCtx.restore()
+    ctx.restore()
 
     /* 진입 구간 박스 */
     const ey1=toY(sw.entry_high), ey2=toY(sw.entry_low)
-    drawCtx.save(); drawCtx.globalAlpha=lA*0.10; drawCtx.fillStyle='#f59e0b'
-    drawCtx.fillRect(CL, ey1, CR-CL, ey2-ey1)
-    drawCtx.globalAlpha=lA*0.45; drawCtx.strokeStyle='#f59e0b'; drawCtx.lineWidth=1
-    drawCtx.strokeRect(CL, ey1, CR-CL, ey2-ey1); drawCtx.restore()
+    ctx.save(); ctx.globalAlpha=lA*0.10; ctx.fillStyle='#f59e0b'
+    ctx.fillRect(CL, ey1, CR-CL, ey2-ey1)
+    ctx.globalAlpha=lA*0.45; ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1
+    ctx.strokeRect(CL, ey1, CR-CL, ey2-ey1); ctx.restore()
 
     /* 손익비 뱃지 — 차트 좌측 하단, 수평선 라벨(우측)과 겹치지 않음 */
     const bp = easeOutElastic(prog(elapsed, 3950, 550))
     if (bp > 0.01) {
       const bx=CL+62, by=CB-26
-      drawCtx.save(); drawCtx.globalAlpha=Math.min(1,bp*1.4)
-      drawCtx.translate(bx, by); drawCtx.scale(bp, bp)
-      drawCtx.fillStyle='#0a0a0a'
-      drawCtx.shadowColor='#f59e0b'; drawCtx.shadowBlur=16
-      drawCtx.strokeStyle='#f59e0b'; drawCtx.lineWidth=1.5
-      drawCtx.beginPath(); drawCtx.roundRect(-58,-14,116,28,14); drawCtx.fill(); drawCtx.stroke()
-      drawCtx.shadowBlur=0; drawCtx.fillStyle='#f59e0b'
-      drawCtx.font='bold 12px "Noto Sans KR",sans-serif'
-      drawCtx.textAlign='center'; drawCtx.textBaseline='middle'
-      drawCtx.fillText(`R:R  ${sw.rr_ratio}:1  ⭐`, 0, 1)
-      drawCtx.restore()
+      ctx.save(); ctx.globalAlpha=Math.min(1,bp*1.4)
+      ctx.translate(bx, by); ctx.scale(bp, bp)
+      ctx.fillStyle='#0a0a0a'
+      ctx.shadowColor='#f59e0b'; ctx.shadowBlur=16
+      ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1.5
+      ctx.beginPath(); ctx.roundRect(-58,-14,116,28,14); ctx.fill(); ctx.stroke()
+      ctx.shadowBlur=0; ctx.fillStyle='#f59e0b'
+      ctx.font='bold 12px "Noto Sans KR",sans-serif'
+      ctx.textAlign='center'; ctx.textBaseline='middle'
+      ctx.fillText(`R:R  ${sw.rr_ratio}:1  ⭐`, 0, 1)
+      ctx.restore()
     }
   }
 }
@@ -908,16 +905,16 @@ function renderTransition(ctx, elapsed) {
   setUI('')
   const p = prog(elapsed, 0, 500)
   /* 흰색 플래시 */
-  drawCtx.save(); drawCtx.globalAlpha = Math.sin(p*Math.PI)*0.82
-  drawCtx.fillStyle='#ffffff'; drawCtx.fillRect(0,0,W,H); drawCtx.restore()
+  ctx.save(); ctx.globalAlpha = Math.sin(p*Math.PI)*0.82
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H); ctx.restore()
   /* "다음 추천주 →" 오른쪽 스윕 */
   const sp = easeOutCubic(prog(elapsed, 80, 320))
-  drawCtx.save(); drawCtx.globalAlpha = Math.sin(p*Math.PI)*0.85
-  drawCtx.fillStyle='#050505'
-  drawCtx.font='700 13px "Noto Sans KR",sans-serif'
-  drawCtx.textAlign='center'; drawCtx.textBaseline='alphabetic'
-  drawCtx.fillText('다음 추천주 →', lerp(-60, W/2, sp), H/2)
-  drawCtx.restore()
+  ctx.save(); ctx.globalAlpha = Math.sin(p*Math.PI)*0.85
+  ctx.fillStyle='#050505'
+  ctx.font='700 13px "Noto Sans KR",sans-serif'
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+  ctx.fillText('다음 추천주 →', lerp(-60, W/2, sp), H/2)
+  ctx.restore()
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -986,11 +983,11 @@ function renderFinal(elapsed, stocks) {
 function renderScene(scene, elapsed, data) {
   const stock = scene.stock !== undefined ? data.stocks[scene.stock] : null
   switch(scene.type) {
-    case 'hook':       setUI(''); renderHook(drawCtx, elapsed, stock);    break
+    case 'hook':       setUI(''); renderHook(ctx, elapsed, stock);    break
     case 'entry_card': renderEntryCard(elapsed, stock);               break
-    case 'chart':      setUI(''); renderChart(drawCtx, elapsed, stock);   break
+    case 'chart':      setUI(''); renderChart(ctx, elapsed, stock);   break
     case 'summary':    renderSummary(elapsed, stock);                  break
-    case 'transition': renderTransition(drawCtx, elapsed);                break
+    case 'transition': renderTransition(ctx, elapsed);                break
     case 'final':      renderFinal(elapsed, data.stocks);             break
   }
 }
@@ -1000,21 +997,21 @@ function renderScene(scene, elapsed, data) {
 ════════════════════════════════════════════════════════════ */
 function masterLoop(ts) {
   requestAnimationFrame(masterLoop)
-  if (paused && !isRecording) return
+  if (paused) return
   lastTs = ts
   if (!sceneStartTime) sceneStartTime = ts
   const elapsed = ts - sceneStartTime
 
-  drawCtx = isRecording ? bufCtx : mainCtx
-  drawCtx.clearRect(0, 0, W, H)
-  drawCtx.fillStyle = '#050505'; drawCtx.fillRect(0, 0, W, H)
+  /* 캔버스 클리어 */
+  ctx.clearRect(0, 0, W, H)
+  ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, W, H)
 
   const scene = SCENE_PLAN[sceneIdx]
   updateSegBar(sceneIdx, elapsed / scene.dur)
 
   if (stockData) renderScene(scene, elapsed, stockData)
-  if (isRecording) mainCtx.drawImage(bufCanvas, 0, 0)
 
+  /* 씬 전환 */
   if (elapsed >= scene.dur) {
     sceneIdx = (sceneIdx + 1) % SCENE_PLAN.length
     sceneStartTime = ts
@@ -1028,21 +1025,15 @@ window.addEventListener('DOMContentLoaded', async () => {
   /* 4. 세그바 */
   buildSegBar()
 
-  /* 2. Canvas 초기화 — DPR 처리 + 더블버퍼(녹화 시 검은 화면 방지) */
+  /* 2. Canvas 초기화 — DPR 처리 */
   canvas = document.getElementById('scene-canvas')
   DPR    = Math.min(window.devicePixelRatio || 1, 2)
   canvas.width  = W * DPR
   canvas.height = H * DPR
   canvas.style.width  = W + 'px'
   canvas.style.height = H + 'px'
-  mainCtx = canvas.getContext('2d')
-  mainCtx.scale(DPR, DPR)
-  drawCtx = mainCtx
-  bufCanvas = document.createElement('canvas')
-  bufCanvas.width = W * DPR
-  bufCanvas.height = H * DPR
-  bufCtx = bufCanvas.getContext('2d')
-  bufCtx.scale(DPR, DPR)
+  ctx = canvas.getContext('2d')
+  ctx.scale(DPR, DPR)
 
   /* 6. 탭 → 일시정지 토글 */
   document.getElementById('phone').addEventListener('click', () => { paused = !paused })
@@ -1066,12 +1057,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   /* 21. 자동재생 시작 */
   requestAnimationFrame(masterLoop)
 
-  /* Save as video: 버튼 한 번에 처음~끝 한 편 저장 (더블버퍼로 검은 화면 방지) */
+  /* Save as video: 캔버스만 캡처 → 동영상에 버튼/UI 미포함 */
   ;(function() {
     let mediaRecorder = null
     let chunks = []
     const btn = document.getElementById('btnSaveVideo')
     const FPS = 30
+    const MAX_DURATION_MS = 120000
 
     function getMimeType() {
       const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
@@ -1083,15 +1075,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     if (!btn) return
     btn.onclick = function() {
-      if (mediaRecorder && mediaRecorder.state === 'recording') return
-      if (!canvas || !stockData) { btn.textContent = 'Save as video'; return }
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop()
+        return
+      }
+      if (!canvas) return
       try {
-        sceneIdx = 0
-        sceneStartTime = null
-        paused = false
-        isRecording = true
-        btn.textContent = 'Recording…'
-
         const stream = canvas.captureStream(FPS)
         const mime = getMimeType()
         const options = mime ? { mimeType: mime, videoBitsPerSecond: 2500000 } : { videoBitsPerSecond: 2500000 }
@@ -1099,7 +1088,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         chunks = []
         mediaRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
         mediaRecorder.onstop = () => {
-          isRecording = false
           const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'video/webm' })
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
@@ -1111,11 +1099,11 @@ window.addEventListener('DOMContentLoaded', async () => {
           mediaRecorder = null
         }
         mediaRecorder.start(500)
+        btn.textContent = 'Stop & Save'
         setTimeout(() => {
           if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop()
-        }, REELS_ONE_CYCLE_MS + 2000)
+        }, MAX_DURATION_MS)
       } catch (e) {
-        isRecording = false
         btn.textContent = 'Save as video'
         console.warn('Video capture:', e)
       }

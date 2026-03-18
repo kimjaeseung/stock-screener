@@ -62,12 +62,7 @@ const SCENE_DURATION = 3200; // ms per scene (60s / 18 scenes ≈ 3.3s)
 const TOTAL_SCENES = 18;
 
 const canvas = document.getElementById('c');
-const mainCtx = canvas.getContext('2d');
-let drawCtx = mainCtx;  // 녹화 시 더블버퍼: 완성된 프레임만 노출 → 검은 화면 방지
-const bufCanvas = document.createElement('canvas');
-bufCanvas.width = 720;
-bufCanvas.height = 1280;
-const bufCtx = bufCanvas.getContext('2d');
+const ctx = canvas.getContext('2d');
 const progressFill = document.getElementById('progressFill');
 const statusBar = document.getElementById('statusBar');
 
@@ -80,9 +75,6 @@ let sceneStart = 0;
 let particles = [];
 let comets = [];
 let animFrame = null;
-let isRecording = false;
-let recordingStartTime = 0;
-const ONE_CYCLE_MS = (18 * 2) * 3200;  // 18씬 × 2종목 × 3.2초
 
 // ══════════════════════════════════════════════════════════
 //  DATA LOADING
@@ -189,13 +181,11 @@ function renderLoop() {
   const globalProgress = (currentStockIdx * TOTAL_SCENES + currentScene) / (Math.min(stocks.length, 2) * TOTAL_SCENES);
   progressFill.style.width = (globalProgress * 100) + '%';
 
-  drawCtx = isRecording ? bufCtx : mainCtx;
-  drawCtx.clearRect(0, 0, W, H);
+  ctx.clearRect(0, 0, W, H);
   drawScene(stock, currentScene, elapsed, progress);
   updateParticles();
   drawParticles();
   drawComets(elapsed);
-  if (isRecording) mainCtx.drawImage(bufCanvas, 0, 0);
 
   if (isPlaying || elapsed < SCENE_DURATION) {
     animFrame = requestAnimationFrame(renderLoop);
@@ -232,44 +222,44 @@ function drawScene(s, scene, t, p) {
 //  BACKGROUND HELPERS
 // ══════════════════════════════════════════════════════════
 function drawBg(color1='#05080f', color2='#0d1420') {
-  const g = drawCtx.createLinearGradient(0, 0, 0, H);
+  const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, color1);
   g.addColorStop(1, color2);
-  drawCtx.fillStyle = g;
-  drawCtx.fillRect(0, 0, W, H);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
 }
 
 function drawGrid(alpha=0.04) {
-  drawCtx.save();
-  drawCtx.strokeStyle = `rgba(0,212,255,${alpha})`;
-  drawCtx.lineWidth = 1;
+  ctx.save();
+  ctx.strokeStyle = `rgba(0,212,255,${alpha})`;
+  ctx.lineWidth = 1;
   for (let x = 0; x < W; x += 60) {
-    drawCtx.beginPath(); drawCtx.moveTo(x, 0); drawCtx.lineTo(x, H); drawCtx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
   }
   for (let y = 0; y < H; y += 60) {
-    drawCtx.beginPath(); drawCtx.moveTo(0, y); drawCtx.lineTo(W, y); drawCtx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
-  drawCtx.restore();
+  ctx.restore();
 }
 
 function drawGlow(x, y, r, color, alpha=0.3) {
-  const g = drawCtx.createRadialGradient(x, y, 0, x, y, r);
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
   g.addColorStop(0, color.replace(')', `,${alpha})`).replace('rgb','rgba'));
   g.addColorStop(1, 'transparent');
-  drawCtx.fillStyle = g;
-  drawCtx.fillRect(x - r, y - r, r * 2, r * 2);
+  ctx.fillStyle = g;
+  ctx.fillRect(x - r, y - r, r * 2, r * 2);
 }
 
 function gradText(text, x, y, size, color1, color2, align='center') {
-  drawCtx.save();
-  drawCtx.font = `700 ${size}px "SF Pro Display",system-ui,sans-serif`;
-  drawCtx.textAlign = align;
-  const g = drawCtx.createLinearGradient(x - 200, 0, x + 200, 0);
+  ctx.save();
+  ctx.font = `700 ${size}px "SF Pro Display",system-ui,sans-serif`;
+  ctx.textAlign = align;
+  const g = ctx.createLinearGradient(x - 200, 0, x + 200, 0);
   g.addColorStop(0, color1);
   g.addColorStop(1, color2);
-  drawCtx.fillStyle = g;
-  drawCtx.fillText(text, x, y);
-  drawCtx.restore();
+  ctx.fillStyle = g;
+  ctx.fillText(text, x, y);
+  ctx.restore();
 }
 
 function fadeIn(t, duration=400) {
@@ -299,56 +289,56 @@ function drawIntro(s, t, p) {
   const rank = stocks.indexOf(s) + 1;
 
   // Rank badge
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
-  drawCtx.fillStyle = rank === 1 ? '#ffd700' : rank === 2 ? '#c0c0c0' : '#cd7f32';
-  drawCtx.font = '700 28px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`#${rank} TOP PICK`, W/2, 180);
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.fillStyle = rank === 1 ? '#ffd700' : rank === 2 ? '#c0c0c0' : '#cd7f32';
+  ctx.font = '700 28px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`#${rank} TOP PICK`, W/2, 180);
 
   // Ticker
   gradText(s.ticker, W/2, 340, 120, '#00d4ff', '#7b2ff7');
 
   // Price
-  drawCtx.fillStyle = 'rgba(255,255,255,0.7)';
-  drawCtx.font = '400 36px system-ui';
-  drawCtx.fillText(`$${s.price}`, W/2, 420);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = '400 36px system-ui';
+  ctx.fillText(`$${s.price}`, W/2, 420);
 
   // Score circle
   const sc = scoreColor(s.score);
   drawScoreCircle(W/2, 580, 80, s.score, sc, a);
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 function drawScoreCircle(cx, cy, r, score, color, alpha=1) {
-  drawCtx.save();
-  drawCtx.globalAlpha = alpha;
+  ctx.save();
+  ctx.globalAlpha = alpha;
   // Background ring
-  drawCtx.beginPath();
-  drawCtx.arc(cx, cy, r, 0, Math.PI * 2);
-  drawCtx.strokeStyle = 'rgba(255,255,255,0.08)';
-  drawCtx.lineWidth = 8;
-  drawCtx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 8;
+  ctx.stroke();
   // Score arc
   const pct = Math.min(score, 100) / 100;
-  drawCtx.beginPath();
-  drawCtx.arc(cx, cy, r, -Math.PI/2, -Math.PI/2 + Math.PI * 2 * pct);
-  drawCtx.strokeStyle = color;
-  drawCtx.lineWidth = 8;
-  drawCtx.lineCap = 'round';
-  drawCtx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, -Math.PI/2, -Math.PI/2 + Math.PI * 2 * pct);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 8;
+  ctx.lineCap = 'round';
+  ctx.stroke();
   // Text
-  drawCtx.fillStyle = color;
-  drawCtx.font = '700 42px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.textBaseline = 'middle';
-  drawCtx.fillText(score, cx, cy);
-  drawCtx.font = '400 18px system-ui';
-  drawCtx.fillStyle = 'rgba(255,255,255,0.5)';
-  drawCtx.fillText('SCORE', cx, cy + 36);
-  drawCtx.textBaseline = 'alphabetic';
-  drawCtx.restore();
+  ctx.fillStyle = color;
+  ctx.font = '700 42px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(score, cx, cy);
+  ctx.font = '400 18px system-ui';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.fillText('SCORE', cx, cy + 36);
+  ctx.textBaseline = 'alphabetic';
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -359,45 +349,45 @@ function drawScoreReveal(s, t, p) {
   drawGrid(0.025);
 
   const a = easeOut(Math.min(1, t / 500));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
   // Title
-  drawCtx.fillStyle = 'rgba(255,255,255,0.5)';
-  drawCtx.font = '500 26px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText('SIGNAL SCORE', W/2, 140);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '500 26px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('SIGNAL SCORE', W/2, 140);
   gradText(s.ticker, W/2, 210, 72, '#00d4ff', '#7b2ff7');
 
   // Animated score number
   const displayScore = Math.round(easeOut(p) * s.score);
   const sc = scoreColor(displayScore);
-  drawCtx.fillStyle = sc;
-  drawCtx.font = `700 140px system-ui`;
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(displayScore, W/2, 420);
+  ctx.fillStyle = sc;
+  ctx.font = `700 140px system-ui`;
+  ctx.textAlign = 'center';
+  ctx.fillText(displayScore, W/2, 420);
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.35)';
-  drawCtx.font = '400 22px system-ui';
-  drawCtx.fillText('/ 100', W/2 + 100, 430);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.font = '400 22px system-ui';
+  ctx.fillText('/ 100', W/2 + 100, 430);
 
   // Signal pills
   const signals = s.signals || [];
   signals.slice(0, 4).forEach((sig, i) => {
     const y = 520 + i * 68;
     const fade = Math.min(1, Math.max(0, (t - 400 - i * 120) / 300));
-    drawCtx.globalAlpha = a * fade;
-    drawCtx.fillStyle = 'rgba(0,212,255,0.08)';
-    roundRect(drawCtx, 80, y - 32, W - 160, 50, 14);
-    drawCtx.fill();
-    drawCtx.fillStyle = '#00d4ff';
-    drawCtx.font = '500 22px system-ui';
-    drawCtx.textAlign = 'center';
-    drawCtx.fillText(sig, W/2, y);
-    drawCtx.globalAlpha = a;
+    ctx.globalAlpha = a * fade;
+    ctx.fillStyle = 'rgba(0,212,255,0.08)';
+    roundRect(ctx, 80, y - 32, W - 160, 50, 14);
+    ctx.fill();
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = '500 22px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(sig, W/2, y);
+    ctx.globalAlpha = a;
   });
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -406,8 +396,8 @@ function drawScoreReveal(s, t, p) {
 function drawPriceAction(s, t, p) {
   drawBg('#040810', '#0c1020');
   const a = easeOut(Math.min(1, t / 500));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
   gradText(s.ticker, W/2, 150, 60, '#00d4ff', '#7b2ff7');
 
@@ -425,24 +415,24 @@ function drawPriceAction(s, t, p) {
     const y = 250 + i * 110;
     const delay = 200 + i * 80;
     const rowA = Math.min(1, Math.max(0, (t - delay) / 300));
-    drawCtx.globalAlpha = a * rowA;
+    ctx.globalAlpha = a * rowA;
 
-    drawCtx.fillStyle = 'rgba(255,255,255,0.04)';
-    roundRect(drawCtx, 60, y - 44, W - 120, 80, 16);
-    drawCtx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    roundRect(ctx, 60, y - 44, W - 120, 80, 16);
+    ctx.fill();
 
-    drawCtx.fillStyle = 'rgba(255,255,255,0.4)';
-    drawCtx.font = '400 22px system-ui';
-    drawCtx.textAlign = 'left';
-    drawCtx.fillText(label, 100, y);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '400 22px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, 100, y);
 
-    drawCtx.fillStyle = color;
-    drawCtx.font = '700 28px system-ui';
-    drawCtx.textAlign = 'right';
-    drawCtx.fillText(val, W - 100, y);
+    ctx.fillStyle = color;
+    ctx.font = '700 28px system-ui';
+    ctx.textAlign = 'right';
+    ctx.fillText(val, W - 100, y);
   });
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 function rsiColor(rsi) {
@@ -463,13 +453,13 @@ function drawCandleChart(s, t, p) {
   }
 
   const a = easeOut(Math.min(1, t / 400));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.6)';
-  drawCtx.font = '600 28px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`${s.ticker} — Price Action`, W/2, 100);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '600 28px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${s.ticker} — Price Action`, W/2, 100);
 
   const n = chart.close.length;
   const candleCount = Math.min(n, 40);
@@ -502,47 +492,47 @@ function drawCandleChart(s, t, p) {
     const o = slice.open[i], h = slice.high[i], l = slice.low[i], c = slice.close[i];
     if (!o || !h || !l || !c) continue;
     const bull = c >= o;
-    drawCtx.strokeStyle = bull ? '#00ff88' : '#ff4444';
-    drawCtx.fillStyle = bull ? '#00ff8833' : '#ff444433';
-    drawCtx.lineWidth = 1.5;
+    ctx.strokeStyle = bull ? '#00ff88' : '#ff4444';
+    ctx.fillStyle = bull ? '#00ff8833' : '#ff444433';
+    ctx.lineWidth = 1.5;
 
     // Wick
-    drawCtx.beginPath();
-    drawCtx.moveTo(x, toY(h));
-    drawCtx.lineTo(x, toY(l));
-    drawCtx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, toY(h));
+    ctx.lineTo(x, toY(l));
+    ctx.stroke();
 
     // Body
     const bodyTop = toY(Math.max(o, c));
     const bodyH = Math.abs(toY(o) - toY(c)) || 1;
-    drawCtx.fillRect(x - barW/2, bodyTop, barW, bodyH);
-    drawCtx.strokeRect(x - barW/2, bodyTop, barW, bodyH);
+    ctx.fillRect(x - barW/2, bodyTop, barW, bodyH);
+    ctx.strokeRect(x - barW/2, bodyTop, barW, bodyH);
   }
 
   // MA lines
   const drawMA = (arr, color) => {
-    drawCtx.beginPath();
-    drawCtx.strokeStyle = color;
-    drawCtx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
     let started = false;
     arr.slice(0, revealCount).forEach((v, i) => {
       if (!v) return;
       const x = margin.l + (i + 0.5) * (cw / candleCount);
       const y = toY(v);
-      if (!started) { drawCtx.moveTo(x, y); started = true; }
-      else drawCtx.lineTo(x, y);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
     });
-    drawCtx.stroke();
+    ctx.stroke();
   };
   drawMA(slice.ma20, 'rgba(0,212,255,0.8)');
   drawMA(slice.ma60, 'rgba(255,170,0,0.6)');
 
   // Legend
-  drawCtx.font = '400 18px system-ui';
-  drawCtx.fillStyle = 'rgba(0,212,255,0.8)'; drawCtx.textAlign = 'left'; drawCtx.fillText('MA20', margin.l, H - 160);
-  drawCtx.fillStyle = 'rgba(255,170,0,0.8)'; drawCtx.fillText('MA60', margin.l + 80, H - 160);
+  ctx.font = '400 18px system-ui';
+  ctx.fillStyle = 'rgba(0,212,255,0.8)'; ctx.textAlign = 'left'; ctx.fillText('MA20', margin.l, H - 160);
+  ctx.fillStyle = 'rgba(255,170,0,0.8)'; ctx.fillText('MA60', margin.l + 80, H - 160);
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -554,20 +544,20 @@ function drawBollingerScene(s, t, p) {
   if (!chart || !chart.bb_upper) { drawChartUnavailable(s, t); return; }
 
   const a = easeOut(Math.min(1, t / 400));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.6)';
-  drawCtx.font = '600 28px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`${s.ticker} — Bollinger Bands`, W/2, 100);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '600 28px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${s.ticker} — Bollinger Bands`, W/2, 100);
 
   const squeezeRatio = s.details?.bb_squeeze || 1;
   const isSqueezing = squeezeRatio < 0.85;
   if (isSqueezing) {
-    drawCtx.fillStyle = '#00d4ff';
-    drawCtx.font = '600 22px system-ui';
-    drawCtx.fillText('⚡ BOLLINGER SQUEEZE DETECTED', W/2, 145);
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = '600 22px system-ui';
+    ctx.fillText('⚡ BOLLINGER SQUEEZE DETECTED', W/2, 145);
   }
 
   const n = chart.close.length;
@@ -589,56 +579,56 @@ function drawBollingerScene(s, t, p) {
   const revealCount = Math.round(easeOut(p) * cnt);
 
   // Band fill
-  drawCtx.beginPath();
+  ctx.beginPath();
   upperSlice.slice(0, revealCount).forEach((v, i) => {
     if (!v) return;
-    i === 0 ? drawCtx.moveTo(toX(i), toY(v)) : drawCtx.lineTo(toX(i), toY(v));
+    i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v));
   });
   for (let i = Math.min(revealCount, cnt) - 1; i >= 0; i--) {
     const v = lowerSlice[i];
     if (!v) continue;
-    drawCtx.lineTo(toX(i), toY(v));
+    ctx.lineTo(toX(i), toY(v));
   }
-  drawCtx.closePath();
-  drawCtx.fillStyle = 'rgba(0,212,255,0.06)';
-  drawCtx.fill();
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,212,255,0.06)';
+  ctx.fill();
 
   // Upper & lower bands
   [upperSlice, lowerSlice].forEach((arr, idx) => {
-    drawCtx.beginPath();
-    drawCtx.strokeStyle = idx === 0 ? 'rgba(0,212,255,0.5)' : 'rgba(0,212,255,0.5)';
-    drawCtx.lineWidth = 1.5;
-    drawCtx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.strokeStyle = idx === 0 ? 'rgba(0,212,255,0.5)' : 'rgba(0,212,255,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
     let started = false;
     arr.slice(0, revealCount).forEach((v, i) => {
       if (!v) return;
-      if (!started) { drawCtx.moveTo(toX(i), toY(v)); started = true; }
-      else drawCtx.lineTo(toX(i), toY(v));
+      if (!started) { ctx.moveTo(toX(i), toY(v)); started = true; }
+      else ctx.lineTo(toX(i), toY(v));
     });
-    drawCtx.stroke();
-    drawCtx.setLineDash([]);
+    ctx.stroke();
+    ctx.setLineDash([]);
   });
 
   // Close line
-  drawCtx.beginPath();
-  drawCtx.strokeStyle = '#ffffff';
-  drawCtx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2.5;
   let s2 = false;
   closeSlice.slice(0, revealCount).forEach((v, i) => {
     if (!v) return;
-    if (!s2) { drawCtx.moveTo(toX(i), toY(v)); s2 = true; }
-    else drawCtx.lineTo(toX(i), toY(v));
+    if (!s2) { ctx.moveTo(toX(i), toY(v)); s2 = true; }
+    else ctx.lineTo(toX(i), toY(v));
   });
-  drawCtx.stroke();
+  ctx.stroke();
 
   // Bandwidth label
-  drawCtx.globalAlpha = a * easeOut(Math.min(1, (t - 800) / 300));
-  drawCtx.fillStyle = isSqueezing ? '#00d4ff' : '#aaa';
-  drawCtx.font = '500 22px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`Bandwidth ratio: ${(squeezeRatio * 100).toFixed(0)}% of 20d avg`, W/2, H - 150);
+  ctx.globalAlpha = a * easeOut(Math.min(1, (t - 800) / 300));
+  ctx.fillStyle = isSqueezing ? '#00d4ff' : '#aaa';
+  ctx.font = '500 22px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`Bandwidth ratio: ${(squeezeRatio * 100).toFixed(0)}% of 20d avg`, W/2, H - 150);
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -650,23 +640,23 @@ function drawVolumeScene(s, t, p) {
   if (!chart) { drawChartUnavailable(s, t); return; }
 
   const a = easeOut(Math.min(1, t / 400));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.6)';
-  drawCtx.font = '600 28px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`${s.ticker} — Volume Analysis`, W/2, 100);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '600 28px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${s.ticker} — Volume Analysis`, W/2, 100);
 
   // Vol ratio badge
   const vr = s.vol_ratio;
   const vrColor = vr >= 2 ? '#00ff88' : vr >= 1.5 ? '#00d4ff' : '#aaa';
-  drawCtx.fillStyle = vrColor;
-  drawCtx.font = '700 48px system-ui';
-  drawCtx.fillText(`${vr}×`, W/2, 200);
-  drawCtx.fillStyle = 'rgba(255,255,255,0.4)';
-  drawCtx.font = '400 20px system-ui';
-  drawCtx.fillText('vs 20-day avg volume', W/2, 240);
+  ctx.fillStyle = vrColor;
+  ctx.font = '700 48px system-ui';
+  ctx.fillText(`${vr}×`, W/2, 200);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '400 20px system-ui';
+  ctx.fillText('vs 20-day avg volume', W/2, 240);
 
   const n = chart.volume.length;
   const cnt = Math.min(n, 40);
@@ -688,25 +678,25 @@ function drawVolumeScene(s, t, p) {
     const c_now = closeSlice[i], c_prev = i > 0 ? closeSlice[i-1] : c_now;
     const bull = c_now >= (c_prev || c_now);
     const isLast = i === revealCount - 1;
-    drawCtx.fillStyle = isLast
+    ctx.fillStyle = isLast
       ? (vr >= 2 ? '#00ff88' : vr >= 1.5 ? '#00d4ff' : '#888')
       : (bull ? 'rgba(0,255,136,0.4)' : 'rgba(255,68,68,0.4)');
-    drawCtx.fillRect(x - barW/2, margin.t + ch - barH, barW, barH);
+    ctx.fillRect(x - barW/2, margin.t + ch - barH, barW, barH);
   });
 
   // Avg line
   const avgVol = volSlice.reduce((a, b) => a + (b||0), 0) / cnt;
   const avgY = margin.t + ch - (avgVol / maxVol) * ch;
-  drawCtx.setLineDash([8, 5]);
-  drawCtx.strokeStyle = 'rgba(255,170,0,0.6)';
-  drawCtx.lineWidth = 2;
-  drawCtx.beginPath();
-  drawCtx.moveTo(margin.l, avgY);
-  drawCtx.lineTo(margin.l + cw, avgY);
-  drawCtx.stroke();
-  drawCtx.setLineDash([]);
+  ctx.setLineDash([8, 5]);
+  ctx.strokeStyle = 'rgba(255,170,0,0.6)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(margin.l, avgY);
+  ctx.lineTo(margin.l + cw, avgY);
+  ctx.stroke();
+  ctx.setLineDash([]);
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -718,22 +708,22 @@ function drawRSIScene(s, t, p) {
   if (!chart?.rsi) { drawChartUnavailable(s, t); return; }
 
   const a = easeOut(Math.min(1, t / 400));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.6)';
-  drawCtx.font = '600 28px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`${s.ticker} — RSI (14)`, W/2, 100);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '600 28px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${s.ticker} — RSI (14)`, W/2, 100);
 
   const rsiVal = s.details?.rsi || 0;
-  drawCtx.fillStyle = rsiColor(rsiVal);
-  drawCtx.font = '700 80px system-ui';
-  drawCtx.fillText(rsiVal.toFixed(0), W/2, 210);
-  drawCtx.fillStyle = 'rgba(255,255,255,0.4)';
-  drawCtx.font = '400 20px system-ui';
+  ctx.fillStyle = rsiColor(rsiVal);
+  ctx.font = '700 80px system-ui';
+  ctx.fillText(rsiVal.toFixed(0), W/2, 210);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '400 20px system-ui';
   const zone = rsiVal > 70 ? 'OVERBOUGHT' : rsiVal >= 55 ? 'BULLISH ZONE' : rsiVal >= 45 ? 'NEUTRAL' : 'OVERSOLD';
-  drawCtx.fillText(zone, W/2, 250);
+  ctx.fillText(zone, W/2, 250);
 
   const n = chart.rsi.length;
   const cnt = Math.min(n, 50);
@@ -744,27 +734,27 @@ function drawRSIScene(s, t, p) {
   const ch = H - margin.t - margin.b;
 
   // OB/OS zones
-  drawCtx.fillStyle = 'rgba(255,68,68,0.06)';
+  ctx.fillStyle = 'rgba(255,68,68,0.06)';
   const obY = margin.t + ch - (70 / 100) * ch;
-  drawCtx.fillRect(margin.l, margin.t, cw, obY - margin.t);
-  drawCtx.fillStyle = 'rgba(0,212,255,0.06)';
+  ctx.fillRect(margin.l, margin.t, cw, obY - margin.t);
+  ctx.fillStyle = 'rgba(0,212,255,0.06)';
   const osY = margin.t + ch - (30 / 100) * ch;
-  drawCtx.fillRect(margin.l, osY, cw, margin.t + ch - osY);
+  ctx.fillRect(margin.l, osY, cw, margin.t + ch - osY);
 
   // Level lines
   [30, 50, 70].forEach(level => {
     const ly = margin.t + ch - (level / 100) * ch;
-    drawCtx.setLineDash([4, 4]);
-    drawCtx.strokeStyle = level === 50 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)';
-    drawCtx.lineWidth = 1;
-    drawCtx.beginPath();
-    drawCtx.moveTo(margin.l, ly); drawCtx.lineTo(margin.l + cw, ly);
-    drawCtx.stroke();
-    drawCtx.setLineDash([]);
-    drawCtx.fillStyle = 'rgba(255,255,255,0.3)';
-    drawCtx.font = '400 16px system-ui';
-    drawCtx.textAlign = 'left';
-    drawCtx.fillText(level, margin.l - 40, ly + 5);
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = level === 50 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(margin.l, ly); ctx.lineTo(margin.l + cw, ly);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '400 16px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText(level, margin.l - 40, ly + 5);
   });
 
   // RSI line
@@ -772,23 +762,23 @@ function drawRSIScene(s, t, p) {
   const toX = i => margin.l + (i / (cnt - 1)) * cw;
   const revealCount = Math.round(easeOut(p) * cnt);
 
-  drawCtx.beginPath();
-  drawCtx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.lineWidth = 2.5;
   let started = false;
   rsiSlice.slice(0, revealCount).forEach((v, i) => {
     if (v == null) return;
     const x = toX(i), y = toY(v);
-    if (!started) { drawCtx.moveTo(x, y); started = true; }
-    else drawCtx.lineTo(x, y);
+    if (!started) { ctx.moveTo(x, y); started = true; }
+    else ctx.lineTo(x, y);
   });
-  const grad = drawCtx.createLinearGradient(0, margin.t, 0, margin.t + ch);
+  const grad = ctx.createLinearGradient(0, margin.t, 0, margin.t + ch);
   grad.addColorStop(0, '#ff4444');
   grad.addColorStop(0.5, '#00d4ff');
   grad.addColorStop(1, '#00ff88');
-  drawCtx.strokeStyle = grad;
-  drawCtx.stroke();
+  ctx.strokeStyle = grad;
+  ctx.stroke();
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -800,22 +790,22 @@ function drawMACDScene(s, t, p) {
   if (!chart?.macd_hist) { drawChartUnavailable(s, t); return; }
 
   const a = easeOut(Math.min(1, t / 400));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.6)';
-  drawCtx.font = '600 28px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`${s.ticker} — MACD`, W/2, 100);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '600 28px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${s.ticker} — MACD`, W/2, 100);
 
   const macdDiff = s.details?.macd || 0;
   const bullMacd = macdDiff > 0;
-  drawCtx.fillStyle = bullMacd ? '#00ff88' : '#ff4444';
-  drawCtx.font = '700 52px system-ui';
-  drawCtx.fillText(bullMacd ? 'BULLISH' : 'BEARISH', W/2, 200);
-  drawCtx.fillStyle = 'rgba(255,255,255,0.4)';
-  drawCtx.font = '400 20px system-ui';
-  drawCtx.fillText(`MACD − Signal: ${macdDiff > 0 ? '+' : ''}${macdDiff.toFixed(4)}`, W/2, 245);
+  ctx.fillStyle = bullMacd ? '#00ff88' : '#ff4444';
+  ctx.font = '700 52px system-ui';
+  ctx.fillText(bullMacd ? 'BULLISH' : 'BEARISH', W/2, 200);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '400 20px system-ui';
+  ctx.fillText(`MACD − Signal: ${macdDiff > 0 ? '+' : ''}${macdDiff.toFixed(4)}`, W/2, 245);
 
   const n = chart.macd_hist.length;
   const cnt = Math.min(n, 50);
@@ -831,22 +821,22 @@ function drawMACDScene(s, t, p) {
   const barW = cw / cnt * 0.75;
   const revealCount = Math.round(easeOut(p) * cnt);
 
-  drawCtx.strokeStyle = 'rgba(255,255,255,0.15)';
-  drawCtx.lineWidth = 1;
-  drawCtx.beginPath();
-  drawCtx.moveTo(margin.l, midY); drawCtx.lineTo(margin.l + cw, midY);
-  drawCtx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(margin.l, midY); ctx.lineTo(margin.l + cw, midY);
+  ctx.stroke();
 
   histSlice.slice(0, revealCount).forEach((v, i) => {
     if (v == null) return;
     const x = margin.l + (i + 0.5) * (cw / cnt);
     const barH = (Math.abs(v) / maxH) * (ch / 2);
-    drawCtx.fillStyle = v >= 0 ? 'rgba(0,255,136,0.65)' : 'rgba(255,68,68,0.65)';
+    ctx.fillStyle = v >= 0 ? 'rgba(0,255,136,0.65)' : 'rgba(255,68,68,0.65)';
     const y = v >= 0 ? midY - barH : midY;
-    drawCtx.fillRect(x - barW/2, y, barW, barH);
+    ctx.fillRect(x - barW/2, y, barW, barH);
   });
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -858,21 +848,21 @@ function drawStochScene(s, t, p) {
   if (!chart?.stoch_k) { drawChartUnavailable(s, t); return; }
 
   const a = easeOut(Math.min(1, t / 400));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.6)';
-  drawCtx.font = '600 28px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`${s.ticker} — Stochastic`, W/2, 100);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '600 28px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${s.ticker} — Stochastic`, W/2, 100);
 
   const stk = s.details?.stoch_k || 50;
-  drawCtx.fillStyle = stk < 30 ? '#00d4ff' : stk > 70 ? '#ff4444' : '#00ff88';
-  drawCtx.font = '700 70px system-ui';
-  drawCtx.fillText(stk.toFixed(0), W/2, 210);
-  drawCtx.fillStyle = 'rgba(255,255,255,0.4)';
-  drawCtx.font = '400 20px system-ui';
-  drawCtx.fillText(stk < 30 ? 'OVERSOLD — Potential Reversal 🔄' : stk > 70 ? 'OVERBOUGHT' : 'Mid Range', W/2, 250);
+  ctx.fillStyle = stk < 30 ? '#00d4ff' : stk > 70 ? '#ff4444' : '#00ff88';
+  ctx.font = '700 70px system-ui';
+  ctx.fillText(stk.toFixed(0), W/2, 210);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '400 20px system-ui';
+  ctx.fillText(stk < 30 ? 'OVERSOLD — Potential Reversal 🔄' : stk > 70 ? 'OVERBOUGHT' : 'Mid Range', W/2, 250);
 
   const n = chart.stoch_k.length;
   const cnt = Math.min(n, 50);
@@ -888,27 +878,27 @@ function drawStochScene(s, t, p) {
   const revealCount = Math.round(easeOut(p) * cnt);
 
   // Zones
-  drawCtx.fillStyle = 'rgba(255,68,68,0.06)';
-  drawCtx.fillRect(margin.l, margin.t, cw, ch * 0.3);
-  drawCtx.fillStyle = 'rgba(0,212,255,0.06)';
-  drawCtx.fillRect(margin.l, margin.t + ch * 0.7, cw, ch * 0.3);
+  ctx.fillStyle = 'rgba(255,68,68,0.06)';
+  ctx.fillRect(margin.l, margin.t, cw, ch * 0.3);
+  ctx.fillStyle = 'rgba(0,212,255,0.06)';
+  ctx.fillRect(margin.l, margin.t + ch * 0.7, cw, ch * 0.3);
 
   const drawLine = (arr, color, width=2) => {
-    drawCtx.beginPath();
-    drawCtx.strokeStyle = color;
-    drawCtx.lineWidth = width;
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
     let st = false;
     arr.slice(0, revealCount).forEach((v, i) => {
       if (v == null) return;
-      if (!st) { drawCtx.moveTo(toX(i), toY(v)); st = true; }
-      else drawCtx.lineTo(toX(i), toY(v));
+      if (!st) { ctx.moveTo(toX(i), toY(v)); st = true; }
+      else ctx.lineTo(toX(i), toY(v));
     });
-    drawCtx.stroke();
+    ctx.stroke();
   };
   drawLine(kSlice, '#00d4ff', 2.5);
   drawLine(dSlice, 'rgba(255,170,0,0.7)', 2);
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -917,35 +907,35 @@ function drawStochScene(s, t, p) {
 function drawGoldenCrossScene(s, t, p) {
   drawBg('#060808', '#0d1010');
   const a = easeOut(Math.min(1, t / 400));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
   const hasGC = s.details?.golden_cross;
-  drawCtx.fillStyle = 'rgba(255,255,255,0.6)';
-  drawCtx.font = '600 28px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`${s.ticker} — Golden Cross`, W/2, 120);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '600 28px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${s.ticker} — Golden Cross`, W/2, 120);
 
-  drawCtx.font = '700 80px system-ui';
-  drawCtx.fillStyle = hasGC ? '#ffd700' : '#555';
-  drawCtx.fillText(hasGC ? '✨' : '—', W/2, 280);
+  ctx.font = '700 80px system-ui';
+  ctx.fillStyle = hasGC ? '#ffd700' : '#555';
+  ctx.fillText(hasGC ? '✨' : '—', W/2, 280);
 
-  drawCtx.font = hasGC ? '700 42px system-ui' : '400 32px system-ui';
-  drawCtx.fillStyle = hasGC ? '#ffd700' : '#666';
-  drawCtx.fillText(hasGC ? 'GOLDEN CROSS ACTIVE' : 'No Golden Cross', W/2, 370);
+  ctx.font = hasGC ? '700 42px system-ui' : '400 32px system-ui';
+  ctx.fillStyle = hasGC ? '#ffd700' : '#666';
+  ctx.fillText(hasGC ? 'GOLDEN CROSS ACTIVE' : 'No Golden Cross', W/2, 370);
 
   if (hasGC && t > 600) {
     const burstA = easeOut(Math.min(1, (t - 600) / 500));
-    drawCtx.globalAlpha = a * burstA;
+    ctx.globalAlpha = a * burstA;
     burstEffect(W/2, 400, 120, '#ffd700', 16);
   }
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.35)';
-  drawCtx.font = '400 22px system-ui';
-  drawCtx.fillText('MA20 crosses above MA60', W/2, 460);
-  drawCtx.fillText('— Bullish trend signal', W/2, 500);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.font = '400 22px system-ui';
+  ctx.fillText('MA20 crosses above MA60', W/2, 460);
+  ctx.fillText('— Bullish trend signal', W/2, 500);
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -954,53 +944,53 @@ function drawGoldenCrossScene(s, t, p) {
 function drawMomentumScene(s, t, p) {
   drawBg('#030a06', '#060f08');
   const a = easeOut(Math.min(1, t / 400));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
   const ret5 = s.details?.ret_5d || 0;
   const ret20 = s.details?.ret_20d || 0;
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.6)';
-  drawCtx.font = '600 28px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`${s.ticker} — Momentum`, W/2, 120);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '600 28px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${s.ticker} — Momentum`, W/2, 120);
 
   // Gauge style display
   const gaugeY = 420;
   drawGauge(W/2, gaugeY, 160, Math.min(Math.max(ret5 / 20, -1), 1), '#00ff88', a);
 
-  drawCtx.fillStyle = ret5 >= 0 ? '#00ff88' : '#ff4444';
-  drawCtx.font = '700 60px system-ui';
-  drawCtx.fillText(`${ret5 >= 0 ? '+' : ''}${ret5.toFixed(1)}%`, W/2, gaugeY + 20);
+  ctx.fillStyle = ret5 >= 0 ? '#00ff88' : '#ff4444';
+  ctx.font = '700 60px system-ui';
+  ctx.fillText(`${ret5 >= 0 ? '+' : ''}${ret5.toFixed(1)}%`, W/2, gaugeY + 20);
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.4)';
-  drawCtx.font = '400 22px system-ui';
-  drawCtx.fillText('5-Day Return', W/2, gaugeY + 60);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '400 22px system-ui';
+  ctx.fillText('5-Day Return', W/2, gaugeY + 60);
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.3)';
-  drawCtx.font = '400 20px system-ui';
-  drawCtx.fillText(`20D: ${ret20 >= 0 ? '+' : ''}${ret20.toFixed(1)}%`, W/2, gaugeY + 110);
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '400 20px system-ui';
+  ctx.fillText(`20D: ${ret20 >= 0 ? '+' : ''}${ret20.toFixed(1)}%`, W/2, gaugeY + 110);
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 function drawGauge(cx, cy, r, pct, color, alpha) {
-  drawCtx.save();
-  drawCtx.globalAlpha = alpha * 0.3;
-  drawCtx.beginPath();
-  drawCtx.arc(cx, cy, r, Math.PI, 0);
-  drawCtx.strokeStyle = 'rgba(255,255,255,0.1)';
-  drawCtx.lineWidth = 12;
-  drawCtx.stroke();
-  drawCtx.globalAlpha = alpha;
+  ctx.save();
+  ctx.globalAlpha = alpha * 0.3;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI, 0);
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 12;
+  ctx.stroke();
+  ctx.globalAlpha = alpha;
   const angle = Math.PI + pct * Math.PI;
-  drawCtx.beginPath();
-  drawCtx.arc(cx, cy, r, Math.PI, angle);
-  drawCtx.strokeStyle = color;
-  drawCtx.lineWidth = 12;
-  drawCtx.lineCap = 'round';
-  drawCtx.stroke();
-  drawCtx.restore();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI, angle);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 12;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1012,40 +1002,40 @@ function drawSignalScene(s, t, p, idx) {
   if (!sig) { drawChartUnavailable(s, t); return; }
 
   const a = easeOut(Math.min(1, t / 400));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.3)';
-  drawCtx.font = '500 22px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`Signal ${idx + 1} / ${(s.signals||[]).length}`, W/2, 160);
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '500 22px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`Signal ${idx + 1} / ${(s.signals||[]).length}`, W/2, 160);
 
   gradText(s.ticker, W/2, 260, 60, '#00d4ff', '#7b2ff7');
 
   // Signal card
-  drawCtx.globalAlpha = a * easeOut(Math.min(1, (t - 200) / 400));
-  drawCtx.fillStyle = 'rgba(0,212,255,0.07)';
-  roundRect(drawCtx, 60, 310, W - 120, 140, 20);
-  drawCtx.fill();
-  drawCtx.strokeStyle = 'rgba(0,212,255,0.3)';
-  drawCtx.lineWidth = 1.5;
-  drawCtx.stroke();
+  ctx.globalAlpha = a * easeOut(Math.min(1, (t - 200) / 400));
+  ctx.fillStyle = 'rgba(0,212,255,0.07)';
+  roundRect(ctx, 60, 310, W - 120, 140, 20);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,212,255,0.3)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
 
-  drawCtx.globalAlpha = a;
-  drawCtx.fillStyle = '#00d4ff';
-  drawCtx.font = '600 26px system-ui';
-  drawCtx.textAlign = 'center';
-  wrapText(drawCtx, sig, W/2, 395, W - 160, 36);
+  ctx.globalAlpha = a;
+  ctx.fillStyle = '#00d4ff';
+  ctx.font = '600 26px system-ui';
+  ctx.textAlign = 'center';
+  wrapText(ctx, sig, W/2, 395, W - 160, 36);
 
   // Score contribution badge
-  drawCtx.fillStyle = 'rgba(255,255,255,0.08)';
-  roundRect(drawCtx, W/2 - 80, 500, 160, 50, 25);
-  drawCtx.fill();
-  drawCtx.fillStyle = '#00ff88';
-  drawCtx.font = '600 22px system-ui';
-  drawCtx.fillText(`Score: ${s.score}`, W/2, 532);
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  roundRect(ctx, W/2 - 80, 500, 160, 50, 25);
+  ctx.fill();
+  ctx.fillStyle = '#00ff88';
+  ctx.font = '600 22px system-ui';
+  ctx.fillText(`Score: ${s.score}`, W/2, 532);
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 function drawSignal1(s, t, p) { drawSignalScene(s, t, p, 0); }
@@ -1058,43 +1048,43 @@ function drawSignal3(s, t, p) { drawSignalScene(s, t, p, 2); }
 function drawRSBonusScene(s, t, p) {
   drawBg('#030a10', '#060f18');
   const a = easeOut(Math.min(1, t / 400));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.6)';
-  drawCtx.font = '600 28px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`${s.ticker} — Relative Strength`, W/2, 120);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '600 28px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${s.ticker} — Relative Strength`, W/2, 120);
 
   const rsDiff = s.rs_diff || 0;
   const rsBonus = s.rs_bonus || 0;
-  drawCtx.fillStyle = rsDiff >= 0 ? '#00ff88' : '#ff4444';
-  drawCtx.font = '700 80px system-ui';
-  drawCtx.fillText(`${rsDiff >= 0 ? '+' : ''}${rsDiff.toFixed(1)}%`, W/2, 310);
+  ctx.fillStyle = rsDiff >= 0 ? '#00ff88' : '#ff4444';
+  ctx.font = '700 80px system-ui';
+  ctx.fillText(`${rsDiff >= 0 ? '+' : ''}${rsDiff.toFixed(1)}%`, W/2, 310);
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.4)';
-  drawCtx.font = '400 22px system-ui';
-  drawCtx.fillText('vs SPY (20-day return)', W/2, 360);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '400 22px system-ui';
+  ctx.fillText('vs SPY (20-day return)', W/2, 360);
 
-  drawCtx.fillStyle = '#ffd700';
-  drawCtx.font = '700 42px system-ui';
-  drawCtx.fillText(`+${rsBonus} pts bonus`, W/2, 450);
+  ctx.fillStyle = '#ffd700';
+  ctx.font = '700 42px system-ui';
+  ctx.fillText(`+${rsBonus} pts bonus`, W/2, 450);
 
   // Bar
   const barA = easeOut(Math.min(1, (t - 400) / 500));
-  drawCtx.globalAlpha = a * barA;
-  drawCtx.fillStyle = 'rgba(255,255,255,0.08)';
-  roundRect(drawCtx, 100, 510, W - 200, 40, 20);
-  drawCtx.fill();
+  ctx.globalAlpha = a * barA;
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  roundRect(ctx, 100, 510, W - 200, 40, 20);
+  ctx.fill();
   const fillW = Math.min(Math.max(rsDiff / 30, 0), 1) * (W - 200);
-  const barGrad = drawCtx.createLinearGradient(100, 0, 100 + fillW, 0);
+  const barGrad = ctx.createLinearGradient(100, 0, 100 + fillW, 0);
   barGrad.addColorStop(0, '#00d4ff');
   barGrad.addColorStop(1, '#00ff88');
-  drawCtx.fillStyle = barGrad;
-  roundRect(drawCtx, 100, 510, fillW, 40, 20);
-  drawCtx.fill();
+  ctx.fillStyle = barGrad;
+  roundRect(ctx, 100, 510, fillW, 40, 20);
+  ctx.fill();
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1104,14 +1094,14 @@ function drawSummaryScene(s, t, p) {
   drawBg('#03050f', '#08091e');
   drawGrid(0.02);
   const a = easeOut(Math.min(1, t / 500));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
   gradText(`#${stocks.indexOf(s)+1} ${s.ticker}`, W/2, 160, 64, '#00d4ff', '#7b2ff7');
-  drawCtx.fillStyle = 'rgba(255,255,255,0.5)';
-  drawCtx.font = '400 22px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText(`$${s.price}`, W/2, 210);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '400 22px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(`$${s.price}`, W/2, 210);
 
   drawScoreCircle(W/2, 380, 110, s.score, scoreColor(s.score), a);
 
@@ -1119,16 +1109,16 @@ function drawSummaryScene(s, t, p) {
   sigs.forEach((sig, i) => {
     const delay = 600 + i * 100;
     const rowA = easeOut(Math.min(1, Math.max(0, (t - delay) / 300)));
-    drawCtx.globalAlpha = a * rowA;
-    drawCtx.fillStyle = 'rgba(0,212,255,0.07)';
-    roundRect(drawCtx, 80, 555 + i * 66, W - 160, 52, 14);
-    drawCtx.fill();
-    drawCtx.fillStyle = '#00d4ff';
-    drawCtx.font = '500 20px system-ui';
-    drawCtx.fillText(sig, W/2, 590 + i * 66);
+    ctx.globalAlpha = a * rowA;
+    ctx.fillStyle = 'rgba(0,212,255,0.07)';
+    roundRect(ctx, 80, 555 + i * 66, W - 160, 52, 14);
+    ctx.fill();
+    ctx.fillStyle = '#00d4ff';
+    ctx.font = '500 20px system-ui';
+    ctx.fillText(sig, W/2, 590 + i * 66);
   });
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1137,8 +1127,8 @@ function drawSummaryScene(s, t, p) {
 function drawFinaleScene(s, t, p) {
   drawBg('#03050a', '#080c18');
   const a = easeOut(Math.min(1, t / 400));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
   // Burst on entry
   if (t > 300 && t < 800) {
@@ -1148,23 +1138,23 @@ function drawFinaleScene(s, t, p) {
     }
   }
 
-  drawCtx.fillStyle = '#ffd700';
-  drawCtx.font = '700 36px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText('TODAY\'S TOP PICK', W/2, 200);
+  ctx.fillStyle = '#ffd700';
+  ctx.font = '700 36px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('TODAY\'S TOP PICK', W/2, 200);
 
   gradText(s.ticker, W/2, 360, 140, '#00d4ff', '#7b2ff7');
-  drawCtx.fillStyle = 'rgba(255,255,255,0.7)';
-  drawCtx.font = '400 36px system-ui';
-  drawCtx.fillText(`$${s.price}`, W/2, 430);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = '400 36px system-ui';
+  ctx.fillText(`$${s.price}`, W/2, 430);
 
   drawScoreCircle(W/2, 620, 100, s.score, scoreColor(s.score), a);
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.25)';
-  drawCtx.font = '400 18px system-ui';
-  drawCtx.fillText('TopStockDaily — NASDAQ Screener', W/2, 830);
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.font = '400 18px system-ui';
+  ctx.fillText('TopStockDaily — NASDAQ Screener', W/2, 830);
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1175,111 +1165,111 @@ function drawCompareScene(t, p) {
   if (stocks.length < 2) { drawChartUnavailable(stocks[0] || {ticker:'N/A'}, t); return; }
   const s1 = stocks[0], s2 = stocks[1];
   const a = easeOut(Math.min(1, t / 500));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
+  ctx.save();
+  ctx.globalAlpha = a;
 
-  drawCtx.fillStyle = 'rgba(255,255,255,0.5)';
-  drawCtx.font = '600 26px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText('TOP 2 COMPARISON', W/2, 120);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '600 26px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('TOP 2 COMPARISON', W/2, 120);
 
   // Left column
   const col1x = W * 0.28, col2x = W * 0.72;
 
-  drawCtx.fillStyle = 'rgba(0,212,255,0.06)';
-  roundRect(drawCtx, 40, 150, W/2 - 60, H - 340, 20);
-  drawCtx.fill();
-  roundRect(drawCtx, W/2 + 20, 150, W/2 - 60, H - 340, 20);
-  drawCtx.fill();
+  ctx.fillStyle = 'rgba(0,212,255,0.06)';
+  roundRect(ctx, 40, 150, W/2 - 60, H - 340, 20);
+  ctx.fill();
+  roundRect(ctx, W/2 + 20, 150, W/2 - 60, H - 340, 20);
+  ctx.fill();
 
   const drawCol = (s, cx, rank) => {
-    drawCtx.fillStyle = rank === 1 ? '#ffd700' : '#c0c0c0';
-    drawCtx.font = '700 22px system-ui';
-    drawCtx.textAlign = 'center';
-    drawCtx.fillText(`#${rank}`, cx, 200);
+    ctx.fillStyle = rank === 1 ? '#ffd700' : '#c0c0c0';
+    ctx.font = '700 22px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(`#${rank}`, cx, 200);
 
     gradText(s.ticker, cx, 260, 52, '#00d4ff', '#7b2ff7');
-    drawCtx.fillStyle = 'rgba(255,255,255,0.6)';
-    drawCtx.font = '400 22px system-ui';
-    drawCtx.fillText(`$${s.price}`, cx, 310);
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '400 22px system-ui';
+    ctx.fillText(`$${s.price}`, cx, 310);
 
     const sc = scoreColor(s.score);
-    drawCtx.fillStyle = sc;
-    drawCtx.font = '700 56px system-ui';
-    drawCtx.fillText(s.score, cx, 400);
-    drawCtx.fillStyle = 'rgba(255,255,255,0.3)';
-    drawCtx.font = '400 16px system-ui';
-    drawCtx.fillText('SCORE', cx, 428);
+    ctx.fillStyle = sc;
+    ctx.font = '700 56px system-ui';
+    ctx.fillText(s.score, cx, 400);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '400 16px system-ui';
+    ctx.fillText('SCORE', cx, 428);
 
     (s.signals || []).slice(0, 3).forEach((sig, i) => {
       const delay = 500 + i * 80;
-      drawCtx.globalAlpha = a * easeOut(Math.min(1, Math.max(0, (t - delay) / 300)));
-      drawCtx.fillStyle = 'rgba(255,255,255,0.25)';
-      drawCtx.font = '400 15px system-ui';
-      drawCtx.textAlign = 'center';
-      wrapText(drawCtx, sig, cx, 510 + i * 60, W/2 - 80, 22);
+      ctx.globalAlpha = a * easeOut(Math.min(1, Math.max(0, (t - delay) / 300)));
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      ctx.font = '400 15px system-ui';
+      ctx.textAlign = 'center';
+      wrapText(ctx, sig, cx, 510 + i * 60, W/2 - 80, 22);
     });
-    drawCtx.globalAlpha = a;
+    ctx.globalAlpha = a;
   };
 
   drawCol(s1, col1x, 1);
   drawCol(s2, col2x, 2);
 
   // Divider
-  drawCtx.strokeStyle = 'rgba(255,255,255,0.1)';
-  drawCtx.lineWidth = 1;
-  drawCtx.beginPath();
-  drawCtx.moveTo(W/2, 160); drawCtx.lineTo(W/2, H - 200);
-  drawCtx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(W/2, 160); ctx.lineTo(W/2, H - 200);
+  ctx.stroke();
 
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
 //  LOADING & ERROR SCREENS
 // ══════════════════════════════════════════════════════════
 function drawLoading() {
-  drawCtx.clearRect(0, 0, W, H);
+  ctx.clearRect(0, 0, W, H);
   drawBg('#03050a', '#080c18');
   const t2 = Date.now() / 1000;
-  drawCtx.save();
-  drawCtx.translate(W/2, H/2);
-  drawCtx.rotate(t2 * 2);
+  ctx.save();
+  ctx.translate(W/2, H/2);
+  ctx.rotate(t2 * 2);
   for (let i = 0; i < 8; i++) {
-    drawCtx.rotate(Math.PI / 4);
-    drawCtx.fillStyle = `rgba(0,212,255,${0.1 + i * 0.1})`;
-    drawCtx.fillRect(-3, 40, 6, 20);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = `rgba(0,212,255,${0.1 + i * 0.1})`;
+    ctx.fillRect(-3, 40, 6, 20);
   }
-  drawCtx.restore();
-  drawCtx.fillStyle = '#00d4ff';
-  drawCtx.font = '500 24px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText('Scanning NASDAQ...', W/2, H/2 + 80);
+  ctx.restore();
+  ctx.fillStyle = '#00d4ff';
+  ctx.font = '500 24px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('Scanning NASDAQ...', W/2, H/2 + 80);
   requestAnimationFrame(() => { if (!stocks.length) drawLoading(); });
 }
 
 function drawError(msg) {
-  drawCtx.clearRect(0, 0, W, H);
+  ctx.clearRect(0, 0, W, H);
   drawBg('#100303', '#1a0606');
-  drawCtx.fillStyle = '#ff4444';
-  drawCtx.font = '600 32px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText('⚠ Error', W/2, H/2 - 40);
-  drawCtx.fillStyle = 'rgba(255,255,255,0.5)';
-  drawCtx.font = '400 20px system-ui';
-  wrapText(drawCtx, msg, W/2, H/2 + 20, W - 120, 30);
+  ctx.fillStyle = '#ff4444';
+  ctx.font = '600 32px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('⚠ Error', W/2, H/2 - 40);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '400 20px system-ui';
+  wrapText(ctx, msg, W/2, H/2 + 20, W - 120, 30);
 }
 
 function drawChartUnavailable(s, t) {
   const a = easeOut(Math.min(1, t / 300));
-  drawCtx.save();
-  drawCtx.globalAlpha = a;
-  drawCtx.fillStyle = 'rgba(255,255,255,0.3)';
-  drawCtx.font = '400 22px system-ui';
-  drawCtx.textAlign = 'center';
-  drawCtx.fillText('Chart data unavailable', W/2, H/2);
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '400 22px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('Chart data unavailable', W/2, H/2);
   gradText(s.ticker, W/2, H/2 - 80, 60, '#00d4ff', '#7b2ff7');
-  drawCtx.restore();
+  ctx.restore();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1305,15 +1295,15 @@ function drawComets(t) {
     const age = (now - c.born) / 1000;
     if (age > 1.2 || c.y > H + 50) return false;
     const a = c.alpha * (1 - age / 1.2);
-    const g = drawCtx.createLinearGradient(c.x, c.y, c.x - c.vx * 10, c.y - c.vy * 10);
+    const g = ctx.createLinearGradient(c.x, c.y, c.x - c.vx * 10, c.y - c.vy * 10);
     g.addColorStop(0, `rgba(0,212,255,${a})`);
     g.addColorStop(1, 'transparent');
-    drawCtx.beginPath();
-    drawCtx.strokeStyle = g;
-    drawCtx.lineWidth = 2;
-    drawCtx.moveTo(c.x, c.y);
-    drawCtx.lineTo(c.x - c.vx * 12, c.y - c.vy * 12);
-    drawCtx.stroke();
+    ctx.beginPath();
+    ctx.strokeStyle = g;
+    ctx.lineWidth = 2;
+    ctx.moveTo(c.x, c.y);
+    ctx.lineTo(c.x - c.vx * 12, c.y - c.vy * 12);
+    ctx.stroke();
     c.x += c.vx * 0.3;
     c.y += c.vy * 0.3;
     return true;
@@ -1349,48 +1339,48 @@ function updateParticles() {
 
 function drawParticles() {
   particles.forEach(p => {
-    drawCtx.save();
-    drawCtx.globalAlpha = p.alpha;
-    drawCtx.fillStyle = p.color;
-    drawCtx.beginPath();
-    drawCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-    drawCtx.fill();
-    drawCtx.restore();
+    ctx.save();
+    ctx.globalAlpha = p.alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   });
 }
 
 // ══════════════════════════════════════════════════════════
 //  UTILS
 // ══════════════════════════════════════════════════════════
-function roundRect(drawCtx, x, y, w, h, r) {
-  drawCtx.beginPath();
-  drawCtx.moveTo(x + r, y);
-  drawCtx.lineTo(x + w - r, y);
-  drawCtx.quadraticCurveTo(x + w, y, x + w, y + r);
-  drawCtx.lineTo(x + w, y + h - r);
-  drawCtx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  drawCtx.lineTo(x + r, y + h);
-  drawCtx.quadraticCurveTo(x, y + h, x, y + h - r);
-  drawCtx.lineTo(x, y + r);
-  drawCtx.quadraticCurveTo(x, y, x + r, y);
-  drawCtx.closePath();
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
 }
 
-function wrapText(drawCtx, text, x, y, maxW, lineH) {
+function wrapText(ctx, text, x, y, maxW, lineH) {
   const words = text.split(' ');
   let line = '';
   let currY = y;
   words.forEach(word => {
     const test = line + word + ' ';
-    if (drawCtx.measureText(test).width > maxW && line.length > 0) {
-      drawCtx.fillText(line.trim(), x, currY);
+    if (ctx.measureText(test).width > maxW && line.length > 0) {
+      ctx.fillText(line.trim(), x, currY);
       line = word + ' ';
       currY += lineH;
     } else {
       line = test;
     }
   });
-  drawCtx.fillText(line.trim(), x, currY);
+  ctx.fillText(line.trim(), x, currY);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1420,13 +1410,14 @@ document.getElementById('btnPrev').onclick = () => {
 };
 
 // ══════════════════════════════════════════════════════════
-//  SAVE AS VIDEO — 버튼 한 번에 처음~끝 한 편 저장 (더블버퍼로 검은 화면 방지)
+//  SAVE AS VIDEO (캔버스만 캡처 → 동영상에 버튼 미포함)
 // ══════════════════════════════════════════════════════════
 (function() {
   let mediaRecorder = null;
   let chunks = [];
   const btn = document.getElementById('btnSaveVideo');
   const FPS = 30;
+  const MAX_DURATION_MS = 120000; // 2분 후 자동 정지
 
   function getMimeType() {
     const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
@@ -1437,20 +1428,11 @@ document.getElementById('btnPrev').onclick = () => {
   }
 
   btn.onclick = function() {
-    if (mediaRecorder && mediaRecorder.state === 'recording') return;
-    if (!stocks.length) { statusBar.textContent = 'Load data first'; return; }
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      return;
+    }
     try {
-      currentStockIdx = 0;
-      currentScene = 0;
-      sceneStart = performance.now();
-      recordingStartTime = performance.now();
-      isRecording = true;
-      isPlaying = true;
-      if (sceneTimer) clearTimeout(sceneTimer);
-      playScene();
-      btn.textContent = 'Recording…';
-      statusBar.textContent = 'Recording one full cycle…';
-
       const stream = canvas.captureStream(FPS);
       const mime = getMimeType();
       const options = mime ? { mimeType: mime, videoBitsPerSecond: 2500000 } : { videoBitsPerSecond: 2500000 };
@@ -1458,7 +1440,6 @@ document.getElementById('btnPrev').onclick = () => {
       chunks = [];
       mediaRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
       mediaRecorder.onstop = () => {
-        isRecording = false;
         const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'video/webm' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1467,18 +1448,17 @@ document.getElementById('btnPrev').onclick = () => {
         a.click();
         URL.revokeObjectURL(url);
         btn.textContent = 'Save as video';
-        statusBar.textContent = 'Download started';
         mediaRecorder = null;
       };
       mediaRecorder.start(500);
+      btn.textContent = 'Stop & Save';
       setTimeout(() => {
         if (mediaRecorder && mediaRecorder.state === 'recording') {
           mediaRecorder.stop();
         }
-      }, ONE_CYCLE_MS + 2000);
+      }, MAX_DURATION_MS);
     } catch (e) {
-      isRecording = false;
-      statusBar.textContent = 'Video error: ' + e.message;
+      statusBar.textContent = 'Video not supported: ' + e.message;
       btn.textContent = 'Save as video';
     }
   };
