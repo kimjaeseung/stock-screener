@@ -5,1586 +5,1005 @@
   <meta name="viewport" content="width=390, initial-scale=1">
   <title>TopStockDaily</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
-    /* ── 1. CSS 변수 & 리셋 ─────────────────────────────────── */
-    :root {
-      --gold:#f59e0b; --gold-dim:#f59e0b33;
-      --green:#10b981; --green-dim:#10b98133;
-      --red:#ef4444;   --red-dim:#ef444433;
-      --blue:#60a5fa;
-      --bg:#050505; --bg2:#0a0a0a; --bg3:#111111;
-      --white:#ffffff; --gray:#888888; --muted:#333333;
-    }
     *{box-sizing:border-box;margin:0;padding:0}
-    body{
-      margin:0;background:#000;
-      display:flex;align-items:center;justify-content:center;
-      height:100vh;overflow:hidden;
-      font-family:'Noto Sans KR',sans-serif;
-    }
-
-    /* ── #phone ─────────────────────────────────────────────── */
-    #phone{
-      width:390px;height:844px;
-      background:#050505;position:relative;overflow:hidden;
-      cursor:pointer;user-select:none;
-    }
-    @media(max-width:430px){
-      #phone{width:100vw;height:100dvh;}
-      #scene-canvas{width:100vw!important;height:100dvh!important;}
-    }
-
-    /* ── 4. 세그먼트 프로그레스바 ───────────────────────────── */
-    #segbar{
-      position:absolute;top:0;left:0;right:0;
-      height:28px;padding:10px 10px 0;
-      display:flex;gap:3px;z-index:100;
-    }
-    .seg{
-      flex:1;height:3px;border-radius:2px;
-      background:#ffffff22;overflow:hidden;
-    }
-    .seg-fill{
-      height:100%;background:#fff;border-radius:2px;width:0%;
-    }
-
-    /* ── Canvas & UI layer ──────────────────────────────────── */
-    #scene-canvas{
-      position:absolute;top:0;left:0;
-      width:390px;height:844px;
-    }
-    #ui-layer{
-      position:absolute;inset:0;
-      pointer-events:none;
-    }
-    #updated-at{
-      position:absolute;bottom:6px;left:0;right:0;
-      text-align:center;font-size:9px;color:#666;
-      letter-spacing:0.02em;z-index:50;
-    }
-    /* 동영상에 안 나오게: 캔버스(#scene-canvas)만 캡처하므로 버튼은 #phone 밖에 둠 */
-    #video-ctrl{
-      position:fixed;bottom:12px;right:12px;z-index:9999;
-      pointer-events:auto;
-    }
-    #video-ctrl button{
-      padding:8px 14px;border-radius:20px;border:1px solid rgba(255,255,255,0.2);
-      background:rgba(0,0,0,0.6);color:#fff;font-size:12px;cursor:pointer;
-      font-family:'Noto Sans KR',sans-serif;
-    }
-    #video-ctrl button:hover{ background:rgba(245,158,11,0.25); border-color:#f59e0b; }
-
-    /* ── UI 씬 공통 ─────────────────────────────────────────── */
-    @keyframes pulse-gold{
-      0%,100%{box-shadow:0 0 0 0 #f59e0b00}
-      50%{box-shadow:0 0 0 5px #f59e0b22}
-    }
-    @keyframes blink{
-      0%,100%{opacity:1} 50%{opacity:0.25}
-    }
+    body{margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;font-family:'Noto Sans KR',sans-serif}
+    #phone{width:390px;height:844px;position:relative;overflow:hidden;cursor:pointer;user-select:none}
+    #three-canvas{position:absolute;inset:0;width:100%;height:100%}
+    #ui-overlay{position:absolute;inset:0;pointer-events:none}
+    #segbar{position:absolute;top:0;left:0;right:0;height:28px;padding:10px 10px 0;display:flex;gap:3px;z-index:100}
+    .seg{flex:1;height:3px;border-radius:2px;background:#ffffff22;overflow:hidden}
+    .seg-fill{height:100%;background:#fff;border-radius:2px;width:0%}
+    @media(max-width:430px){#phone{width:100vw;height:100dvh}}
   </style>
 </head>
 <body>
-  <div id="phone">
-    <div id="segbar"></div>
-    <canvas id="scene-canvas"></canvas>
-    <div id="ui-layer"></div>
-    <div id="updated-at"></div>
-  </div>
-  <div id="video-ctrl" title="캔버스만 녹화·다운로드 (동영상에는 버튼이 나오지 않음)">
-    <button type="button" id="btnSaveVideo">Save as video</button>
-  </div>
-
+<div id="phone">
+  <canvas id="three-canvas"></canvas>
+  <div id="ui-overlay"></div>
+  <div id="segbar"></div>
+</div>
 <script>
 'use strict'
-/* ═══════════════════════════════════════════════════════════
-   3. 이징 함수
-════════════════════════════════════════════════════════════ */
-const easeOutCubic  = t => 1 - Math.pow(1-t, 3)
-const easeOutQuint  = t => 1 - Math.pow(1-t, 5)
-const easeOutElastic = t => {
-  if (t === 0 || t === 1) return t
-  return Math.pow(2,-10*t) * Math.sin((t*10-0.75)*(2*Math.PI/3)) + 1
-}
-const lerp  = (a,b,t) => a + (b-a)*t
-const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi,v))
-const prog  = (elapsed, start, dur) => clamp((elapsed-start)/dur, 0, 1)
 
-/* ═══════════════════════════════════════════════════════════
-   SCENE_PLAN  (총합 34000ms — sigi 씬 포함)
-════════════════════════════════════════════════════════════ */
-const SCENE_PLAN = [
-  {id:'sg0',stock:0, type:'sigi',       dur:2000},
-  {id:'s0', stock:0, type:'hook',       dur:2500},
-  {id:'s1', stock:0, type:'entry_card', dur:3000},
-  {id:'s2', stock:0, type:'chart',      dur:4500},
-  {id:'s3', stock:0, type:'summary',    dur:3500},
-  {id:'sx',          type:'transition', dur:500 },
-  {id:'sg4',stock:1, type:'sigi',       dur:2000},
-  {id:'s4', stock:1, type:'hook',       dur:2500},
-  {id:'s5', stock:1, type:'entry_card', dur:3000},
-  {id:'s6', stock:1, type:'chart',      dur:4500},
-  {id:'s7', stock:1, type:'summary',    dur:3500},
-  {id:'s8',          type:'final',      dur:2500},
+/* ─── ROUND RECT POLYFILL ─── */
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+    this.beginPath()
+    this.moveTo(x+r,y);this.lineTo(x+w-r,y);this.arcTo(x+w,y,x+w,y+r,r)
+    this.lineTo(x+w,y+h-r);this.arcTo(x+w,y+h,x+w-r,y+h,r)
+    this.lineTo(x+r,y+h);this.arcTo(x,y+h,x,y+h-r,r)
+    this.lineTo(x,y+r);this.arcTo(x,y,x+r,y,r)
+    this.closePath()
+  }
+}
+
+/* ─── EASING / UTILS ─── */
+const easeOutCubic   = t => 1-Math.pow(1-t,3)
+const easeOutQuint   = t => 1-Math.pow(1-t,5)
+const easeOutElastic = t => t===0||t===1?t:Math.pow(2,-10*t)*Math.sin((t*10-0.75)*(2*Math.PI/3))+1
+const easeInOutQuad  = t => t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2
+const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v))
+const prog  = (e,s,d) => clamp((e-s)/d,0,1)
+const lerp  = (a,b,t) => a+(b-a)*t
+
+function calcSMA(arr,n){
+  return arr.map((_,i)=>i<n-1?null:arr.slice(i-n+1,i+1).reduce((a,b)=>a+b,0)/n)
+}
+function fmtPrice(v){
+  if(v==null||isNaN(v))return'—'
+  if(v<10) return'$'+v.toFixed(3)
+  if(v<1000)return'$'+v.toFixed(2)
+  return'$'+v.toLocaleString('en-US',{maximumFractionDigits:0})
+}
+function fmtPct(v){
+  if(v==null||isNaN(v))return'—'
+  return(v>=0?'+':'')+v.toFixed(1)+'%'
+}
+
+/* ─── THREE.JS SETUP ─── */
+const PW=390,PH=844
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('three-canvas'),antialias:true,alpha:false})
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2))
+renderer.setSize(PW,PH)
+renderer.toneMapping=THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure=1.2
+
+const scene=new THREE.Scene()
+scene.background=new THREE.Color(0x020208)
+scene.fog=new THREE.FogExp2(0x020208,0.016)
+
+const camera=new THREE.PerspectiveCamera(60,PW/PH,0.1,1000)
+camera.position.set(0,2,12)
+camera.lookAt(0,0,0)
+
+const ambientLight=new THREE.AmbientLight(0xffffff,0.3)
+scene.add(ambientLight)
+const goldLight=new THREE.PointLight(0xf59e0b,2,30)
+goldLight.position.set(0,5,5)
+scene.add(goldLight)
+const rimLight=new THREE.DirectionalLight(0x60a5fa,0.5)
+rimLight.position.set(-5,3,-5)
+scene.add(rimLight)
+
+/* ─── CANVAS TEXTURE HELPERS ─── */
+function makeTextTexture(lines,opts={}){
+  const{fontSize=48,color='#fff',fontWeight='700',width=512,height=128,
+        glowColor=null,bgColor=null,lineSpacing=1.35}=opts
+  const cvs=document.createElement('canvas')
+  cvs.width=width;cvs.height=height
+  const c=cvs.getContext('2d')
+  if(bgColor){c.fillStyle=bgColor;c.fillRect(0,0,width,height)}
+  else c.clearRect(0,0,width,height)
+  if(glowColor){c.shadowColor=glowColor;c.shadowBlur=22}
+  c.font=`${fontWeight} ${fontSize}px "Noto Sans KR",sans-serif`
+  c.fillStyle=color
+  c.textAlign='center';c.textBaseline='middle'
+  const arr=Array.isArray(lines)?lines:[lines]
+  const lh=fontSize*lineSpacing
+  const totalH=arr.length*lh
+  arr.forEach((t,i)=>{
+    c.fillText(t,width/2,height/2-totalH/2+(i+0.5)*lh)
+  })
+  const tex=new THREE.CanvasTexture(cvs)
+  tex.needsUpdate=true
+  return tex
+}
+
+function makeTextMesh(lines,opts={}){
+  const{width=512,height=128,meshW=null,meshH=1}=opts
+  const tex=makeTextTexture(lines,opts)
+  const w=meshW!==null?meshW:(width/height)*meshH
+  const geo=new THREE.PlaneGeometry(w,meshH)
+  const mat=new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false,side:THREE.DoubleSide})
+  return new THREE.Mesh(geo,mat)
+}
+
+/* ─── AMBIENT PARTICLES ─── */
+function createAmbientParticles(){
+  const N=800,geo=new THREE.BufferGeometry()
+  const pos=new Float32Array(N*3),col=new Float32Array(N*3)
+  for(let i=0;i<N;i++){
+    pos[i*3]=(Math.random()-.5)*30
+    pos[i*3+1]=(Math.random()-.5)*50
+    pos[i*3+2]=(Math.random()-.5)*20
+    const t=Math.random()
+    col[i*3]=lerp(0.96,1,t);col[i*3+1]=lerp(0.62,0.95,t);col[i*3+2]=lerp(0.04,0.8,t)
+  }
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3))
+  geo.setAttribute('color',new THREE.BufferAttribute(col,3))
+  const mat=new THREE.PointsMaterial({size:0.07,vertexColors:true,transparent:true,opacity:0.5,sizeAttenuation:true})
+  const pts=new THREE.Points(geo,mat)
+  scene.add(pts)
+  return{
+    update(dt){
+      const p=pts.geometry.attributes.position.array
+      for(let i=0;i<N;i++){p[i*3+1]+=dt*0.22;if(p[i*3+1]>25)p[i*3+1]=-25}
+      pts.geometry.attributes.position.needsUpdate=true
+      pts.rotation.y+=dt*0.012
+    }
+  }
+}
+
+/* ─── BURST EFFECT ─── */
+function createBurst(origin,color=0xf59e0b,count=200,spd=0.1){
+  const geo=new THREE.BufferGeometry()
+  const pos=new Float32Array(count*3)
+  const vel=[]
+  for(let i=0;i<count;i++){
+    pos[i*3]=origin.x;pos[i*3+1]=origin.y;pos[i*3+2]=origin.z
+    const a=Math.random()*Math.PI*2,e=(Math.random()-.5)*Math.PI
+    const s=spd*(0.3+Math.random()*0.7)
+    vel.push(new THREE.Vector3(Math.cos(a)*Math.cos(e)*s,Math.sin(e)*s,Math.sin(a)*Math.cos(e)*s))
+  }
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3))
+  const mat=new THREE.PointsMaterial({color,size:0.1,transparent:true,opacity:1})
+  const pts=new THREE.Points(geo,mat)
+  scene.add(pts)
+  let age=0,dead=false
+  return{
+    update(dt){
+      if(dead)return false
+      age+=dt
+      const p=pts.geometry.attributes.position.array
+      for(let i=0;i<count;i++){
+        p[i*3]+=vel[i].x;p[i*3+1]+=vel[i].y-dt*0.04;p[i*3+2]+=vel[i].z
+        vel[i].multiplyScalar(0.97)
+      }
+      pts.geometry.attributes.position.needsUpdate=true
+      mat.opacity=Math.max(0,1-age/1.5)
+      if(age>1.8){scene.remove(pts);geo.dispose();mat.dispose();dead=true;return false}
+      return true
+    },dispose(){}
+  }
+}
+
+function createExpandingRing(pos,color=0xf59e0b,delay=0){
+  const ring=new THREE.Mesh(
+    new THREE.TorusGeometry(0.08,0.025,8,32),
+    new THREE.MeshBasicMaterial({color,transparent:true,opacity:0.9})
+  )
+  ring.position.copy(pos)
+  scene.add(ring)
+  let age=0,dead=false
+  return{
+    update(dt){
+      if(dead)return false
+      age+=dt
+      const a=age-delay;if(a<0)return true
+      const sc=1+a*3.5
+      ring.scale.set(sc,sc,sc)
+      ring.material.opacity=Math.max(0,0.9-a)
+      if(a>1){scene.remove(ring);ring.geometry.dispose();ring.material.dispose();dead=true;return false}
+      return true
+    },dispose(){}
+  }
+}
+
+/* ─── SCENE PLAN ─── */
+const SCENE_PLAN=[
+  {id:'intro',  dur:3000,type:'intro'},
+  {id:'rev0',   dur:3000,type:'reveal',  stock:0},
+  {id:'chart0', dur:8000,type:'chart3d', stock:0},
+  {id:'sig0',   dur:3500,type:'signals', stock:0},
+  {id:'trans',  dur:1000,type:'transition'},
+  {id:'rev1',   dur:3000,type:'reveal',  stock:1},
+  {id:'chart1', dur:8000,type:'chart3d', stock:1},
+  {id:'sig1',   dur:3500,type:'signals', stock:1},
+  {id:'final',  dur:3000,type:'final'},
 ]
 
-/* ═══════════════════════════════════════════════════════════
-   신호 의미 매핑
-════════════════════════════════════════════════════════════ */
-const SIGNAL_LABELS = {
-  golden_cross:      'Golden Cross  (단기 추세 전환 확인)',
-  volume_confirm:    'Volume Surge  (수급 폭증 · 매집 신호)',
-  rsi_signal:        'RSI 모멘텀  (과열 아님 · 상승 여력)',
-  rsi_divergence:    'RSI Divergence  (하락 중 반등 선행)',
-  bollinger_break:   'Bollinger Breakout  (변동성 폭발 임박)',
-  macd_cross:        'MACD Cross  (매수세 우위 전환)',
-  stoch_signal:      'Stochastic  (과매도 탈출 · 반등 시작)',
-  ma_alignment:      'MA 정배열  (5 · 20 · 60 전부 상향)',
-  relative_strength: 'Relative Strength  (나스닥 대비 강세)',
-  fib_support:       'Fibonacci 지지  (핵심 반등 구간 진입)',
-  ichimoku_bull:     'Ichimoku 강세  (구름 위 안착)',
-}
+/* ─── STATE ─── */
+let stockData=[]
+let sceneIdx=0,sceneStart=null,lastTs=0,paused=false
+let activeEffects=[]
+let sceneObjects=[]  // disposable per-scene meshes
+let ambientParticles=null
+let initialized=false
 
-/* ═══════════════════════════════════════════════════════════
-   2. Canvas 전역 변수
-════════════════════════════════════════════════════════════ */
-const W = 390, H = 844
-let DPR = 1
-let canvas, ctx
-
-/* ═══════════════════════════════════════════════════════════
-   6. 마스터 루프 상태
-════════════════════════════════════════════════════════════ */
-let sceneIdx = 0, sceneStartTime = null, paused = false, lastTs = 0
-let stockData = null
-
-/* ═══════════════════════════════════════════════════════════
-   4. 세그먼트 프로그레스바
-════════════════════════════════════════════════════════════ */
-function buildSegBar() {
-  const bar = document.getElementById('segbar')
-  bar.innerHTML = ''
-  SCENE_PLAN.forEach((_, i) => {
-    const seg  = document.createElement('div'); seg.className = 'seg'
-    const fill = document.createElement('div'); fill.className = 'seg-fill'
-    fill.id = 'sf' + i
-    seg.appendChild(fill); bar.appendChild(seg)
+function addSO(obj){scene.add(obj);sceneObjects.push(obj);return obj}
+function clearSO(){
+  sceneObjects.forEach(o=>{
+    scene.remove(o)
+    if(o.geometry)o.geometry.dispose()
+    if(o.material){if(o.material.map)o.material.map.dispose();o.material.dispose()}
   })
+  sceneObjects=[]
 }
 
-function updateSegBar(idx, pct) {
-  SCENE_PLAN.forEach((_, i) => {
-    const f = document.getElementById('sf'+i); if (!f) return
-    f.style.width = (i < idx ? 100 : i === idx ? clamp(pct,0,1)*100 : 0) + '%'
+/* ══════════════════════════════════════════════
+   INTRO SCENE
+══════════════════════════════════════════════ */
+let introSphere=null,introTexts=[]
+function setupIntro(){
+  introSphere=null;introTexts=[]
+  // Gold wireframe sphere
+  const sGeo=new THREE.SphereGeometry(1.2,32,32)
+  const sMat=new THREE.MeshStandardMaterial({
+    color:0xf59e0b,emissive:0xf59e0b,emissiveIntensity:0.5,
+    wireframe:true,roughness:0.3,metalness:0.8
   })
-}
+  introSphere=new THREE.Mesh(sGeo,sMat)
+  introSphere.position.set(0,2,0)
+  introSphere.scale.set(0.01,0.01,0.01)
+  addSO(introSphere)
 
-/* ═══════════════════════════════════════════════════��═══════
-   포맷 헬퍼
-════════════════════════════════════════════════════════════ */
-function fmtPrice(v) {
-  if (!v && v !== 0) return '—'
-  if (v < 10)   return '$' + v.toFixed(3)
-  if (v < 1000) return '$' + v.toFixed(2)
-  return '$' + v.toLocaleString('en-US', {maximumFractionDigits:0})
-}
-function fmtChange(pct) {
-  if (pct == null || isNaN(pct)) return ''
-  return (pct >= 0 ? '▲ +' : '▼ ') + Math.abs(pct).toFixed(2) + '%'
-}
-function fmtPct(v) {
-  if (v == null || isNaN(v)) return '—'
-  return v + '%'
-}
-function fmtNum(v) {
-  if (v == null || isNaN(v)) return '—'
-  return v
-}
-
-/* ═══════════════════════════════════════════════════════════
-   Canvas 좌표 헬퍼
-════════════════════════════════════════════════════════════ */
-function normY(vals, minV, maxV, top, bot) {
-  const range = maxV - minV || 1
-  return vals.map(v => v == null ? null : bot - ((v - minV) / range) * (bot - top))
-}
-function xArr(n, L, R) {
-  return Array.from({length:n}, (_,i) => L + (i/(n-1||1))*(R-L))
-}
-
-/* ═══════════════════════════════════════════════════════════
-   SMA
-════════════════════════════════════════════════════════════ */
-function sma(arr, n) {
-  return arr.map((_, i) => {
-    if (i < n-1) return null
-    let s = 0; for (let j=i-n+1; j<=i; j++) s += arr[j]
-    return s/n
+  // Title text
+  const tm=makeTextMesh('오늘의 추천주',{
+    fontSize:56,color:'#f59e0b',fontWeight:'900',
+    width:512,height:120,glowColor:'#f59e0b',meshW:7.2,meshH:1.7
   })
-}
+  tm.position.set(0,0.5,2);tm.material.opacity=0
+  addSO(tm);introTexts.push(tm)
 
-/* ═══════════════════════════════════════════════════════════
-   8. drawCometLine() — 혜성 라인
-════════════════════════════════════════════════════════════ */
-function drawCometLine(ctx, xs, ys, progress, {
-  color='#6ee7b7', lineWidth=2, glowColor=null, glowBlur=12, comet=true
-}={}) {
-  const n = xs.length
-  const end = (n-1) * easeOutCubic(progress)
-  const drawn = Math.floor(end), frac = end - drawn
-  ctx.save()
-  ctx.strokeStyle = color; ctx.lineWidth = lineWidth
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round'
-  if (glowColor) { ctx.shadowColor = glowColor; ctx.shadowBlur = glowBlur }
-  ctx.beginPath()
-  let started = false
-  for (let i = 0; i <= Math.min(drawn+1, n-1); i++) {
-    const y = ys[i]; if (y == null) { started = false; continue }
-    let x = xs[i]
-    if (i === drawn+1 && drawn < n-1 && ys[drawn] != null) {
-      x = lerp(xs[drawn], x, frac)
-      const yy = lerp(ys[drawn], y, frac)
-      started ? ctx.lineTo(x, yy) : (ctx.moveTo(x, yy), started = true)
-      continue
-    }
-    started ? ctx.lineTo(x, y) : (ctx.moveTo(x, y), started = true)
-  }
-  ctx.stroke()
-  if (comet && progress > 0.02 && progress < 0.97 && ys[drawn] != null) {
-    const hi = Math.min(drawn+1, n-1)
-    const hx = lerp(xs[drawn], xs[hi], frac)
-    const hy = lerp(ys[drawn], ys[hi] ?? ys[drawn], frac)
-    ctx.shadowColor = glowColor||color; ctx.shadowBlur = 24
-    ctx.fillStyle = '#fff'
-    ctx.beginPath(); ctx.arc(hx, hy, lineWidth*1.9, 0, Math.PI*2); ctx.fill()
-  }
-  ctx.restore()
+  const sm=makeTextMesh('TopStockDaily',{
+    fontSize:28,color:'#ffffff88',fontWeight:'300',
+    width:384,height:72,meshW:5,meshH:0.9
+  })
+  sm.position.set(0,-0.8,2);sm.material.opacity=0
+  addSO(sm);introTexts.push(sm)
 }
+function renderIntro(elapsed){
+  // Camera zoom
+  const zp=easeOutQuint(prog(elapsed,0,1200))
+  camera.position.set(0,2,lerp(60,12,zp))
+  camera.lookAt(0,0,0)
+  goldLight.intensity=1+Math.sin(elapsed*0.003)*1.2
 
-/* ═══════════════════════════════════════════════════════════
-   9. drawBurst() — 폭발 효과
-════════════════════════════════════════════════════════════ */
-function drawBurst(ctx, cx, cy, progress, color='#f59e0b') {
-  const p = clamp(progress, 0, 1)
-  const fa = Math.sin(clamp(p/0.4,0,1)*Math.PI)*0.22
-  if (fa > 0.01) {
-    ctx.save(); ctx.globalAlpha=fa; ctx.fillStyle=color
-    ctx.fillRect(0,0,W,H); ctx.restore()
-  }
-  for (let r=0; r<5; r++) {
-    const rp = easeOutCubic(clamp(p*3-r*0.3, 0, 1))
-    if (rp <= 0.01) continue
-    ctx.save(); ctx.globalAlpha = (1-rp)*0.9
-    ctx.strokeStyle=color; ctx.lineWidth = 2.5*(1-rp*0.7)
-    ctx.shadowColor=color; ctx.shadowBlur = 16*(1-rp)
-    ctx.beginPath(); ctx.arc(cx, cy, rp*65, 0, Math.PI*2); ctx.stroke()
-    ctx.restore()
-  }
-  const pp = easeOutQuint(clamp(p*1.8, 0, 1))
-  if (pp > 0.01 && pp < 0.99) {
-    for (let i=0; i<16; i++) {
-      const a = (i/16)*Math.PI*2
-      ctx.save(); ctx.globalAlpha = (1-pp)*0.95
-      ctx.fillStyle=color; ctx.shadowColor=color; ctx.shadowBlur=8
-      ctx.beginPath()
-      ctx.arc(cx+Math.cos(a)*pp*68, cy+Math.sin(a)*pp*68, 2.8*(1-pp*0.85), 0, Math.PI*2)
-      ctx.fill(); ctx.restore()
+  // Sphere grow
+  if(introSphere){
+    const sp=easeOutElastic(prog(elapsed,600,900))
+    const sc=sp*1.5
+    introSphere.scale.set(Math.max(0.01,sc),Math.max(0.01,sc),Math.max(0.01,sc))
+    introSphere.rotation.y+=0.015;introSphere.rotation.x+=0.006
+    introSphere.material.wireframe=sp<0.55
+    introSphere.material.emissiveIntensity=0.3+sp*0.5
+    // Burst at 2s
+    if(elapsed>2000&&!introSphere.userData.burst){
+      introSphere.userData.burst=true
+      activeEffects.push(createBurst(new THREE.Vector3(0,2,0),0xf59e0b,350,0.14))
+      for(let r=0;r<4;r++)activeEffects.push(createExpandingRing(new THREE.Vector3(0,2,0),0xf59e0b,r*0.1))
+      introSphere.visible=false
     }
   }
-  ctx.save()
-  ctx.globalAlpha = clamp(p*4,0,1) * (1-clamp((p-0.7)/0.3,0,1))
-  ctx.shadowColor=color; ctx.shadowBlur=30
-  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx,cy,5.5,0,Math.PI*2); ctx.fill()
-  ctx.restore()
-}
-
-/* ═══════════════════════════════════════════════════════════
-   10. drawPopLabel() — 팝업 레이블
-════════════════════════════════════════════════════════════ */
-function drawPopLabel(ctx, x, y, text, progress, color='#f59e0b') {
-  const p = easeOutElastic(clamp(progress, 0, 1))
-  const alpha = clamp(p*2, 0, 1); if (alpha < 0.01) return
-  const offsetY = (1-p)*18
-  ctx.save(); ctx.globalAlpha = alpha
-  ctx.font = '700 11px "Noto Sans KR",sans-serif'
-  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
-  const tw = ctx.measureText(text).width
-  const bw = tw+22, bh=24, r=12
-  ctx.fillStyle='#050505ee'; ctx.shadowColor=color; ctx.shadowBlur=18
-  ctx.beginPath(); ctx.roundRect(x-bw/2, y-offsetY-bh, bw, bh, r); ctx.fill()
-  ctx.fillStyle=color; ctx.shadowBlur=8
-  ctx.fillText(text, x, y-offsetY-7)
-  ctx.restore()
-}
-
-/* ═══════════════════════════════════════════════════════════
-   5. 목데이터
-════════════════════════════════════════════════════════════ */
-function generateMockChart(base, n) {
-  let p = base * 0.87
-  const closes=[], highs=[], lows=[], volumes=[]
-  for (let i=0; i<n; i++) {
-    let chg
-    if      (i<15) chg = (Math.random()-0.42)*base*0.019
-    else if (i<30) chg = -(Math.random()+0.08)*base*0.011
-    else if (i<45) chg = (Math.random()-0.50)*base*0.008
-    else           chg = (Math.random()+0.30)*base*0.017
-    p = Math.max(base*0.74, p+chg)
-    const v = p*0.013
-    closes.push(+(p.toFixed(2)))
-    highs.push(+(p+Math.random()*v).toFixed(2))
-    lows.push(+(Math.max(p*0.99, p-Math.random()*v)).toFixed(2))
-    volumes.push(Math.round(1200000*(i>=58 ? 2.6+Math.random() : 0.55+Math.random()*0.9)))
-  }
-  return {closes, highs, lows, volumes}
-}
-
-function getMockData() {
-  return {
-    updated_at: new Date().toISOString().slice(0,10)+' (목데이터)',
-    stocks: [
-      {
-        ticker:'NVDA', name:'NVIDIA Corporation',
-        price:875.40, change_pct:3.24, sector:'AI 반도체', score:89,
-        signals:{
-          golden_cross:true, volume_confirm:true, rsi_signal:true,
-          bollinger_break:true, macd_cross:true, stoch_signal:false,
-          ma_alignment:true, relative_strength:true, fib_support:true,
-        },
-        swing:{
-          entry_low:868, entry_high:883,
-          stop_loss:842, stop_pct:-3.8,
-          target1:950,  target1_pct:8.5,  target1_week:2,
-          target2:1020, target2_pct:16.6, target2_week:4,
-          rr_ratio:2.8, vol_multiple:2.8,
-        },
-        chart_data: generateMockChart(875.40, 65),
-      },
-      {
-        ticker:'COIN', name:'Coinbase Global Inc',
-        price:198.50, change_pct:5.12, sector:'핀테크/크립토', score:78,
-        signals:{
-          golden_cross:true, volume_confirm:true, rsi_signal:true,
-          bollinger_break:false, macd_cross:true, stoch_signal:true,
-          ma_alignment:true, relative_strength:true, fib_support:false,
-        },
-        swing:{
-          entry_low:194, entry_high:202,
-          stop_loss:183, stop_pct:-7.8,
-          target1:225,  target1_pct:13.3, target1_week:2,
-          target2:255,  target2_pct:28.5, target2_week:4,
-          rr_ratio:2.1, vol_multiple:2.1,
-        },
-        chart_data: generateMockChart(198.50, 65),
-      },
-    ],
+  // Text after burst
+  const tp=easeOutCubic(prog(elapsed,2050,700))
+  if(tp>0){
+    const flicker=elapsed>2500?0.7+0.3*Math.sin(elapsed*0.06):1
+    introTexts.forEach(m=>{m.material.opacity=tp*flicker})
   }
 }
 
-/* ── 한국어명 헬퍼 ───────────────────────────────────────── */
-window.KR_NAMES = {}
-function getKrName(ticker, englishName) {
-  return window.KR_NAMES[ticker] || englishName || ticker
+/* ══════════════════════════════════════════════
+   REVEAL SCENE
+══════════════════════════════════════════════ */
+let revealState={}
+function setupReveal(stock){
+  revealState={_burst:false,scoreSc:null,scoreTex:null}
+  // Company name
+  const nm=makeTextMesh(stock.name||stock.ticker,{
+    fontSize:36,color:'#fff',fontWeight:'700',
+    width:512,height:88,meshW:7.5,meshH:1.3
+  })
+  nm.position.set(0,5,0);nm.material.opacity=0;nm.userData.role='name'
+  addSO(nm)
+
+  // Ticker
+  const tk=makeTextMesh(stock.ticker,{
+    fontSize:84,color:'#f59e0b',fontWeight:'900',
+    width:512,height:160,glowColor:'#f59e0b',meshW:6,meshH:2.4
+  })
+  tk.position.set(0,1.4,0);tk.scale.set(0.01,0.01,0.01);tk.userData.role='ticker'
+  addSO(tk)
+
+  // Price row
+  const cpct=stock.change_pct!=null&&!isNaN(stock.change_pct)?fmtPct(stock.change_pct):''
+  const pcol=stock.change_pct>=0?'#10b981':'#ef4444'
+  const pm=makeTextMesh([fmtPrice(stock.price),cpct].filter(Boolean),{
+    fontSize:40,color:pcol,fontWeight:'700',
+    width:512,height:140,meshW:5,meshH:2.1,lineSpacing:1.45
+  })
+  pm.position.set(-10,-0.2,0);pm.material.opacity=0;pm.userData.role='price'
+  addSO(pm)
+
+  // Score bar canvas
+  const cvs=document.createElement('canvas');cvs.width=512;cvs.height=80
+  const sc=cvs.getContext('2d')
+  sc.clearRect(0,0,512,80)
+  sc.font='400 22px "Noto Sans KR",sans-serif'
+  sc.fillStyle='#888';sc.textAlign='left';sc.textBaseline='middle'
+  sc.fillText('신호 점수',12,24)
+  sc.fillStyle='#f59e0b';sc.textAlign='right'
+  sc.fillText(`${stock.score}점`,500,24)
+  sc.fillStyle='#1a1a2e';sc.fillRect(12,48,488,14)
+  const tex=new THREE.CanvasTexture(cvs)
+  const bm=new THREE.Mesh(
+    new THREE.PlaneGeometry(7,0.85),
+    new THREE.MeshBasicMaterial({map:tex,transparent:true,depthWrite:false})
+  )
+  bm.position.set(0,-1.8,0);bm.material.opacity=0;bm.userData.role='score'
+  revealState.scoreSc=sc;revealState.scoreCvs=cvs;revealState.scoreTex=tex
+  revealState.scoreStock=stock.score
+  addSO(bm)
+}
+function renderReveal(elapsed,stock){
+  camera.position.set(0,2,12);camera.lookAt(0,0,0)
+  goldLight.intensity=1.5
+
+  sceneObjects.forEach(obj=>{
+    const role=obj.userData.role
+    if(role==='name'){
+      const p=easeOutCubic(prog(elapsed,400,900))
+      obj.material.opacity=p;obj.position.y=5-(1-p)*3
+    }
+    if(role==='ticker'){
+      const p=easeOutElastic(prog(elapsed,1200,700))
+      obj.scale.set(Math.max(0.01,p),Math.max(0.01,p),Math.max(0.01,p))
+      obj.material.opacity=clamp(p*2,0,1)
+      if(p>0.1&&!revealState._burst){
+        revealState._burst=true
+        activeEffects.push(createBurst(new THREE.Vector3(0,1.4,0),0xf59e0b,200,0.12))
+        for(let r=0;r<3;r++)activeEffects.push(createExpandingRing(new THREE.Vector3(0,1.4,0),0xf59e0b,r*0.08))
+        goldLight.intensity=8
+      }
+      goldLight.intensity=Math.max(1.5,goldLight.intensity*0.95)
+    }
+    if(role==='price'){
+      const p=easeOutCubic(prog(elapsed,1900,600))
+      obj.material.opacity=p;obj.position.x=-10+p*10
+    }
+    if(role==='score'){
+      const p=easeOutCubic(prog(elapsed,2400,700))
+      obj.material.opacity=p
+      // Animate fill
+      if(p>0&&revealState.scoreSc){
+        const sc=revealState.scoreSc
+        sc.clearRect(12,48,488,14)
+        sc.fillStyle='#1a1a2e';sc.fillRect(12,48,488,14)
+        sc.fillStyle='#f59e0b';sc.fillRect(12,48,488*(revealState.scoreStock/100)*p,14)
+        revealState.scoreTex.needsUpdate=true
+      }
+    }
+  })
 }
 
-/* ── kr_names.json 로더 ─────────────────────────────────── */
-async function loadKrNames() {
-  const paths = ['../kr_names.json', '/stock-screener/kr_names.json']
-  for (const p of paths) {
-    try {
-      const r = await fetch(p)
-      if (!r.ok) continue
-      window.KR_NAMES = await r.json()
-      return
-    } catch(e) {}
+/* ══════════════════════════════════════════════
+   CHART 3D SCENE
+══════════════════════════════════════════════ */
+let chartGroup=null,chartObj=null,chartLabels=[]
+let csCurrent=0  // current stock index for target_lines
+
+function buildChart3D(stock){
+  const group=new THREE.Group()
+  const ch=stock.chart
+  const closes=ch.close,volumes=ch.volume
+  const N=closes.length,CW=14,CH=6
+  const minP=Math.min(...closes),maxP=Math.max(...closes)
+  const range=maxP-minP||1
+
+  // Grid
+  const gh=new THREE.GridHelper(CW+2,20,0x1a1a2e,0x0d0d1a)
+  gh.position.y=-0.1;group.add(gh)
+  const fl=new THREE.Mesh(
+    new THREE.PlaneGeometry(CW+2,12),
+    new THREE.MeshBasicMaterial({color:0x030310,transparent:true,opacity:0.8,side:THREE.DoubleSide})
+  )
+  fl.rotation.x=-Math.PI/2;fl.position.y=-0.12;group.add(fl)
+
+  // Price tube
+  const pts=closes.map((c,i)=>new THREE.Vector3((i/(N-1))*CW-CW/2,((c-minP)/range)*CH,0))
+  const curve=new THREE.CatmullRomCurve3(pts)
+  const tubeGeo=new THREE.TubeGeometry(curve,N*3,0.065,8,false)
+  const colArr=new Float32Array(tubeGeo.attributes.position.count*3)
+  for(let i=0;i<tubeGeo.attributes.position.count;i++){
+    const t=clamp(tubeGeo.attributes.position.getY(i)/CH,0,1)
+    colArr[i*3]=lerp(0.23,0.96,t);colArr[i*3+1]=lerp(0.51,0.62,t);colArr[i*3+2]=lerp(0.96,0.04,t)
   }
+  tubeGeo.setAttribute('color',new THREE.BufferAttribute(colArr,3))
+  const tubeMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.3,metalness:0.7})
+  const priceTube=new THREE.Mesh(tubeGeo,tubeMat)
+  priceTube.userData.type='price'
+  priceTube.geometry.setDrawRange(0,0)
+  group.add(priceTube)
+
+  // Volume bars
+  const maxVol=Math.max(...volumes)
+  const avgVol=volumes.reduce((a,b)=>a+b,0)/N
+  let spikeIdx=0,spikeMax=0
+  volumes.forEach((v,i)=>{if(v>spikeMax){spikeMax=v;spikeIdx=i}})
+  volumes.forEach((v,i)=>{
+    const bh=Math.max(0.05,(v/maxVol)*2.4)
+    const isSpike=v>avgVol*1.5
+    const bm=new THREE.MeshStandardMaterial({
+      color:isSpike?0x10b981:0x1a1a2e,
+      emissive:isSpike?0x10b981:0x000000,
+      emissiveIntensity:isSpike?0.4:0,
+      transparent:true,opacity:isSpike?0.9:0.4
+    })
+    const bar=new THREE.Mesh(new THREE.BoxGeometry(CW/N*0.65,bh,0.3),bm)
+    bar.position.set((i/(N-1))*CW-CW/2,-1.6+bh/2,-1.6)
+    bar.userData={type:'volume',isSpike,targetH:bh,bottomY:-1.6}
+    bar.scale.y=0.001
+    group.add(bar)
+  })
+
+  // MA5
+  const ma5=(ch.ma5||calcSMA(closes,5)).map((v,i)=>v==null?null:
+    new THREE.Vector3((i/(N-1))*CW-CW/2,((v-minP)/range)*CH+0.1,0.14)).filter(Boolean)
+  if(ma5.length>2){
+    const mg=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ma5),ma5.length*2,0.035,6)
+    group.add(new THREE.Mesh(mg,new THREE.MeshBasicMaterial({color:0xf59e0b})))
+  }
+
+  // MA20
+  const ma20=(ch.ma20||calcSMA(closes,20)).map((v,i)=>v==null?null:
+    new THREE.Vector3((i/(N-1))*CW-CW/2,((v-minP)/range)*CH+0.06,0.07)).filter(Boolean)
+  if(ma20.length>2){
+    const mg=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ma20),ma20.length*2,0.028,6)
+    group.add(new THREE.Mesh(mg,new THREE.MeshBasicMaterial({color:0x60a5fa})))
+  }
+
+  // Golden cross index
+  const ma5arr=ch.ma5||calcSMA(closes,5)
+  const ma20arr=ch.ma20||calcSMA(closes,20)
+  let crossIdx=Math.floor(N*0.6)
+  for(let i=1;i<N;i++){
+    if(ma5arr[i]!=null&&ma20arr[i]!=null&&ma5arr[i-1]!=null&&ma20arr[i-1]!=null){
+      if(ma5arr[i-1]<=ma20arr[i-1]&&ma5arr[i]>ma20arr[i]){crossIdx=i;break}
+    }
+  }
+  const crossX=(crossIdx/(N-1))*CW-CW/2
+  const crossY=((closes[crossIdx]-minP)/range)*CH
+  const spikeX=(spikeIdx/(N-1))*CW-CW/2
+
+  return{group,priceTube,tubeGeo,N,CW,CH,closes,volumes,crossX,crossY,spikeX,minP,maxP,range}
 }
 
-/* ── data.json 로더 ──────────────────────────────────────── */
-async function loadData() {
-  // kr_names 와 data.json 을 동시에 요청
-  await loadKrNames()
-
-  const paths = [
-    '../data.json',
-    '/stock-screener/data.json',
-    'https://kimjaeseung.github.io/stock-screener/data.json',
+// Camera sequence definition per-chart
+function makeCamSeq(co){
+  const{crossX,crossY,spikeX}=co
+  const seqs=[
+    {s:0,   e:1500,fp:new THREE.Vector3(8,6,10),tp:new THREE.Vector3(6,4,8),
+     ft:new THREE.Vector3(0,2,0),tt:new THREE.Vector3(0,2,0),ease:'outCubic',label:null},
+    {s:1500,e:3000,fp:new THREE.Vector3(6,4,8),tp:new THREE.Vector3(crossX,4,5),
+     ft:new THREE.Vector3(0,2,0),tt:new THREE.Vector3(crossX,crossY,0),ease:'outQuint',
+     label:'단기 모멘텀 켜짐 ✓',lc:'#f59e0b',effect:'burst'},
+    {s:3000,e:4500,fp:new THREE.Vector3(crossX,4,5),tp:new THREE.Vector3(spikeX,0.5,4.5),
+     ft:new THREE.Vector3(crossX,crossY,0),tt:new THREE.Vector3(spikeX,2,0),ease:'outCubic',
+     label:'거래량 폭증 — 수급 확인 ✓',lc:'#10b981',effect:'volGlow'},
+    {s:4500,e:6000,fp:new THREE.Vector3(spikeX,0.5,4.5),tp:new THREE.Vector3(0,2,9),
+     ft:new THREE.Vector3(spikeX,2,0),tt:new THREE.Vector3(0,2,0),ease:'inOutQuad',
+     label:'핵심 지지구간 반등 중 ✓',lc:'#a78bfa',effect:'fib'},
+    {s:6000,e:7500,fp:new THREE.Vector3(0,2,9),tp:new THREE.Vector3(0,9,7),
+     ft:new THREE.Vector3(0,2,0),tt:new THREE.Vector3(0,2,0),ease:'outCubic',
+     label:null,effect:'targets'},
+    {s:7500,e:8000,fp:new THREE.Vector3(0,9,7),tp:new THREE.Vector3(6,4,8),
+     ft:new THREE.Vector3(0,2,0),tt:new THREE.Vector3(0,2,0),ease:'inOutQuad',label:null},
   ]
-  for (const p of paths) {
-    try {
-      const r = await fetch(p+'?t='+Date.now())
-      if (!r.ok) continue
-      const j = await r.json()
-      if (j.stocks?.length >= 2) return prepareData(j)
-    } catch(e) { /* try next */ }
+  const triggered={}
+  const easeFns={outCubic:easeOutCubic,outQuint:easeOutQuint,inOutQuad:easeInOutQuad}
+
+  return{
+    update(elapsed){
+      const sq=seqs.find(s=>elapsed>=s.s&&elapsed<s.e)
+      if(!sq)return null
+      const t=(elapsed-sq.s)/(sq.e-sq.s)
+      const p=(easeFns[sq.ease]||easeOutCubic)(t)
+      camera.position.lerpVectors(sq.fp,sq.tp,p)
+      camera.lookAt(new THREE.Vector3().lerpVectors(sq.ft,sq.tt,p))
+
+      // Effect trigger
+      if(sq.effect&&t>0.4&&!triggered[sq.effect]){
+        triggered[sq.effect]=true
+        if(sq.effect==='burst'){
+          activeEffects.push(createBurst(new THREE.Vector3(crossX,crossY,0),0xf59e0b,300,0.12))
+          for(let r=0;r<3;r++)activeEffects.push(createExpandingRing(new THREE.Vector3(crossX,crossY,0),0xf59e0b,r*0.09))
+          goldLight.intensity=8
+        }
+        if(sq.effect==='fib'&&co){
+          [0.382,0.5,0.618].forEach((lv,i)=>{
+            const y=lv*co.CH
+            const pl=new THREE.Mesh(new THREE.PlaneGeometry(co.CW+2,0.028),
+              new THREE.MeshBasicMaterial({color:[0xa78bfa,0xf59e0b,0xa78bfa][i],transparent:true,opacity:0.55,side:THREE.DoubleSide}))
+            pl.position.set(0,y,0.3)
+            chartGroup.add(pl)
+            const lbl=makeTextMesh(`Fib ${(lv*100).toFixed(1)}%`,{fontSize:18,color:'#c4b5fd',width:180,height:44,meshW:1.7,meshH:0.42})
+            lbl.position.set(co.CW/2+1.1,y,0.3)
+            chartGroup.add(lbl)
+          })
+        }
+        if(sq.effect==='targets'&&co){
+          const sw=stockData[csCurrent].swing
+          const toY=price=>((price-co.minP)/co.range)*co.CH
+          ;[
+            [sw.stop_loss,  0xef4444,'손절 '+fmtPrice(sw.stop_loss)],
+            [sw.entry_high, 0xf59e0b,'진입 '+fmtPrice(sw.entry_high)],
+            [sw.target1,    0x10b981,'목표1 '+fmtPrice(sw.target1)],
+          ].forEach(([price,col,lbl])=>{
+            const y=toY(price)
+            if(isNaN(y)||y<-1||y>co.CH+1)return
+            const pl=new THREE.Mesh(new THREE.PlaneGeometry(co.CW+2,0.028),
+              new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0.8,side:THREE.DoubleSide}))
+            pl.position.set(0,y,0.25);chartGroup.add(pl)
+            const lm=makeTextMesh(lbl,{fontSize:17,color:'#'+col.toString(16).padStart(6,'0'),width:240,height:48,meshW:2,meshH:0.5})
+            lm.position.set(-co.CW/2-1.3,y,0.25);chartGroup.add(lm)
+          })
+          // Risk/reward zones
+          const sy=toY(sw.stop_loss),ey=toY(sw.entry_high),t1y=toY(sw.target1)
+          if(!isNaN(sy)&&!isNaN(ey)&&ey>sy){
+            const dz=new THREE.Mesh(new THREE.BoxGeometry(co.CW+2,ey-sy,0.08),
+              new THREE.MeshBasicMaterial({color:0xef4444,transparent:true,opacity:0.06,side:THREE.DoubleSide}))
+            dz.position.set(0,(sy+ey)/2,-0.3);chartGroup.add(dz)
+          }
+          if(!isNaN(ey)&&!isNaN(t1y)&&t1y>ey){
+            const pz=new THREE.Mesh(new THREE.BoxGeometry(co.CW+2,t1y-ey,0.08),
+              new THREE.MeshBasicMaterial({color:0x10b981,transparent:true,opacity:0.06,side:THREE.DoubleSide}))
+            pz.position.set(0,(ey+t1y)/2,-0.3);chartGroup.add(pz)
+          }
+        }
+      }
+
+      // Label info
+      if(sq.label&&t>0.65)return{text:sq.label,color:sq.lc,alpha:(t-0.65)/0.35}
+      return{triggered}
+    },
+    isVolGlow(){return!!triggered['volGlow']}
+  }
+}
+
+let camSeqCtrl=null
+let floatLabelMesh=null,floatLabelText=''
+
+function setupChart(stock,si){
+  csCurrent=si
+  chartObj=buildChart3D(stock)
+  chartGroup=chartObj.group
+  scene.add(chartGroup)
+
+  // Pre-built float label mesh (reused, texture updated when text changes)
+  floatLabelMesh=makeTextMesh('',{fontSize:26,color:'#f59e0b',fontWeight:'700',width:512,height:72,glowColor:'#f59e0b',meshW:5.8,meshH:1.05})
+  floatLabelMesh.position.set(0,5.5,2)
+  floatLabelMesh.material.opacity=0
+  scene.add(floatLabelMesh)
+  floatLabelText=''
+
+  camSeqCtrl=makeCamSeq(chartObj)
+}
+
+function renderChart3D(elapsed){
+  if(!chartGroup||!chartObj||!camSeqCtrl)return
+  goldLight.intensity=Math.max(1.5,goldLight.intensity*0.98)
+
+  // Reveal drawRange
+  const revP=easeOutCubic(prog(elapsed,0,2200))
+  const tube=chartObj.priceTube
+  if(tube&&tube.geometry.index){
+    tube.geometry.setDrawRange(0,Math.floor(tube.geometry.index.count*revP))
+  }
+
+  // Volume bars scale from bottom
+  chartGroup.children.forEach(c=>{
+    if(c.userData.type!=='volume')return
+    const s=Math.max(0.001,easeOutQuint(clamp(revP*1.6-0.2,0,1)))
+    c.scale.y=s
+    c.position.y=c.userData.bottomY+c.userData.targetH*s/2
+    // Glow pulsing when volGlow triggered
+    if(camSeqCtrl.isVolGlow()&&c.userData.isSpike){
+      c.material.emissiveIntensity=0.3+0.45*Math.sin(elapsed*0.006)
+    }
+  })
+
+  // Camera + label
+  const labelInfo=camSeqCtrl.update(elapsed)
+  if(floatLabelMesh){
+    if(labelInfo&&labelInfo.text){
+      if(labelInfo.text!==floatLabelText){
+        floatLabelText=labelInfo.text
+        const newTex=makeTextTexture(labelInfo.text,{
+          fontSize:26,color:labelInfo.color,fontWeight:'700',
+          width:512,height:72,glowColor:labelInfo.color
+        })
+        if(floatLabelMesh.material.map)floatLabelMesh.material.map.dispose()
+        floatLabelMesh.material.map=newTex
+        floatLabelMesh.material.needsUpdate=true
+      }
+      floatLabelMesh.material.opacity=easeOutCubic(labelInfo.alpha)
+      floatLabelMesh.lookAt(camera.position)
+    } else {
+      floatLabelMesh.material.opacity*=0.96
+    }
+  }
+
+  chartGroup.rotation.y=Math.sin(elapsed*0.0003)*0.04
+}
+
+function cleanupChart(){
+  if(chartGroup){
+    scene.remove(chartGroup)
+    chartGroup.traverse(c=>{
+      if(c.geometry)c.geometry.dispose()
+      if(c.material){if(c.material.map)c.material.map.dispose();c.material.dispose()}
+    })
+    chartGroup=null;chartObj=null
+  }
+  if(floatLabelMesh){
+    scene.remove(floatLabelMesh)
+    if(floatLabelMesh.material.map)floatLabelMesh.material.map.dispose()
+    floatLabelMesh.geometry.dispose();floatLabelMesh.material.dispose()
+    floatLabelMesh=null
+  }
+  camSeqCtrl=null
+}
+
+/* ══════════════════════════════════════════════
+   SIGNALS SCENE
+══════════════════════════════════════════════ */
+const SIG_LABELS={
+  golden_cross:'골든 크로스',volume_confirm:'거래량 확인',rsi_signal:'RSI 반등',
+  macd_cross:'MACD 크로스',ma_alignment:'이평 정배열',fib_support:'피보나치 지지',
+  relative_strength:'상대 강도',bollinger_break:'볼린저 돌파',stoch_signal:'스토캐스틱 반등'
+}
+
+function setupSignals(stock){
+  const sw=stock.swing
+  const activeSigs=Object.entries(stock.signals||{}).filter(([,v])=>v).map(([k])=>SIG_LABELS[k]||k)
+  const score=stock.score
+  const grade=score>=80?'강력 매수':score>=60?'매수':'관심'
+  const gradeCol=score>=80?'#f59e0b':score>=60?'#10b981':'#60a5fa'
+
+  // Main card canvas
+  const cvs=document.createElement('canvas');cvs.width=440;cvs.height=680
+  const c=cvs.getContext('2d')
+  const g=c.createLinearGradient(0,0,0,680)
+  g.addColorStop(0,'#0c0c1e');g.addColorStop(1,'#05050e')
+  c.fillStyle=g;c.fillRect(0,0,440,680)
+  c.strokeStyle='#f59e0b44';c.lineWidth=1.5
+  c.strokeRect(1,1,438,678)
+
+  c.font='700 26px "Noto Sans KR",sans-serif'
+  c.fillStyle='#f59e0b';c.textAlign='center';c.textBaseline='alphabetic'
+  c.shadowColor='#f59e0b';c.shadowBlur=14
+  c.fillText(stock.ticker+' 스윙 분석',220,46);c.shadowBlur=0
+
+  // Active signals
+  c.font='400 20px "Noto Sans KR",sans-serif'
+  activeSigs.slice(0,5).forEach((sig,i)=>{
+    const y=78+i*52
+    c.fillStyle='#10b98118';c.fillRect(16,y-24,408,44)
+    c.fillStyle='#10b981';c.textAlign='left'
+    c.fillText('✓  '+sig,26,y)
+  })
+
+  // Divider
+  c.strokeStyle='#2a2a3a';c.lineWidth=1
+  c.beginPath();c.moveTo(16,350);c.lineTo(424,350);c.stroke()
+
+  // Trading rows
+  const rows=[
+    ['진입 구간',`${fmtPrice(sw.entry_low)} ~ ${fmtPrice(sw.entry_high)}`,'#fff'],
+    ['목표가 1', `${fmtPrice(sw.target1)}  (+${sw.target1_pct}%)`, '#10b981'],
+    ['목표가 2', `${fmtPrice(sw.target2)}  (+${sw.target2_pct}%)`, '#10b981'],
+    ['손절가',   `${fmtPrice(sw.stop_loss)}  (${sw.stop_pct}%)`,   '#ef4444'],
+    ['손익비',   `${sw.rr_ratio} : 1`,  sw.rr_ratio>=3?'#f59e0b':'#ccc'],
+  ]
+  rows.forEach(([lbl,val,col],i)=>{
+    const y=386+i*52
+    c.font='400 19px "Noto Sans KR",sans-serif';c.fillStyle='#777';c.textAlign='left'
+    c.fillText(lbl,20,y)
+    c.font='700 21px "Noto Sans KR",sans-serif';c.fillStyle=col;c.textAlign='right'
+    c.fillText(val,420,y)
+    if(i<4){c.strokeStyle='#1a1a2e';c.lineWidth=0.7;c.beginPath();c.moveTo(16,y+16);c.lineTo(424,y+16);c.stroke()}
+  })
+
+  // Grade area at bottom
+  c.fillStyle=gradeCol+'22'
+  c.roundRect(60,614,320,52,26);c.fill()
+  c.strokeStyle=gradeCol;c.lineWidth=1.5
+  c.roundRect(60,614,320,52,26);c.stroke()
+  c.font='900 24px "Noto Sans KR",sans-serif'
+  c.fillStyle=gradeCol;c.shadowColor=gradeCol;c.shadowBlur=12;c.textAlign='center'
+  c.fillText(`${grade}  ·  신호 ${score}점`,220,646);c.shadowBlur=0
+
+  const cardTex=new THREE.CanvasTexture(cvs)
+  const card=new THREE.Mesh(
+    new THREE.PlaneGeometry(440/130,680/130),
+    new THREE.MeshBasicMaterial({map:cardTex,transparent:true,depthWrite:false})
+  )
+  card.position.set(0,2,-10);card.material.opacity=0
+  card.userData.isCard=true
+  addSO(card)
+}
+
+function renderSignals(elapsed){
+  camera.position.set(0,2,12);camera.lookAt(0,0,0)
+  goldLight.intensity=1.5+Math.sin(elapsed*0.003)*0.5
+  sceneObjects.forEach(obj=>{
+    if(obj.userData.isCard){
+      const p=easeOutQuint(prog(elapsed,100,800))
+      obj.material.opacity=p
+      obj.position.z=-10+p*10
+    }
+  })
+}
+
+/* ══════════════════════════════════════════════
+   TRANSITION SCENE
+══════════════════════════════════════════════ */
+function renderTransition(elapsed){
+  const p=elapsed/1000
+  if(p<0.3)renderer.toneMappingExposure=1.2+(p/0.3)*5.5
+  else if(p<0.6)renderer.toneMappingExposure=6.7-((p-0.3)/0.3)*5.5
+  else renderer.toneMappingExposure=1.2
+  if(p>0.3&&p<0.75){
+    const rp=(p-0.3)/0.45,angle=rp*Math.PI*2,r=12
+    camera.position.set(Math.sin(angle)*r,2,Math.cos(angle)*r)
+    camera.lookAt(0,0,0)
+  } else if(p>=0.75){
+    camera.position.set(0,2,12);camera.lookAt(0,0,0)
+  }
+}
+
+/* ══════════════════════════════════════════════
+   FINAL SCENE
+══════════════════════════════════════════════ */
+let finalBurstDone=false
+function setupFinal(){
+  finalBurstDone=false
+  camera.position.set(0,2,12);camera.lookAt(0,0,0)
+
+  // Title
+  const tt=makeTextMesh('오늘의 스윙 픽',{
+    fontSize:48,color:'#f59e0b',fontWeight:'900',
+    width:512,height:112,glowColor:'#f59e0b',meshW:7,meshH:1.6
+  })
+  tt.position.set(0,5.2,0);tt.material.opacity=0;tt.userData.role='title'
+  addSO(tt)
+
+  // Two stock cards
+  stockData.slice(0,2).forEach((stock,si)=>{
+    const cvs=document.createElement('canvas');cvs.width=290;cvs.height=450
+    const c=cvs.getContext('2d')
+    const gr=c.createLinearGradient(0,0,0,450)
+    gr.addColorStop(0,'#0e0e22');gr.addColorStop(1,'#060614')
+    c.fillStyle=gr;c.fillRect(0,0,290,450)
+    c.strokeStyle='#f59e0b55';c.lineWidth=1.5;c.strokeRect(1,1,288,448)
+
+    c.font='900 42px "Noto Sans KR",sans-serif';c.fillStyle='#f59e0b'
+    c.shadowColor='#f59e0b';c.shadowBlur=14;c.textAlign='center';c.textBaseline='alphabetic'
+    c.fillText(stock.ticker,145,54);c.shadowBlur=0
+
+    c.font='300 16px "Noto Sans KR",sans-serif';c.fillStyle='#888'
+    c.fillText((stock.name||stock.ticker).slice(0,16),145,76)
+
+    c.font='700 30px "Noto Sans KR",sans-serif';c.fillStyle='#fff'
+    c.fillText(fmtPrice(stock.price),145,118)
+
+    const sw=stock.swing
+    ;[
+      ['진입', fmtPrice(sw.entry_low),'#f59e0b'],
+      ['목표1',`+${sw.target1_pct}%`,'#10b981'],
+      ['목표2',`+${sw.target2_pct}%`,'#10b981'],
+      ['손절', `${sw.stop_pct}%`,'#ef4444'],
+      ['RR',   `${sw.rr_ratio}:1`,sw.rr_ratio>=3?'#f59e0b':'#ccc'],
+      ['점수', `${stock.score}점`,'#f59e0b'],
+    ].forEach(([lbl,val,col],i)=>{
+      const y=158+i*44
+      c.font='400 16px "Noto Sans KR",sans-serif';c.fillStyle='#666';c.textAlign='left'
+      c.fillText(lbl,14,y)
+      c.font='700 18px "Noto Sans KR",sans-serif';c.fillStyle=col;c.textAlign='right'
+      c.fillText(val,276,y)
+      c.strokeStyle='#1a1a2e';c.lineWidth=0.5
+      c.beginPath();c.moveTo(10,y+8);c.lineTo(280,y+8);c.stroke()
+    })
+
+    const tx=new THREE.CanvasTexture(cvs)
+    const mesh=new THREE.Mesh(
+      new THREE.PlaneGeometry(290/130,450/130),
+      new THREE.MeshBasicMaterial({map:tx,transparent:true,depthWrite:false})
+    )
+    const startX=si===0?-16:16
+    const endX=si===0?-1.25:1.25
+    mesh.position.set(startX,1.5,0);mesh.material.opacity=0
+    mesh.userData={role:'card',startX,endX}
+    addSO(mesh)
+  })
+
+  // CTA pill
+  const cta=makeTextMesh('저장해두고 직접 확인해보세요 📌',{
+    fontSize:28,color:'#f59e0b',fontWeight:'700',
+    width:512,height:72,glowColor:'#f59e0b44',meshW:6.2,meshH:0.88
+  })
+  cta.position.set(0,-3,0);cta.material.opacity=0;cta.userData.role='cta'
+  addSO(cta)
+
+  // Brand
+  const br=makeTextMesh('TopStockDaily',{
+    fontSize:30,color:'#ffffff66',fontWeight:'300',width:384,height:72,meshW:4.2,meshH:0.8
+  })
+  br.position.set(0,-4,0);br.material.opacity=0;br.userData.role='brand'
+  addSO(br)
+}
+
+function renderFinal(elapsed){
+  camera.position.set(0,2,12);camera.lookAt(0,0,0)
+  goldLight.intensity=1.5+Math.sin(elapsed*0.0025)*0.8
+  renderer.toneMappingExposure=1.2
+
+  sceneObjects.forEach(obj=>{
+    const r=obj.userData.role
+    if(r==='title'){
+      const p=easeOutCubic(prog(elapsed,0,700));obj.material.opacity=p
+      obj.position.y=5.2-(1-p)*2
+    }
+    if(r==='card'){
+      const p=easeOutElastic(prog(elapsed,300,900))
+      obj.material.opacity=clamp(p*1.8,0,1)
+      obj.position.x=lerp(obj.userData.startX,obj.userData.endX,p)
+    }
+    if(r==='cta'){
+      const p=easeOutCubic(prog(elapsed,1100,700))
+      obj.material.opacity=p*(0.7+0.3*Math.sin(elapsed*0.005))
+    }
+    if(r==='brand'){obj.material.opacity=easeOutCubic(prog(elapsed,1500,600))}
+  })
+
+  // Ending particle shower
+  if(elapsed>2350&&!finalBurstDone){
+    finalBurstDone=true
+    for(let i=0;i<6;i++){
+      const p=new THREE.Vector3((Math.random()-.5)*10,(Math.random()-.5)*5,Math.random()*2)
+      activeEffects.push(createBurst(p,0xf59e0b,100,0.07))
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════
+   SCENE MANAGEMENT
+══════════════════════════════════════════════ */
+let prevType=null
+function onSceneEnter(plan){
+  clearSO()
+  renderer.toneMappingExposure=1.2
+  if(prevType==='chart3d'&&plan.type!=='chart3d')cleanupChart()
+
+  const stock=plan.stock!==undefined?stockData[plan.stock]:null
+  switch(plan.type){
+    case'intro':      setupIntro();break
+    case'reveal':     setupReveal(stock);break
+    case'chart3d':    setupChart(stock,plan.stock);break
+    case'signals':    setupSignals(stock);break
+    case'final':      setupFinal();break
+  }
+  prevType=plan.type
+}
+
+function renderSceneFrame(plan,elapsed){
+  const stock=plan.stock!==undefined?stockData[plan.stock]:null
+  switch(plan.type){
+    case'intro':      renderIntro(elapsed);break
+    case'reveal':     renderReveal(elapsed,stock);break
+    case'chart3d':    renderChart3D(elapsed);break
+    case'signals':    renderSignals(elapsed);break
+    case'transition': renderTransition(elapsed);break
+    case'final':      renderFinal(elapsed);break
+  }
+}
+
+/* ─── SEGMENT BAR ─── */
+function buildSegBar(){
+  const bar=document.getElementById('segbar')
+  bar.innerHTML=''
+  SCENE_PLAN.forEach(()=>{
+    const d=document.createElement('div');d.className='seg'
+    const f=document.createElement('div');f.className='seg-fill'
+    d.appendChild(f);bar.appendChild(d)
+  })
+}
+function updateSegBar(idx,pct){
+  document.querySelectorAll('.seg-fill').forEach((f,i)=>{
+    if(i<idx)f.style.width='100%'
+    else if(i===idx)f.style.width=(pct*100)+'%'
+    else f.style.width='0%'
+  })
+}
+
+/* ─── MASTER LOOP ─── */
+function masterLoop(ts){
+  requestAnimationFrame(masterLoop)
+  if(!initialized||paused){if(!initialized)renderer.render(scene,camera);return}
+  const dt=Math.min((ts-lastTs)/1000,0.05)
+  lastTs=ts
+  if(sceneStart===null)sceneStart=ts
+  const elapsed=ts-sceneStart
+
+  ambientParticles.update(dt)
+  goldLight.intensity=Math.max(1,goldLight.intensity*0.995)
+  activeEffects=activeEffects.filter(e=>{const a=e.update(dt);if(!a&&e.dispose)e.dispose();return a})
+
+  renderSceneFrame(SCENE_PLAN[sceneIdx],elapsed)
+  updateSegBar(sceneIdx,elapsed/SCENE_PLAN[sceneIdx].dur)
+
+  if(elapsed>=SCENE_PLAN[sceneIdx].dur){
+    sceneIdx=(sceneIdx+1)%SCENE_PLAN.length
+    sceneStart=ts
+    onSceneEnter(SCENE_PLAN[sceneIdx])
+  }
+  renderer.render(scene,camera)
+}
+
+/* ─── MOCK DATA ─── */
+function getMockData(){
+  function mkChart(base,trend=1){
+    const close=[],high=[],low=[],volume=[],N=65;let p=base
+    for(let i=0;i<N;i++){
+      const chg=(Math.random()-.48)*p*0.022*trend
+      p=Math.max(p*0.75,p+chg)
+      close.push(Math.round(p*100)/100)
+      high.push(Math.round(p*(1+Math.random()*0.013)*100)/100)
+      low.push(Math.round(p*(1-Math.random()*0.013)*100)/100)
+      volume.push(Math.floor(3e6+Math.random()*8e6*(i>52?2.8:1)))
+    }
+    return{close,high,low,volume,ma5:calcSMA(close,5),ma20:calcSMA(close,20)}
+  }
+  return{stocks:[
+    {ticker:'AAPL',name:'Apple Inc.',score:84,price:198.45,change_pct:1.23,
+     signals:{golden_cross:true,volume_confirm:true,rsi_signal:true,macd_cross:true,ma_alignment:true,fib_support:false,relative_strength:true,bollinger_break:false,stoch_signal:false},
+     swing:{entry_low:196.5,entry_high:199.2,stop_loss:188,stop_pct:-5.8,target1:218.5,target1_pct:11.0,target1_week:2,target2:234,target2_pct:19.3,target2_week:4,rr_ratio:3.8,vol_multiple:2.1},
+     chart:mkChart(190,1.1)},
+    {ticker:'NVDA',name:'NVIDIA Corporation',score:92,price:875.3,change_pct:3.45,
+     signals:{golden_cross:true,volume_confirm:true,rsi_signal:false,macd_cross:true,ma_alignment:true,fib_support:true,relative_strength:true,bollinger_break:true,stoch_signal:false},
+     swing:{entry_low:860,entry_high:880,stop_loss:820,stop_pct:-6.8,target1:950,target1_pct:8.6,target1_week:2,target2:1050,target2_pct:20.0,target2_week:5,rr_ratio:4.2,vol_multiple:2.8},
+     chart:mkChart(820,1.15)},
+  ]}
+}
+
+async function loadData(){
+  const paths=['../data.json','https://kimjaeseung.github.io/stock-screener/data.json']
+  for(const p of paths){
+    try{
+      const r=await fetch(p+'?t='+Date.now())
+      if(!r.ok)continue
+      const j=await r.json()
+      if(j.stocks?.length>=2)return j
+    }catch(e){continue}
   }
   return getMockData()
 }
 
-/* 실데이터 방어적 전처리 */
-function prepareData(data) {
-  data.stocks = data.stocks.slice(0,2).map(s => {
-    /* chart_data: 스크리너가 {closes,highs,lows,volumes} 로 내보냄.
-       구버전은 s.chart 에 {close,high,low,volume} (단수) 형태로 있을 수 있음. */
-    if (!s.chart_data) {
-      if (s.chart && s.chart.close) {
-        // 구버전 SPA chart 형식 → reels 형식으로 변환
-        s.chart_data = {
-          closes:  s.chart.close  || [],
-          highs:   s.chart.high   || [],
-          lows:    s.chart.low    || [],
-          volumes: s.chart.volume || [],
-        }
-      } else {
-        s.chart_data = generateMockChart(s.price||100, 65)
-      }
-    }
-    /* swing: 없으면 ATR 근사치로 생성 */
-    if (!s.swing) {
-      const p = s.price||100
-      const atr = s.atr || p * 0.025  // fallback: 2.5% of price
-      s.swing = {
-        entry_low:  +(p*0.995).toFixed(2),     entry_high: +(p*1.005).toFixed(2),
-        stop_loss:  +(p - 2.5*atr).toFixed(2), stop_pct:   +(-2.5*atr/p*100).toFixed(1),
-        target1:    +(p + 3*atr).toFixed(2),   target1_pct:+(3*atr/p*100).toFixed(1), target1_week:2,
-        target2:    +(p + 6*atr).toFixed(2),   target2_pct:+(6*atr/p*100).toFixed(1), target2_week:4,
-        rr_ratio:   2.5, vol_multiple: s.vol_ratio||2.0,
-      }
-    }
-    /* signals: 스크리너가 dict[str,bool]로 내보냄.
-       구버전 문자열 리스트라면 키 이름 매핑 시도. */
-    if (Array.isArray(s.signals)) {
-      const arr = s.signals
-      const keyMap = {
-        'golden_cross':     ['golden','Golden Cross','MA20'],
-        'volume_confirm':   ['Volume Surge','Volume Up','volume'],
-        'rsi_signal':       ['RSI Strong','RSI Rising','RSI'],
-        'macd_cross':       ['MACD Bullish','MACD Cross'],
-        'bollinger_break':  ['Bollinger','BB'],
-        'stoch_signal':     ['Stoch'],
-        'ma_alignment':     ['alignment','MA5','정배열'],
-        'relative_strength':['RS +','Relative'],
-        'fib_support':      ['Fibonacci','fib'],
-        'rsi_divergence':   ['Divergence','divergence'],
-      }
-      const newSigs = {}
-      Object.keys(SIGNAL_LABELS).forEach(k => {
-        const patterns = keyMap[k] || [k]
-        newSigs[k] = arr.some(item => patterns.some(p => item.includes(p)))
-      })
-      s.signals = newSigs
-    }
-    if (!s.signals) s.signals = {}
-    if (!s.sector)  s.sector = 'NASDAQ'
-    return s
-  })
-  return data
-}
-
-/* ═══════════════════════════════════════════════════════════
-   setUI 헬퍼
-════════════════════════════════════════════════════════════ */
-function setUI(html) {
-  document.getElementById('ui-layer').innerHTML = html
-}
-
-/* ═══════════════════════════════════════════════════════════
-   SIGI 캐릭터 씬 (Canvas) — 레트로 뚱냥이
-════════════════════════════════════════════════════════════ */
-function getSigiLine1(stock) {
-  const sc = stock.score || 0
-  if (sc >= 80) return `${stock.ticker} 발견! 오늘 강추야 🔥`
-  if (sc >= 60) return `${stock.ticker} 왔어! 좋은 타이밍 ✨`
-  return `${stock.ticker} 체크해봐 👀`
-}
-function getSigiLine2(stock) {
-  const sc = stock.score || 0
-  if (sc >= 80) return `신호 ${sc}점 — 놓치면 아까워 😼`
-  if (sc >= 60) return `신호 ${sc}점 — 분석 결과 봐봐 🐱`
-  return `신호 ${sc}점 — 참고해봐 🐾`
-}
-
-/* 뚱냥이 그리기 (중심 0,0 기준, 외부에서 translate/scale 적용) */
-function drawChubbycat(ctx, score, elapsed) {
-  const OL = '#5c2d06', BG = '#fff8e7'
-  const R  = 72    // 얼굴 반지름 (매우 뚱뚱)
-
-  /* ─ 꼬리 (몸 뒤에 먼저 그려야 레이어 순서 맞음) ─ */
-  ctx.strokeStyle=OL; ctx.lineWidth=8; ctx.lineCap='round'; ctx.lineJoin='round'
-  ctx.fillStyle=BG
-  ctx.beginPath()
-  ctx.moveTo(44, R+18)
-  ctx.bezierCurveTo(80, R+5, 92, R-22, 72, R-48)
-  ctx.bezierCurveTo(58, R-68, 40, R-55, 46, R-40)
-  ctx.stroke()
-  ctx.lineWidth=4
-  ctx.beginPath()
-  ctx.moveTo(44, R+18)
-  ctx.bezierCurveTo(74, R+2, 84, R-20, 66, R-44)
-  ctx.stroke()
-
-  /* ─ 몸통 (초뚱 타원) ─ */
-  ctx.fillStyle=BG; ctx.strokeStyle=OL; ctx.lineWidth=4
-  ctx.beginPath(); ctx.ellipse(0, R+30, 60, 48, 0, 0, Math.PI*2)
-  ctx.fill(); ctx.stroke()
-
-  /* ─ 앞발 (통통한 원) ─ */
-  ctx.fillStyle=BG; ctx.strokeStyle=OL; ctx.lineWidth=3
-  ;[[-34, R+68],[34, R+68]].forEach(([px,py]) => {
-    ctx.beginPath(); ctx.ellipse(px, py, 22, 14, 0, 0, Math.PI*2)
-    ctx.fill(); ctx.stroke()
-    /* 발가락 선 */
-    ctx.lineWidth=1.5
-    ;[-8,0,8].forEach(dx => {
-      ctx.beginPath(); ctx.moveTo(px+dx, py+4); ctx.lineTo(px+dx, py+13); ctx.stroke()
-    })
-    ctx.lineWidth=3
-  })
-
-  /* ─ 귀 (통통 삼각) ─ */
-  ctx.fillStyle=BG; ctx.strokeStyle=OL; ctx.lineWidth=4
-  ;[  [[-36,-R+16],[-50,-R-20],[-14,-R+8]],
-     [[ 36,-R+16],[ 50,-R-20],[ 14,-R+8]]
-  ].forEach(pts => {
-    ctx.beginPath()
-    ctx.moveTo(...pts[0]); ctx.lineTo(...pts[1]); ctx.lineTo(...pts[2])
-    ctx.closePath(); ctx.fill(); ctx.stroke()
-  })
-  /* 귀 내부 */
-  ctx.fillStyle='#ffb3c6'; ctx.strokeStyle='transparent'; ctx.lineWidth=0
-  ;[  [[-33,-R+13],[-43,-R-14],[-18,-R+6]],
-     [[ 33,-R+13],[ 43,-R-14],[ 18,-R+6]]
-  ].forEach(pts => {
-    ctx.beginPath()
-    ctx.moveTo(...pts[0]); ctx.lineTo(...pts[1]); ctx.lineTo(...pts[2])
-    ctx.closePath(); ctx.fill()
-  })
-
-  /* ─ 얼굴 ─ */
-  ctx.fillStyle=BG; ctx.strokeStyle=OL; ctx.lineWidth=4
-  ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI*2); ctx.fill(); ctx.stroke()
-
-  /* ─ 줄무늬 (이마, 레트로 포인트) ─ */
-  ctx.strokeStyle='#d4a574'; ctx.lineWidth=2; ctx.lineCap='round'
-  ;[[-10,-R+16],[0,-R+12],[10,-R+16]].forEach(([x,y]) => {
-    ctx.beginPath(); ctx.moveTo(x-5, y-4); ctx.lineTo(x+5, y+4); ctx.stroke()
-  })
-
-  /* ─ 볼 ─ */
-  ctx.save(); ctx.globalAlpha=0.45
-  ctx.fillStyle='#ff9eb5'
-  ctx.beginPath(); ctx.ellipse(-38, 14, 20, 14, 0, 0, Math.PI*2); ctx.fill()
-  ctx.beginPath(); ctx.ellipse( 38, 14, 20, 14, 0, 0, Math.PI*2); ctx.fill()
-  ctx.restore()
-
-  /* ─ 눈 (레트로 도트) ─ */
-  if (score >= 80) {
-    /* 반달 눈 (행복) */
-    ctx.fillStyle=OL
-    ctx.beginPath(); ctx.arc(-24,-8,13,Math.PI,Math.PI*2); ctx.fill()
-    ctx.beginPath(); ctx.arc( 24,-8,13,Math.PI,Math.PI*2); ctx.fill()
-    /* 광채 */
-    ctx.fillStyle='#fff'
-    ctx.beginPath(); ctx.arc(-18,-14,4,0,Math.PI*2); ctx.fill()
-    ctx.beginPath(); ctx.arc( 30,-14,4,0,Math.PI*2); ctx.fill()
-  } else {
-    /* 동글동글한 눈 */
-    ctx.fillStyle=OL
-    ctx.beginPath(); ctx.ellipse(-24,-8,11,13,0,0,Math.PI*2); ctx.fill()
-    ctx.beginPath(); ctx.ellipse( 24,-8,11,13,0,0,Math.PI*2); ctx.fill()
-    ctx.fillStyle='#fff'
-    ctx.beginPath(); ctx.arc(-19,-14,4,0,Math.PI*2); ctx.fill()
-    ctx.beginPath(); ctx.arc( 29,-14,4,0,Math.PI*2); ctx.fill()
-  }
-
-  /* ─ 코 (하트 모양 근사) ─ */
-  ctx.fillStyle='#ff6b8a'; ctx.strokeStyle='transparent'; ctx.lineWidth=0
-  ctx.beginPath()
-  ctx.moveTo(0, 16)
-  ctx.bezierCurveTo(-8, 8, -14, 6, -8, 12)
-  ctx.bezierCurveTo(-4, 16, 0, 20, 0, 16)
-  ctx.moveTo(0, 16)
-  ctx.bezierCurveTo(8, 8, 14, 6, 8, 12)
-  ctx.bezierCurveTo(4, 16, 0, 20, 0, 16)
-  ctx.fill()
-
-  /* ─ 입 (ω) ─ */
-  ctx.strokeStyle=OL; ctx.lineWidth=3; ctx.lineCap='round'
-  ctx.beginPath()
-  ctx.moveTo(-14, 26)
-  ctx.quadraticCurveTo(-7, 36, 0, 27)
-  ctx.quadraticCurveTo(7, 36, 14, 26)
-  ctx.stroke()
-
-  /* ─ 수염 ─ */
-  ctx.strokeStyle='#a0845c'; ctx.lineWidth=1.8; ctx.lineCap='round'
-  ;[[-10,14,-52,8],[-9,20,-52,22],[-10,26,-52,32]].forEach(([x1,y1,x2,y2]) => {
-    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke()
-  })
-  ;[[10,14,52,8],[9,20,52,22],[10,26,52,32]].forEach(([x1,y1,x2,y2]) => {
-    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke()
-  })
-}
-
-function renderSigi(ctx, elapsed, stock) {
-  setUI('')
-  const cx = W/2
-  const score = stock.score || 0
-
-  /* ─ 배경 — 따뜻한 레트로 도트 무늬 ─ */
-  ctx.save(); ctx.globalAlpha=0.04; ctx.fillStyle='#f59e0b'
-  for (let gx=0; gx<W; gx+=24) for (let gy=0; gy<H; gy+=24) {
-    ctx.beginPath(); ctx.arc(gx, gy, 2, 0, Math.PI*2); ctx.fill()
-  }
-  ctx.restore()
-
-  /* ─ 뚱냥이 bounce-in (0~700ms) + 도착 후 상하 bob ─ */
-  const bp     = easeOutElastic(prog(elapsed, 0, 700))
-  const arrived = clamp((elapsed-700)/100, 0, 1)
-  const bob    = arrived * Math.sin(elapsed * 0.0045) * 6   // 도착 후 상하 흔들림
-  const cyBase = H/2 - 120
-
-  if (bp > 0.01) {
-    const alpha = Math.min(1, bp * 1.4)
-    ctx.save()
-    ctx.globalAlpha = alpha
-    ctx.translate(cx, cyBase + (1-bp)*260 + bob)
-    ctx.scale(bp*0.82+0.18, bp*0.82+0.18)
-    drawChubbycat(ctx, score, elapsed)
-    ctx.restore()
-  }
-
-  /* ─ "SIGI" 이름 ─ */
-  const nameA = easeOutCubic(prog(elapsed, 600, 300))
-  if (nameA > 0.01) {
-    ctx.save(); ctx.globalAlpha = nameA
-    ctx.fillStyle='#f59e0b'
-    ctx.shadowColor='#f59e0b'; ctx.shadowBlur=8
-    ctx.font='900 11px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.letterSpacing='4px'
-    ctx.fillText('SIGI', cx, cyBase + 72 + 30 + bob)
-    ctx.letterSpacing='0px'
-    ctx.restore()
-  }
-
-  /* ─ 말풍선 ─ */
-  const bubA = easeOutCubic(prog(elapsed, 700, 300))
-  if (bubA > 0.01) {
-    const by = cyBase + 72 + 52, bw=316, bh=74, br=16
-    ctx.save(); ctx.globalAlpha=bubA
-    ctx.fillStyle='#fffbf0'; ctx.strokeStyle='#d4a574'; ctx.lineWidth=2.5
-    ctx.shadowColor='#f59e0b44'; ctx.shadowBlur=14
-    ctx.beginPath(); ctx.roundRect(cx-bw/2, by, bw, bh, br); ctx.fill(); ctx.stroke()
-    /* 꼬리 (위쪽으로) */
-    ctx.shadowBlur=0; ctx.fillStyle='#fffbf0'; ctx.strokeStyle='#d4a574'; ctx.lineWidth=2
-    ctx.beginPath(); ctx.moveTo(cx-10,by); ctx.lineTo(cx,by-14); ctx.lineTo(cx+10,by); ctx.closePath()
-    ctx.fill(); ctx.stroke()
-    ctx.restore()
-  }
-
-  /* ─ 타이핑 텍스트 (어두운 글씨로 가독성 확보) ─ */
-  const line1 = getSigiLine1(stock)
-  const line2 = getSigiLine2(stock)
-  const by = cyBase + 72 + 52
-
-  const t1p = prog(elapsed, 820, 500)
-  if (t1p > 0) {
-    const txt = line1.slice(0, Math.ceil(t1p * line1.length))
-    ctx.save(); ctx.globalAlpha=Math.min(1, t1p*3)
-    ctx.fillStyle='#3b1a08'; ctx.font='500 13px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='middle'
-    ctx.fillText(txt, cx, by+24)
-    ctx.restore()
-  }
-
-  const t2p = prog(elapsed, 1300, 500)
-  if (t2p > 0) {
-    const txt = line2.slice(0, Math.ceil(t2p * line2.length))
-    ctx.save(); ctx.globalAlpha=Math.min(1, t2p*3)
-    ctx.fillStyle='#b45309'; ctx.font='700 13px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='middle'
-    ctx.fillText(txt, cx, by+50)
-    ctx.restore()
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   11. 후킹 씬 (Canvas)
-════════════════════════════════════════════════════════════ */
-function renderHook(ctx, elapsed, stock) {
-  const sw = stock.swing
-  const cx = W/2
-
-  /* 황금 플래시 배경 */
-  const fp = prog(elapsed, 1200, 280)
-  if (fp > 0 && fp < 1) {
-    ctx.save(); ctx.globalAlpha = Math.sin(fp*Math.PI)*0.38
-    ctx.fillStyle='#f59e0b'; ctx.fillRect(0,0,W,H); ctx.restore()
-  }
-
-  /* 라인1: "오늘의 스윙 기회" */
-  const a1 = easeOutCubic(prog(elapsed, 0, 400))
-  if (a1 > 0.01) {
-    ctx.save(); ctx.globalAlpha = a1
-    ctx.fillStyle='#f59e0b'
-    ctx.font = '300 11px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.letterSpacing = '4px'
-    ctx.fillText('오늘의 스윙 기회', cx, H/2-92)
-    ctx.letterSpacing = '0px'
-    ctx.restore()
-  }
-
-  /* 라인2: "4주 안에 +X% 가능" — slideUp */
-  const a2 = easeOutCubic(prog(elapsed, 600, 450))
-  if (a2 > 0.01) {
-    ctx.save(); ctx.globalAlpha = a2
-    ctx.fillStyle='#ffffff'
-    ctx.shadowColor='#ffffff'; ctx.shadowBlur = 8
-    ctx.font = '700 33px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.fillText(`4주 안에 +${fmtNum(sw.target2_pct)}% 가능`, cx, H/2-42 + (1-a2)*22)
-    ctx.restore()
-  }
-
-  /* 라인3: TICKER — easeOutElastic + 글로우 */
-  const a3 = easeOutElastic(prog(elapsed, 1200, 900))
-  if (a3 > 0.01) {
-    const scale = clamp(a3, 0.1, 1.25)
-    ctx.save(); ctx.globalAlpha = Math.min(1, a3*1.3)
-    ctx.fillStyle='#f59e0b'
-    ctx.shadowColor='#f59e0b'; ctx.shadowBlur = 36*Math.min(1,a3)
-    ctx.font = '900 80px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.translate(cx, H/2+28)
-    ctx.scale(scale, scale)
-    ctx.fillText(stock.ticker, 0, 0)
-    ctx.restore()
-  }
-
-  /* 라인4: 한국어명 + sector */
-  const a4 = easeOutCubic(prog(elapsed, 1600, 400))
-  if (a4 > 0.01) {
-    const krName = getKrName(stock.ticker, stock.name)
-    const sectorTxt = stock.sector && stock.sector !== 'NASDAQ' ? stock.sector : 'NASDAQ'
-    ctx.save(); ctx.globalAlpha = a4
-    ctx.fillStyle='#888888'
-    ctx.font = '400 12px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.fillText(krName, cx, H/2+58)
-    ctx.fillStyle='#555555'
-    ctx.font = '300 11px "Noto Sans KR",sans-serif'
-    ctx.fillText(sectorTxt + ' · NASDAQ', cx, H/2+74)
-    ctx.restore()
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   12. 진입 조건 카드 씬 (Canvas — 녹화 캡처 가능)
-════════════════════════════════════════════════════════════ */
-function renderEntryCard(ctx, elapsed, stock) {
-  setUI('')
-  const sw = stock.swing
-  const cardP = easeOutCubic(prog(elapsed, 0, 600))
-  if (cardP < 0.01) return
-  const offY = (1 - cardP) * 80
-
-  ctx.save()
-  ctx.globalAlpha = cardP
-  ctx.translate(0, offY)
-
-  const mx = 20, cw = W - mx * 2
-  const rowH = 47, nRows = 6
-  const cardH = 16 + nRows * rowH   // 298px
-  const startY = 218                 // 수직 중앙 기준
-
-  /* ─ 헤더 ─ */
-  ctx.fillStyle = '#fff'
-  ctx.font = '900 26px "Noto Sans KR",sans-serif'
-  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
-  ctx.fillText(stock.ticker, mx, startY)
-
-  ctx.fillStyle = '#aaa'
-  ctx.font = '400 12px "Noto Sans KR",sans-serif'
-  ctx.fillText(getKrName(stock.ticker, stock.name) || stock.ticker, mx, startY + 22)
-
-  /* ─ 카드 배경 ─ */
-  const cY = startY + 38
-  ctx.fillStyle = '#0a0a0a'; ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1
-  ctx.beginPath(); ctx.roundRect(mx, cY, cw, cardH, 16); ctx.fill(); ctx.stroke()
-
-  /* ─ 행 데이터 ─ */
-  const rowDefs = [
-    { delay:200, icon:'📌', label:'종목',
-      main:()=>`${stock.ticker}  ${fmtPrice(stock.price)}`,
-      sub:()=>fmtChange(stock.change_pct),
-      mainC:'#fff', subC:()=>stock.change_pct==null?'#888':stock.change_pct>=0?'#10b981':'#ef4444' },
-    { delay:300, icon:'💰', label:'진입가',
-      main:()=>`${fmtPrice(sw.entry_low)} ~ ${fmtPrice(sw.entry_high)}`,
-      mainC:'#f59e0b', pulse:true },
-    { delay:400, icon:'🛑', label:'손절가',
-      main:()=>fmtPrice(sw.stop_loss), sub:()=>fmtPct(sw.stop_pct) !== '—' ? `(${fmtPct(sw.stop_pct)})` : '',
-      mainC:'#ef4444', subC:()=>'#ef444488' },
-    { delay:500, icon:'🎯', label:'목표1',
-      main:()=>fmtPrice(sw.target1), sub:()=>fmtPct(sw.target1_pct) !== '—' ? `(+${fmtPct(sw.target1_pct)})` : '',
-      mainC:'#10b981', subC:()=>'#10b98188' },
-    { delay:600, icon:'🎯', label:'목표2',
-      main:()=>fmtPrice(sw.target2), sub:()=>fmtPct(sw.target2_pct) !== '—' ? `(+${fmtPct(sw.target2_pct)})` : '',
-      mainC:'#6ee7b7', subC:()=>'#6ee7b788' },
-    { delay:700, icon:'⚖️', label:'손익비',
-      main:()=>`${sw.rr_ratio} : 1${sw.rr_ratio>=2?' ⭐':''}`,
-      mainC: sw.rr_ratio>=2?'#f59e0b':'#ccc' },
-  ]
-
-  rowDefs.forEach((row, ri) => {
-    const rp = easeOutCubic(prog(elapsed, row.delay, 380))
-    if (rp < 0.01) return
-    const rowTopY = cY + 8 + ri * rowH
-    const midY    = rowTopY + rowH / 2
-
-    ctx.save(); ctx.globalAlpha = rp
-
-    /* 구분선 */
-    if (ri > 0) {
-      ctx.strokeStyle = row.pulse ? '#f59e0b22' : '#111111'; ctx.lineWidth = 1
-      ctx.beginPath(); ctx.moveTo(mx+12, rowTopY); ctx.lineTo(mx+cw-12, rowTopY); ctx.stroke()
-    }
-
-    /* 진입가 펄싱 배경 */
-    if (row.pulse) {
-      const pa = (Math.sin(elapsed*0.004)*0.5+0.5)*0.07
-      ctx.fillStyle = '#f59e0b'; ctx.globalAlpha = rp*pa
-      ctx.fillRect(mx+1, rowTopY, cw-2, rowH)
-      ctx.globalAlpha = rp
-    }
-
-    /* 왼쪽: 아이콘 + 레이블 */
-    ctx.fillStyle = '#aaa'; ctx.font = '400 12px "Noto Sans KR",sans-serif'
-    ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
-    ctx.fillText(`${row.icon} ${row.label}`, mx+12, midY)
-
-    /* 오른쪽: sub 값 먼저, 그다음 main 값 */
-    let rx = mx + cw - 12
-    if (row.sub) {
-      const subTxt = row.sub()
-      ctx.font = '400 11px "Noto Sans KR",sans-serif'
-      const sw2 = ctx.measureText(subTxt).width
-      ctx.fillStyle = row.subC ? row.subC() : '#888'
-      ctx.textAlign = 'right'
-      ctx.fillText(subTxt, rx, midY)
-      rx -= sw2 + 4
-    }
-    ctx.fillStyle = row.mainC || '#fff'; ctx.font = '700 13px "Noto Sans KR",sans-serif'
-    ctx.textAlign = 'right'
-    ctx.fillText(row.main(), rx, midY)
-
-    ctx.restore()
-  })
-
-  /* ─ 하단 힌트 ─ */
-  const hintY = cY + cardH + 22
-  const h1 = easeOutCubic(prog(elapsed, 1500, 400))
-  const h2 = easeOutCubic(prog(elapsed, 1700, 400))
-  if (h1 > 0.01) {
-    ctx.save(); ctx.globalAlpha = h1*0.7
-    ctx.fillStyle='#f59e0b'; ctx.font='400 12px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.fillText('이 가격대 지켜주면 홀드', W/2, hintY); ctx.restore()
-  }
-  if (h2 > 0.01) {
-    ctx.save(); ctx.globalAlpha = h2*0.7
-    ctx.fillStyle='#ef4444'; ctx.font='400 11px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.fillText('손절가 이탈 시 즉시 매도', W/2, hintY+20); ctx.restore()
-  }
-
-  ctx.restore()
-}
-
-/* ═══════════════════════════════════════════════════════════
-   13~17. 차트 씬 (Canvas)
-════════════════════════════════════════════════════════════ */
-function renderChart(ctx, elapsed, stock) {
-  const {closes, highs, lows, volumes} = stock.chart_data
-  const sw = stock.swing
-  const n = closes.length
-
-  /* 레이아웃 */
-  const PAD_L=8, PAD_R=54
-  const CT=112, CB=590   /* 가격 차트 top/bottom */
-  const VT=602, VB=680   /* 거래량 top/bottom */
-  const CL=PAD_L, CR=W-PAD_R
-
-  /* 최근 60봉 */
-  const DN = Math.min(n,60)
-  const dc = closes.slice(-DN), dh = highs.slice(-DN)
-  const dl = lows.slice(-DN),   dv = volumes.slice(-DN)
-
-  /* 가격 범위 (차트 데이터 기준, 목표가 상단 확보) */
-  const dataMin = Math.min(...dl)
-  const dataMax = Math.max(...dh)
-  const rangePad = (dataMax-dataMin)*0.06
-  const minV = dataMin - rangePad
-  const maxV = dataMax + rangePad
-
-  const xs    = xArr(DN, CL, CR)
-  const closeY = normY(dc, minV, maxV, CT, CB)
-  const highY  = normY(dh, minV, maxV, CT, CB)
-  const lowY   = normY(dl, minV, maxV, CT, CB)
-
-  /* MA5 / MA20 */
-  const ma5  = sma(dc, 5);  const ma5Y  = normY(ma5,  minV, maxV, CT, CB)
-  const ma20 = sma(dc, 20); const ma20Y = normY(ma20, minV, maxV, CT, CB)
-
-  /* 골든크로스 탐지 */
-  let gcIdx = Math.floor(DN*0.65)
-  for (let i=1; i<DN; i++) {
-    if (ma5[i]!=null && ma20[i]!=null && ma5[i-1]!=null && ma20[i-1]!=null) {
-      if (ma5[i-1] < ma20[i-1] && ma5[i] >= ma20[i]) { gcIdx=i; break }
-    }
-  }
-
-  /* Y → 가격 좌표 변환 */
-  const toY = price => CB - ((price-minV)/(maxV-minV||1))*(CB-CT)
-
-  /* 헤더 */
-  const hA = easeOutCubic(prog(elapsed, 0, 350))
-  if (hA > 0.01) {
-    ctx.save(); ctx.globalAlpha = hA
-    ctx.fillStyle='#fff'; ctx.font='900 20px "Noto Sans KR",sans-serif'
-    ctx.textAlign='left'; ctx.textBaseline='alphabetic'
-    ctx.fillText(stock.ticker, 16, 52)
-    ctx.fillStyle='#10b981'; ctx.font='400 12px "Noto Sans KR",sans-serif'
-    const chgTxt = fmtChange(stock.change_pct)
-    ctx.fillText(fmtPrice(stock.price) + (chgTxt ? '  ' + chgTxt : ''), 16, 70)
-    ctx.fillStyle='#666'; ctx.font='300 10px "Noto Sans KR",sans-serif'
-    ctx.fillText('60일 캔들 차트', 16, 88)
-    ctx.restore()
-  }
-
-  /* ── 차트 영역 배경 그라디언트 + 그리드 ── */
-  const chartBg = ctx.createLinearGradient(CL, CT, CL, CB)
-  chartBg.addColorStop(0, '#0d1117'); chartBg.addColorStop(1, '#050505')
-  ctx.fillStyle=chartBg; ctx.fillRect(CL, CT, CR-CL, CB-CT)
-  ctx.save(); ctx.globalAlpha=0.12; ctx.strokeStyle='#ffffff'; ctx.lineWidth=0.5; ctx.setLineDash([2,5])
-  for (let gi=0; gi<=4; gi++) {
-    const gy = CT + (gi/4)*(CB-CT)
-    ctx.beginPath(); ctx.moveTo(CL,gy); ctx.lineTo(CR,gy); ctx.stroke()
-  }
-  ctx.setLineDash([]); ctx.restore()
-
-  /* ── 13. Phase 0: 가격선 혜성 + 일목 구름 (0~1200ms) ── */
-  const p0 = prog(elapsed, 0, 1200)
-  if (p0 > 0) {
-    /* 구름 (MA5↔MA20 사이 반투명 채우기) */
-    const cA = easeOutCubic(prog(elapsed, 0, 700))*0.25
-    if (cA > 0.01) {
-      ctx.save(); ctx.globalAlpha = cA
-      ctx.beginPath(); let ok=false
-      for (let i=0; i<DN; i++) {
-        if (ma5Y[i]==null) continue
-        ok ? ctx.lineTo(xs[i], ma5Y[i]) : (ctx.moveTo(xs[i], ma5Y[i]), ok=true)
-      }
-      for (let i=DN-1; i>=0; i--) {
-        if (ma20Y[i]==null) continue; ctx.lineTo(xs[i], ma20Y[i])
-      }
-      ctx.closePath()
-      const grad = ctx.createLinearGradient(CL, CT, CL, CB)
-      grad.addColorStop(0,'#10b98140'); grad.addColorStop(1,'#10b98108')
-      ctx.fillStyle = grad; ctx.fill(); ctx.restore()
-    }
-    /* 혜성 가격선 */
-    drawCometLine(ctx, xs, closeY, p0, {
-      color:'#6ee7b7', lineWidth:2.5, glowColor:'#10b981', glowBlur:16, comet:p0<0.97
-    })
-  }
-
-  /* ── 14. Phase 1: 피보나치 + 진입 구간 (1200~2200ms) ── */
-  const p1total = prog(elapsed, 1200, 1000)
-  if (p1total > 0) {
-    const swHigh = Math.max(...dh), swLow = Math.min(...dl)
-    const fibs = [
-      {r:0.382, label:'38.2%', color:'#60a5fa'},
-      {r:0.500, label:'50.0%', color:'#a78bfa'},
-      {r:0.618, label:'61.8%', color:'#f59e0b'},
-    ]
-    fibs.forEach(({r, label, color}, fi) => {
-      const fp = easeOutCubic(prog(elapsed, 1200+fi*220, 380))
-      if (fp < 0.01) return
-      const fy = toY(swHigh - r*(swHigh-swLow))
-      ctx.save(); ctx.globalAlpha = fp*0.55
-      ctx.strokeStyle=color; ctx.lineWidth=1; ctx.setLineDash([6,4])
-      ctx.beginPath(); ctx.moveTo(CL, fy); ctx.lineTo(CR, fy); ctx.stroke()
-      ctx.setLineDash([])
-      ctx.fillStyle=color; ctx.font='500 9px "Noto Sans KR",sans-serif'
-      ctx.textAlign='left'; ctx.textBaseline='middle'
-      ctx.globalAlpha=fp*0.75; ctx.fillText(label, CR+5, fy)
-      ctx.restore()
-    })
-
-    /* 진입 구간 황금 하이라이트 */
-    const ezA = easeOutCubic(prog(elapsed, 1550, 380))*0.14
-    if (ezA > 0.01) {
-      const ey1 = toY(sw.entry_high), ey2 = toY(sw.entry_low)
-      ctx.save(); ctx.globalAlpha=ezA; ctx.fillStyle='#f59e0b'
-      ctx.fillRect(CL, ey1, CR-CL, ey2-ey1); ctx.restore()
-    }
-
-    /* popLabel: 핵심 지지구간 진입 중 */
-    const popA1 = prog(elapsed, 1750, 400)
-    if (popA1 > 0) {
-      const midY = clamp(toY((sw.entry_low+sw.entry_high)/2), CT+30, CB-10)
-      drawPopLabel(ctx, W/2, midY, '핵심 지지구간 진입 중', popA1, '#f59e0b')
-    }
-  }
-
-  /* ── 15. Phase 2: MA 라인 + 골든크로스 폭발 (2200~3000ms) ── */
-  const p2 = prog(elapsed, 2200, 800)
-  if (p2 > 0) {
-    const maA = easeOutCubic(p2)
-    drawCometLine(ctx, xs, ma5Y,  maA, {color:'#f59e0b', lineWidth:1.5, glowColor:'#f59e0b', glowBlur:5, comet:false})
-    drawCometLine(ctx, xs, ma20Y, maA, {color:'#60a5fa', lineWidth:1.5, glowColor:'#60a5fa', glowBlur:5, comet:false})
-
-    /* 골든크로스 점 표시 */
-    if (ma5Y[gcIdx] != null) {
-      const gx = xs[gcIdx], gy = ma5Y[gcIdx]
-      const bP = prog(elapsed, 2200, 1100)
-      if (bP > 0) drawBurst(ctx, gx, gy, bP, '#f59e0b')
-
-      const pl2 = prog(elapsed, 2650, 400)
-      if (pl2 > 0) {
-        const lx = gx > W*0.6 ? gx-55 : gx+55
-        drawPopLabel(ctx, lx, clamp(gy-28, CT+20, CB-10), '단기 모멘텀 켜짐 ✓', pl2, '#f59e0b')
-      }
-    }
-  }
-
-  /* ── 16. Phase 3: 거래량 바 (3000~3800ms) ── */
-  const p3 = prog(elapsed, 3000, 800)
-  if (p3 > 0) {
-    const maxVol = Math.max(...dv)
-    const bw = (CR-CL)/DN*0.72
-    const avgVol = dv.reduce((a,b)=>a+b,0)/DN
-
-    dv.forEach((vol, i) => {
-      const vp = easeOutQuint(clamp(p3*1.6-(i/DN)*0.4, 0, 1))
-      const bh = (vol/maxVol)*(VB-VT)
-      const isSpike = vol > avgVol*1.8
-      const pulse = isSpike ? (Math.sin(elapsed*0.007)*0.3+0.85) : 1
-      ctx.save(); ctx.globalAlpha = vp * (isSpike?pulse:0.55)
-      ctx.fillStyle = isSpike ? '#10b981' : '#1d3d2d'
-      if (isSpike) { ctx.shadowColor='#10b981'; ctx.shadowBlur=10 }
-      ctx.fillRect(xs[i]-bw/2, VB-bh*vp, bw, bh*vp)
-      ctx.restore()
-    })
-
-    /* 거래량 popLabel — swing.vol_multiple(최근 5일 최대) 우선 사용 */
-    const spikeIdx = dv.reduce((mi,v,i) => v > dv[mi] ? i : mi, 0)
-    const vm = (sw.vol_multiple && sw.vol_multiple >= 1.0)
-      ? sw.vol_multiple
-      : Math.round(dv[spikeIdx] / avgVol * 10) / 10
-    const spikeX = clamp(xs[spikeIdx] ?? W/2, W*0.2, W*0.8)
-    const pl3 = prog(elapsed, 3350, 400)
-    if (pl3 > 0) drawPopLabel(ctx, spikeX, VT-8, `평균 대비 ${vm}배 — 수급 확인 ✓`, pl3, '#10b981')
-  }
-
-  /* ── 17. Phase 4: 목표/손절선 + RR 뱃지 (3800~4500ms) ── */
-  const p4 = prog(elapsed, 3800, 700)
-  if (p4 > 0) {
-    const lA = easeOutCubic(p4)
-
-    /* hLine: 선은 정확한 가격 y에, 라벨은 겹침 방지 후 우측에 */
-    const hLineData = []
-    function hLine(price, color, dashed) {
-      const ly = clamp(toY(price), CT+2, CB-2)
-      ctx.save(); ctx.globalAlpha=lA*0.88
-      ctx.strokeStyle=color; ctx.lineWidth=1.5
-      if (dashed) ctx.setLineDash([5,3])
-      ctx.beginPath(); ctx.moveTo(CL, ly); ctx.lineTo(CR, ly); ctx.stroke()
-      ctx.setLineDash([])
-      ctx.restore()
-      return ly
-    }
-
-    const lyStop = hLine(sw.stop_loss, '#ef4444', true)
-    const lyT1   = hLine(sw.target1,   '#10b981', false)
-    const lyT2   = hLine(sw.target2,   '#6ee7b7', true)
-
-    /* 라벨: 수직 겹침 방지 — 최소 13px 간격 보장 */
-    const lbls = [
-      {ly: lyStop, color:'#ef4444', txt:'🛑 '+fmtPrice(sw.stop_loss)},
-      {ly: lyT1,   color:'#10b981', txt:'🎯 '+fmtPrice(sw.target1)},
-      {ly: lyT2,   color:'#6ee7b7', txt:'🎯 '+fmtPrice(sw.target2)},
-    ]
-    lbls.sort((a,b)=>a.ly-b.ly)
-    for (let i=1; i<lbls.length; i++) {
-      if (lbls[i].ly - lbls[i-1].ly < 13) lbls[i].ly = lbls[i-1].ly + 13
-    }
-    ctx.save(); ctx.globalAlpha=lA
-    ctx.font='bold 10px "Noto Sans KR",sans-serif'
-    ctx.textAlign='left'; ctx.textBaseline='middle'
-    for (const {color, txt, ly} of lbls) {
-      ctx.fillStyle=color; ctx.fillText(txt, CR+4, ly)
-    }
-    ctx.restore()
-
-    /* 진입 구간 박스 */
-    const ey1=toY(sw.entry_high), ey2=toY(sw.entry_low)
-    ctx.save(); ctx.globalAlpha=lA*0.10; ctx.fillStyle='#f59e0b'
-    ctx.fillRect(CL, ey1, CR-CL, ey2-ey1)
-    ctx.globalAlpha=lA*0.45; ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1
-    ctx.strokeRect(CL, ey1, CR-CL, ey2-ey1); ctx.restore()
-
-    /* 손익비 뱃지 — 차트 좌측 하단, 수평선 라벨(우측)과 겹치지 않음 */
-    const bp = easeOutElastic(prog(elapsed, 3950, 550))
-    if (bp > 0.01) {
-      const bx=CL+62, by=CB-26
-      ctx.save(); ctx.globalAlpha=Math.min(1,bp*1.4)
-      ctx.translate(bx, by); ctx.scale(bp, bp)
-      ctx.fillStyle='#0a0a0a'
-      ctx.shadowColor='#f59e0b'; ctx.shadowBlur=16
-      ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1.5
-      ctx.beginPath(); ctx.roundRect(-58,-14,116,28,14); ctx.fill(); ctx.stroke()
-      ctx.shadowBlur=0; ctx.fillStyle='#f59e0b'
-      ctx.font='bold 12px "Noto Sans KR",sans-serif'
-      ctx.textAlign='center'; ctx.textBaseline='middle'
-      ctx.fillText(`R:R  ${sw.rr_ratio}:1  ⭐`, 0, 1)
-      ctx.restore()
-    }
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   18. 스윙 조건 요약 씬 (Canvas — 녹화 캡처 가능)
-════════════════════════════════════════════════════════════ */
-function renderSummary(ctx, elapsed, stock) {
-  setUI('')
-  const sw = stock.swing
-  const sigs = Object.entries(stock.signals||{})
-    .filter(([,v])=>v)
-    .map(([k])=>SIGNAL_LABELS[k])
-    .filter(Boolean).slice(0,5)
-
-  /* ─ 헤더 ─ */
-  const hA = easeOutCubic(prog(elapsed, 0, 380))
-  if (hA > 0.01) {
-    ctx.save(); ctx.globalAlpha = hA
-    ctx.fillStyle='#f59e0b'; ctx.font='700 18px "Noto Sans KR",sans-serif'
-    ctx.textAlign='left'; ctx.textBaseline='alphabetic'
-    ctx.fillText('진입 시그널 확인 !', 20, 140)
-    ctx.restore()
-  }
-
-  /* ─ 시그널 목록 ─ */
-  const sigStartY = 158, sigH = 36, sigGap = 4
-  sigs.forEach((label, i) => {
-    const p = easeOutCubic(prog(elapsed, 100+i*120, 380))
-    if (p < 0.01) return
-    const sy = sigStartY + i*(sigH+sigGap)
-    ctx.save(); ctx.globalAlpha = p
-    ctx.translate((1-p)*38, 0)
-
-    ctx.fillStyle='#070707'; ctx.strokeStyle='#111111'; ctx.lineWidth=1
-    ctx.beginPath(); ctx.roundRect(20, sy, W-40, sigH, 8); ctx.fill(); ctx.stroke()
-
-    /* ✓ 배지 */
-    const bx=36, by=sy+sigH/2
-    ctx.fillStyle='#f59e0b'; ctx.beginPath(); ctx.arc(bx,by,8,0,Math.PI*2); ctx.fill()
-    ctx.fillStyle='#000'; ctx.font='700 9px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('✓',bx,by)
-
-    ctx.fillStyle='#ddd'; ctx.font='400 12px "Noto Sans KR",sans-serif'
-    ctx.textAlign='left'; ctx.textBaseline='middle'
-    ctx.fillText(label, 52, by)
-    ctx.restore()
-  })
-
-  /* ─ 하단 요약 (손절/목표/손익비) ─ */
-  const rA = easeOutCubic(prog(elapsed, 1500, 400))
-  const statStartY = sigStartY + sigs.length*(sigH+sigGap) + 10
-  const statH=32, statGap=4
-  if (rA > 0.01) {
-    const statDefs = [
-      {icon:'🛑', l:'손절가',              v:`${fmtPrice(sw.stop_loss)} (${fmtPct(sw.stop_pct)})`,  c:'#ef4444'},
-      {icon:'🎯', l:`목표 2 (${sw.target2_week ?? 4}주)`, v: sw.target2_pct != null && !isNaN(sw.target2_pct) ? `+${sw.target2_pct}%` : '—', c:'#10b981'},
-      {icon:'⚖️', l:'손익비',              v:`${sw.rr_ratio}:1`,                             c:sw.rr_ratio>=2?'#f59e0b':'#ccc'},
-    ]
-    statDefs.forEach((r, si) => {
-      const sy = statStartY + si*(statH+statGap)
-      ctx.save(); ctx.globalAlpha = rA
-      ctx.fillStyle='#0a0a0a'; ctx.strokeStyle='#111111'; ctx.lineWidth=1
-      ctx.beginPath(); ctx.roundRect(20,sy,W-40,statH,8); ctx.fill(); ctx.stroke()
-      ctx.fillStyle='#aaa'; ctx.font='400 12px "Noto Sans KR",sans-serif'
-      ctx.textAlign='left'; ctx.textBaseline='middle'
-      ctx.fillText(`${r.icon} ${r.l}`, 32, sy+statH/2)
-      ctx.fillStyle=r.c; ctx.font='700 13px "Noto Sans KR",sans-serif'
-      ctx.textAlign='right'; ctx.fillText(r.v, W-32, sy+statH/2)
-      ctx.restore()
-    })
-  }
-
-  /* ─ 매수 등급 뱃지 ─ */
-  const score = stock.score||0
-  let gradeText='⚠ 추가 관망', gradeColor='#888'
-  if (score>=80) { gradeText='⭐ 강력 매수 신호'; gradeColor='#f59e0b' }
-  else if (score>=60) { gradeText='👍 매수 신호'; gradeColor='#10b981' }
-  const gP = easeOutElastic(prog(elapsed, 2200, 650))
-  if (gP > 0.01) {
-    ctx.save(); ctx.globalAlpha = Math.min(1, gP)
-    ctx.translate(W/2, H-96)
-    const s = clamp(gP, 0.2, 1); ctx.scale(s, s)
-    ctx.fillStyle='#0a0a0a'; ctx.strokeStyle=gradeColor; ctx.lineWidth=2
-    ctx.shadowColor=gradeColor; ctx.shadowBlur=22
-    ctx.beginPath(); ctx.roundRect(-100,-22,200,44,50); ctx.fill(); ctx.stroke()
-    ctx.shadowBlur=0; ctx.fillStyle=gradeColor
-    ctx.font='700 15px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='middle'
-    ctx.fillText(gradeText, 0, 1)
-    ctx.restore()
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   19. 전환 씬 (Canvas + UI 초기화)
-════════════════════════════════════════════════════════════ */
-function renderTransition(ctx, elapsed) {
-  setUI('')
-  const p = prog(elapsed, 0, 500)
-  /* 흰색 플래시 */
-  ctx.save(); ctx.globalAlpha = Math.sin(p*Math.PI)*0.82
-  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H); ctx.restore()
-  /* "다음 추천주 →" 오른쪽 스윕 */
-  const sp = easeOutCubic(prog(elapsed, 80, 320))
-  ctx.save(); ctx.globalAlpha = Math.sin(p*Math.PI)*0.85
-  ctx.fillStyle='#050505'
-  ctx.font='700 13px "Noto Sans KR",sans-serif'
-  ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-  ctx.fillText('다음 추천주 →', lerp(-60, W/2, sp), H/2)
-  ctx.restore()
-}
-
-/* ═══════════════════════════════════════════════════════════
-   20. 마무리 씬 (Canvas — 녹화 캡처 가능)
-════════════════════════════════════════════════════════════ */
-function renderFinal(ctx, elapsed, stocks) {
-  setUI('')
-  const hA    = easeOutCubic(prog(elapsed, 0, 380))
-  const blink = (Math.sin(elapsed*0.006)+1)/2
-
-  /* ─ 골든 배경 펄스 ─ */
-  const goldPulse = (Math.sin(elapsed*0.003)*0.5+0.5)
-  const pulseA = easeOutCubic(prog(elapsed, 0, 700)) * 0.07 * goldPulse
-  if (pulseA > 0.001) {
-    const grd = ctx.createRadialGradient(W/2,H/2,0, W/2,H/2,W*0.85)
-    grd.addColorStop(0,'#f59e0b'); grd.addColorStop(1,'#f59e0b00')
-    ctx.save(); ctx.globalAlpha=pulseA; ctx.fillStyle=grd; ctx.fillRect(0,0,W,H); ctx.restore()
-  }
-
-  /* 레이아웃 기준점 */
-  const headerY = 230      // "오늘의 스윙 픽" baseline
-  const cardTop = 252      // 카드 상단
-  const cardH   = 218      // 카드 높이
-  const belowY  = cardTop + cardH + 26
-
-  /* ─ "오늘의 스윙 픽" — 드롭 인 ─ */
-  if (hA > 0.01) {
-    const dropY = (1-hA)*(-36)
-    ctx.save(); ctx.globalAlpha = hA
-    ctx.translate(0, dropY)
-    ctx.fillStyle='#f59e0b'
-    ctx.shadowColor='#f59e0b'; ctx.shadowBlur=18
-    ctx.font='700 13px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.letterSpacing='3px'; ctx.fillText('오늘의 스윙 픽', W/2, headerY); ctx.letterSpacing='0px'
-    ctx.restore()
-  }
-
-  /* ─ 두 종목 카드 ─ */
-  const gap=12, mx=20
-  const halfW = (W - mx*2 - gap) / 2   // ≈169px
-
-  function drawCard(s, dir, delay, cx) {
-    const p = easeOutCubic(prog(elapsed, delay, 500))
-    if (p < 0.01) return
-    const sw2 = s.swing
-    ctx.save(); ctx.globalAlpha = p
-    ctx.translate((1-p)*60*dir, 0)
-
-    ctx.fillStyle='#0a0a0a'; ctx.strokeStyle='#1d1d1d'; ctx.lineWidth=1
-    ctx.beginPath(); ctx.roundRect(cx, cardTop, halfW, cardH, 14); ctx.fill(); ctx.stroke()
-
-    ctx.fillStyle='#fff'; ctx.font='900 19px "Noto Sans KR",sans-serif'
-    ctx.textAlign='left'; ctx.textBaseline='alphabetic'
-    ctx.fillText(s.ticker, cx+12, cardTop+26)
-
-    ctx.fillStyle='#aaa'; ctx.font='400 10px "Noto Sans KR",sans-serif'
-    ctx.fillText((getKrName(s.ticker, s.name)||s.ticker).slice(0,14), cx+12, cardTop+40)
-
-    ctx.fillStyle='#ccc'; ctx.font='400 11px "Noto Sans KR",sans-serif'
-    ctx.fillText(fmtPrice(s.price), cx+12, cardTop+56)
-
-    const miniRows = [
-      {l:'진입',  v:fmtPrice(sw2.entry_low),  c:'#f59e0b'},
-      {l:'목표',  v: sw2.target2_pct != null && !isNaN(sw2.target2_pct) ? `+${sw2.target2_pct}%` : '—', c:'#10b981'},
-      {l:'손절',  v:fmtPct(sw2.stop_pct),           c:'#ef4444'},
-      {l:'손익비',v:`${sw2.rr_ratio}:1`,       c:sw2.rr_ratio>=2?'#f59e0b':'#ccc'},
-    ]
-    const miniRowH=34, miniStartY=cardTop+68
-    miniRows.forEach((r,ri) => {
-      const ry = miniStartY + ri*miniRowH
-      if (ri>0) {
-        ctx.strokeStyle='#111111'; ctx.lineWidth=1
-        ctx.beginPath(); ctx.moveTo(cx+8,ry); ctx.lineTo(cx+halfW-8,ry); ctx.stroke()
-      }
-      ctx.fillStyle='#888'; ctx.font='400 10px "Noto Sans KR",sans-serif'
-      ctx.textAlign='left'; ctx.textBaseline='middle'
-      ctx.fillText(r.l, cx+12, ry+miniRowH/2)
-      ctx.fillStyle=r.c; ctx.font='700 11px "Noto Sans KR",sans-serif'
-      ctx.textAlign='right'
-      ctx.fillText(r.v, cx+halfW-12, ry+miniRowH/2)
-    })
-    ctx.restore()
-  }
-
-  drawCard(stocks[0], -1, 200, mx)
-  drawCard(stocks[1],  1, 400, mx+halfW+gap)
-
-  /* ─ "저장해두고..." 깜빡임 + 뱃지 ─ */
-  const pin1A = easeOutCubic(prog(elapsed, 800, 400))
-  if (pin1A > 0.01) {
-    const txt = '저장해두고 직접 확인해보세요 📌'
-    ctx.font = '700 13px "Noto Sans KR",sans-serif'
-    const tw = ctx.measureText(txt).width
-    const bw = tw+28, bh=30, br=15
-    ctx.save(); ctx.globalAlpha = pin1A*(0.35+blink*0.65)
-    ctx.fillStyle='#f59e0b22'; ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1.5
-    ctx.shadowColor='#f59e0b'; ctx.shadowBlur=10
-    ctx.beginPath(); ctx.roundRect(W/2-bw/2, belowY, bw, bh, br); ctx.fill(); ctx.stroke()
-    ctx.shadowBlur=0; ctx.fillStyle='#f59e0b'
-    ctx.textAlign='center'; ctx.textBaseline='middle'
-    ctx.fillText(txt, W/2, belowY+bh/2)
-    ctx.restore()
-  }
-
-  /* ─ "TopStockDaily" ─ */
-  const pin2A = easeOutCubic(prog(elapsed, 1200, 400))
-  if (pin2A > 0.01) {
-    ctx.save(); ctx.globalAlpha = pin2A
-    ctx.fillStyle='#f59e0b'; ctx.font='900 16px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.fillText('TopStockDaily', W/2, belowY+42)
-    ctx.restore()
-  }
-
-  /* ─ 면책 조항 ─ */
-  const disc = easeOutCubic(prog(elapsed, 1400, 400))
-  if (disc > 0.01) {
-    ctx.save(); ctx.globalAlpha = disc
-    ctx.fillStyle='#555555'; ctx.font='300 9px "Noto Sans KR",sans-serif'
-    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
-    ctx.fillText('⚠ 투자 참고용 · 손익 책임은 본인에게', W/2, belowY+62)
-    ctx.restore()
-  }
-
-  /* ─ SIGI 재등장 (elapsed > 1500ms) — 미니 뚱냥이 ─ */
-  const sigiEndP = easeOutElastic(prog(elapsed, 1500, 520))
-  if (sigiEndP > 0.01) {
-    const sx=W-62, sy=H-100
-    const bob2 = Math.sin(elapsed*0.004)*4
-    ctx.save()
-    ctx.globalAlpha = Math.min(1, sigiEndP*1.5)
-    ctx.translate(sx + (1-sigiEndP)*130, sy + bob2)
-    ctx.scale(0.42, 0.42)   // drawChubbycat 기준 약 0.42배 축소 → 실제 ~30px 얼굴
-    drawChubbycat(ctx, 80, elapsed)  // 항상 행복 눈
-    ctx.restore()
-
-    /* 말풍선 "내일도 찾아올게~ 🐱" */
-    const fareA = easeOutCubic(prog(elapsed, 1800, 400))
-    if (fareA > 0.01) {
-      const txt='내일도 찾아올게~ 🐱'
-      ctx.save(); ctx.globalAlpha=fareA
-      ctx.font='400 11px "Noto Sans KR",sans-serif'
-      const tw=ctx.measureText(txt).width
-      const bw=tw+22, bh=28, bx=sx-bw-10, by=sy-52
-      ctx.fillStyle='#fffbf0'; ctx.strokeStyle='#d4a574'; ctx.lineWidth=1.5
-      ctx.shadowColor='#f59e0b44'; ctx.shadowBlur=6
-      ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,10); ctx.fill(); ctx.stroke()
-      ctx.shadowBlur=0; ctx.fillStyle='#5c2d06'
-      ctx.textAlign='center'; ctx.textBaseline='middle'
-      ctx.fillText(txt, bx+bw/2, by+bh/2)
-      ctx.restore()
-    }
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   7. 씬 렌더 디스패처
-════════════════════════════════════════════════════════════ */
-function renderScene(scene, elapsed, data) {
-  const stock = scene.stock !== undefined ? data.stocks[scene.stock] : null
-  switch(scene.type) {
-    case 'sigi':       renderSigi(ctx, elapsed, stock);                     break
-    case 'hook':       setUI(''); renderHook(ctx, elapsed, stock);          break
-    case 'entry_card': renderEntryCard(ctx, elapsed, stock);                break
-    case 'chart':      setUI(''); renderChart(ctx, elapsed, stock);         break
-    case 'summary':    renderSummary(ctx, elapsed, stock);                  break
-    case 'transition': renderTransition(ctx, elapsed);                      break
-    case 'final':      renderFinal(ctx, elapsed, data.stocks);              break
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   6. 마스터 루프  (21. 30초 자동재생 + 루프)
-════════════════════════════════════════════════════════════ */
-function masterLoop(ts) {
-  requestAnimationFrame(masterLoop)
-  if (paused) return
-  lastTs = ts
-  if (!sceneStartTime) sceneStartTime = ts
-  const elapsed = ts - sceneStartTime
-
-  /* 캔버스 클리어 */
-  ctx.clearRect(0, 0, W, H)
-  ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, W, H)
-
-  const scene = SCENE_PLAN[sceneIdx]
-  updateSegBar(sceneIdx, elapsed / scene.dur)
-
-  if (stockData) renderScene(scene, elapsed, stockData)
-
-  /* 씬 전환 */
-  if (elapsed >= scene.dur) {
-    sceneIdx = (sceneIdx + 1) % SCENE_PLAN.length
-    sceneStartTime = ts
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   2. Canvas 초기화 + 탭 토글 + 부팅
-════════════════════════════════════════════════════════════ */
-window.addEventListener('DOMContentLoaded', async () => {
-  /* 4. 세그바 */
+async function init(){
   buildSegBar()
-
-  /* 2. Canvas 초기화 — DPR 처리 */
-  canvas = document.getElementById('scene-canvas')
-  DPR    = Math.min(window.devicePixelRatio || 1, 2)
-  canvas.width  = W * DPR
-  canvas.height = H * DPR
-  canvas.style.width  = W + 'px'
-  canvas.style.height = H + 'px'
-  ctx = canvas.getContext('2d')
-  ctx.scale(DPR, DPR)
-
-  /* 6. 탭 → 일시정지 토글 */
-  document.getElementById('phone').addEventListener('click', () => { paused = !paused })
-
-  /* 5. 데이터 로드 → 22. 실데이터 연동 */
-  stockData = await loadData()
-  /* 업데이트 시간 표시: JSON이 "YYYY-MM-DD HH:MM KST" 또는 "HH:MM UTC" 형식 */
-  const ua = stockData.updated_at || ''
-  const uaLabel = ua ? `데이터 기준 ${ua}` : ''
-  document.getElementById('updated-at').textContent = uaLabel
-
-  /* 21. 자동재생 시작 */
+  ambientParticles=createAmbientParticles()
+  const data=await loadData()
+  stockData=data.stocks.slice(0,2)
+  onSceneEnter(SCENE_PLAN[0])
+  lastTs=performance.now()
+  initialized=true
   requestAnimationFrame(masterLoop)
+}
 
-  /* ── Save as video ──────────────────────────────────────────
-     버튼 클릭 → 애니메이션 처음부터 재생하며 30초 자동 녹화 → 다운로드
-     포맷: Safari = MP4(AVC), Chrome/Firefox = WebM(VP9)           */
-  ;(function() {
-    let mediaRecorder = null
-    let chunks        = []
-    let autoStopTimer = null
-    let countdownInterval = null
-    const btn  = document.getElementById('btnSaveVideo')
-    const FPS  = 30
-    const TOTAL_MS = SCENE_PLAN.reduce((s, sc) => s + sc.dur, 0) // 30 000 ms
-
-    /* 지원 포맷 탐색: MP4(Safari) → WebM(Chrome/Firefox) */
-    function getBestFormat() {
-      const candidates = [
-        { mime:'video/mp4;codecs=avc1', ext:'mp4' },
-        { mime:'video/mp4',             ext:'mp4' },
-        { mime:'video/webm;codecs=vp9', ext:'webm' },
-        { mime:'video/webm;codecs=vp8', ext:'webm' },
-        { mime:'video/webm',            ext:'webm' },
-      ]
-      for (const c of candidates) {
-        if (MediaRecorder.isTypeSupported(c.mime)) return c
-      }
-      return { mime:'', ext:'webm' }
-    }
-
-    function stopRecording() {
-      clearTimeout(autoStopTimer)
-      clearInterval(countdownInterval)
-      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop()
-    }
-
-    if (!btn) return
-
-    btn.onclick = function() {
-      /* 녹화 중이면 취소 */
-      if (mediaRecorder && mediaRecorder.state === 'recording') {
-        stopRecording()
-        btn.textContent = 'Save as video'
-        return
-      }
-      if (!canvas) return
-
-      /* 1. 애니메이션 처음부터 재시작 */
-      sceneIdx      = 0
-      sceneStartTime = null   // masterLoop 다음 프레임에서 초기화
-      paused        = false
-
-      try {
-        const stream = canvas.captureStream(FPS)
-        const { mime, ext } = getBestFormat()
-        const opts = mime
-          ? { mimeType: mime, videoBitsPerSecond: 20_000_000 }
-          : {              videoBitsPerSecond: 20_000_000 }
-
-        mediaRecorder = new MediaRecorder(stream, opts)
-        chunks = []
-
-        mediaRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
-
-        mediaRecorder.onstop = () => {
-          clearInterval(countdownInterval)
-          const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'video/webm' })
-          const url  = URL.createObjectURL(blob)
-          const a    = document.createElement('a')
-          a.href     = url
-          a.download = `TopStockDaily_${new Date().toISOString().slice(0,10)}.${ext}`
-          a.click()
-          URL.revokeObjectURL(url)
-          btn.textContent = 'Save as video'
-          mediaRecorder   = null
-        }
-
-        /* 100ms 단위로 청크 수집 → 끊김 최소화 */
-        mediaRecorder.start(100)
-
-        /* 카운트다운 표시 */
-        let remaining = Math.ceil(TOTAL_MS / 1000)
-        btn.textContent = `⏺ ${remaining}s`
-        countdownInterval = setInterval(() => {
-          remaining--
-          btn.textContent = remaining > 0 ? `⏺ ${remaining}s` : '⏺ 저장 중...'
-        }, 1000)
-
-        /* 정확히 TOTAL_MS 후 자동 정지 (버퍼 200ms) */
-        autoStopTimer = setTimeout(stopRecording, TOTAL_MS + 200)
-
-      } catch (e) {
-        btn.textContent = 'Save as video'
-        console.warn('Video capture failed:', e)
-      }
-    }
-  })()
-})
+document.getElementById('phone').addEventListener('click',()=>{paused=!paused})
+init()
 </script>
 </body>
 </html>
