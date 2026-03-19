@@ -29,11 +29,35 @@
   #progressFill{height:100%;background:linear-gradient(90deg,#00d4ff,#7b2ff7);border-radius:2px;
                 width:0%;transition:width 0.1s linear}
   #statusBar{font-size:0.65rem;color:#444;margin-top:0.4rem;letter-spacing:0.05em}
+  #regimeBadge{margin:0.3rem 0 0.5rem;font-size:0.72rem;font-weight:600;letter-spacing:0.08em;
+               padding:0.25rem 0.9rem;border-radius:20px;border:1px solid;display:none}
+  #regimeBadge.bull{color:#00ff88;border-color:#00ff8844;background:rgba(0,255,136,0.07)}
+  #regimeBadge.caution{color:#ffaa00;border-color:#ffaa0044;background:rgba(255,170,0,0.07)}
+  #regimeBadge.bear{color:#ff4444;border-color:#ff444444;background:rgba(255,68,68,0.07)}
+  #top10Section{width:360px;margin-top:1.2rem;margin-bottom:2rem}
+  #top10Section h2{font-size:0.78rem;color:#555;letter-spacing:0.1em;text-align:center;
+                   margin-bottom:0.7rem;text-transform:uppercase}
+  .stockCard{display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;
+             border-radius:14px;background:rgba(255,255,255,0.03);
+             border:1px solid rgba(255,255,255,0.06);margin-bottom:0.45rem;
+             cursor:pointer;transition:all 0.2s}
+  .stockCard:hover{background:rgba(0,212,255,0.07);border-color:rgba(0,212,255,0.25)}
+  .stockCard.active{background:rgba(0,212,255,0.1);border-color:#00d4ff55}
+  .cardRank{font-size:0.65rem;color:#555;width:1.4rem;text-align:center;flex-shrink:0}
+  .cardTicker{font-size:0.95rem;font-weight:700;color:#00d4ff;width:3.4rem;flex-shrink:0}
+  .cardNames{flex:1;min-width:0}
+  .cardKrName{font-size:0.72rem;color:rgba(255,255,255,0.55);white-space:nowrap;
+              overflow:hidden;text-overflow:ellipsis}
+  .cardEnName{font-size:0.62rem;color:#444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cardScore{font-size:0.9rem;font-weight:700;flex-shrink:0;text-align:right;width:2.5rem}
+  .cardPrice{font-size:0.7rem;color:#666;flex-shrink:0;text-align:right;width:3.2rem}
+  .cardSignalDot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 </style>
 </head>
 <body>
 <h1>TopStockDaily</h1>
-<div id="subtitle">NASDAQ TOP PICKS — AUTO REELS</div>
+<div id="subtitle">NASDAQ · NYSE TOP PICKS — AUTO REELS</div>
+<div id="regimeBadge"></div>
 
 <div id="tickerPicker"></div>
 
@@ -52,6 +76,11 @@
   <button id="btnSaveVideo" title="캔버스만 녹화·다운로드 (동영상에는 버튼이 나오지 않음)">Save as video</button>
 </div>
 
+<div id="top10Section">
+  <h2>TODAY'S TOP 10</h2>
+  <div id="top10List"></div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════════
 //  CONSTANTS & GLOBALS
@@ -67,6 +96,8 @@ const progressFill = document.getElementById('progressFill');
 const statusBar = document.getElementById('statusBar');
 
 let stocks = [];
+let krNames = {};
+let regimeInfo = null;
 let currentStockIdx = 0;
 let currentScene = 0;
 let isPlaying = true;
@@ -108,13 +139,20 @@ async function loadData() {
   statusBar.textContent = 'Loading today\'s picks...';
   drawLoading();
   try {
-    const res = await fetch(API + '?t=' + Date.now());
+    const [res, krRes] = await Promise.all([
+      fetch(API + '?t=' + Date.now()),
+      fetch('./kr_names.json').catch(() => null),
+    ]);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
+    if (krRes && krRes.ok) krNames = await krRes.json();
     stocks = json.stocks || [];
+    regimeInfo = json.regime || null;
     if (stocks.length === 0) throw new Error('No stocks in data.json');
-    statusBar.textContent = `Updated: ${json.updated_at} · SPY 20d: ${json.spy_20d > 0 ? '+' : ''}${json.spy_20d}%`;
+    const regime = regimeInfo ? ` · 레짐: ${regimeInfo.regime.toUpperCase()} (VIX ${regimeInfo.vix})` : '';
+    statusBar.textContent = `갱신: ${json.updated_at} · SPY 20d: ${json.spy_20d > 0 ? '+' : ''}${json.spy_20d}%${regime}`;
     buildTickerPicker();
+    buildTop10List(json);
     startReels(0);
   } catch(e) {
     statusBar.textContent = 'Error: ' + e.message;
@@ -125,6 +163,50 @@ async function loadData() {
 // ══════════════════════════════════════════════════════════
 //  TICKER PICKER
 // ══════════════════════════════════════════════════════════
+function buildTop10List(json) {
+  // Regime badge
+  const badge = document.getElementById('regimeBadge');
+  if (json.regime) {
+    const r = json.regime;
+    const labels = {bull:'강세장', caution:'주의구간', bear:'약세장'};
+    badge.textContent = `시장 레짐: ${labels[r.regime]||r.regime.toUpperCase()} | VIX ${r.vix} | SPY 20d ${json.spy_20d>0?'+':''}${json.spy_20d}%`;
+    badge.className = r.regime;
+    badge.style.display = 'inline-block';
+  }
+
+  // TOP 10 card list
+  const list = document.getElementById('top10List');
+  list.innerHTML = '';
+  stocks.slice(0, 10).forEach((s, i) => {
+    const score = s.score;
+    const scoreClr = score >= 70 ? '#00ff88' : score >= 55 ? '#00d4ff' : '#ffaa00';
+    const kr = krNames[s.ticker] || '';
+    const change = s.change_pct;
+    const chClr = change >= 0 ? '#00ff88' : '#ff4444';
+    const card = document.createElement('div');
+    card.className = 'stockCard' + (i === 0 ? ' active' : '');
+    card.dataset.idx = i;
+    card.innerHTML = `
+      <div class="cardRank">#${i+1}</div>
+      <div class="cardTicker">${s.ticker}</div>
+      <div class="cardNames">
+        <div class="cardKrName">${kr || s.name || '—'}</div>
+        <div class="cardEnName">${s.sector||''}</div>
+      </div>
+      <div class="cardPrice" style="color:${chClr}">$${s.price}<br><span style="font-size:0.6rem">${change>=0?'+':''}${change}%</span></div>
+      <div class="cardScore" style="color:${scoreClr}">${score}pt</div>
+    `;
+    card.onclick = () => switchStock(i);
+    list.appendChild(card);
+  });
+}
+
+function updateTop10Active() {
+  document.querySelectorAll('.stockCard').forEach(card => {
+    card.classList.toggle('active', parseInt(card.dataset.idx) === currentStockIdx);
+  });
+}
+
 function buildTickerPicker() {
   const el = document.getElementById('tickerPicker');
   el.innerHTML = '';
@@ -141,6 +223,7 @@ function updateTickerPicker() {
   document.querySelectorAll('.tpBtn').forEach((btn, i) => {
     btn.classList.toggle('active', i === currentStockIdx);
   });
+  updateTop10Active();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -165,7 +248,7 @@ function nextScene() {
   currentScene++;
   if (currentScene >= TOTAL_SCENES) {
     // Auto-advance to next stock or loop
-    const next = (currentStockIdx + 1) % Math.min(stocks.length, 2);
+    const next = (currentStockIdx + 1) % Math.min(stocks.length, 10);
     if (next !== currentStockIdx) {
       startReels(next);
     } else {
@@ -203,7 +286,7 @@ function renderLoop() {
   const progress = Math.min(elapsed / SCENE_DURATION, 1);
 
   // Progress bar
-  const globalProgress = (currentStockIdx * TOTAL_SCENES + currentScene) / (Math.min(stocks.length, 2) * TOTAL_SCENES);
+  const globalProgress = (currentStockIdx * TOTAL_SCENES + currentScene) / (Math.min(stocks.length, 10) * TOTAL_SCENES);
   progressFill.style.width = (globalProgress * 100) + '%';
 
   ctx.clearRect(0, 0, W, H);
@@ -322,12 +405,18 @@ function drawIntro(s, t, p) {
   ctx.fillText(`#${rank} TOP PICK`, W/2, 180);
 
   // Ticker
-  gradText(s.ticker, W/2, 340, 120, '#00d4ff', '#7b2ff7');
+  gradText(s.ticker, W/2, 320, 110, '#00d4ff', '#7b2ff7');
+
+  // Korean name
+  const krName = krNames[s.ticker] || s.name || '';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '400 26px system-ui';
+  ctx.fillText(krName, W/2, 368);
 
   // Price
   ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.font = '400 36px system-ui';
-  ctx.fillText(`$${s.price}`, W/2, 420);
+  ctx.font = '400 34px system-ui';
+  ctx.fillText(`$${s.price}`, W/2, 412);
 
   // Score circle
   const sc = scoreColor(s.score);
