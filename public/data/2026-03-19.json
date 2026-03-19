@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-03-19 01:39 UTC",
+  "updated_at": "2026-03-19 04:26 UTC",
   "market_summary": {
     "sp500": {
       "index": 661.43,
@@ -10,12 +10,12 @@
       "change_pct": -1.8
     },
     "kospi": {
-      "index": 5771.2,
-      "change_pct": 4.8
+      "index": 5811.32,
+      "change_pct": 5.53
     },
     "kosdaq": {
-      "index": 1143.76,
-      "change_pct": 3.41
+      "index": 1148.36,
+      "change_pct": 3.82
     }
   },
   "screening_results": {
@@ -288,7 +288,7 @@
         "sector": "자동차",
         "price": 545000.0,
         "change_pct": 4.4,
-        "score": 37,
+        "score": 35,
         "score_breakdown": {
           "trend": 19,
           "golden_cross": 0,
