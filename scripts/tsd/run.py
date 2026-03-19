@@ -1,36 +1,158 @@
 """
-Pipeline entry point — fetches top NASDAQ stocks and writes:
-  - docs/data.json          (docs/ static pages + reels)
-  - public/data/latest.json (Vite SPA)
-  - public/data/YYYY-MM-DD.json (daily archive)
+Pipeline entry point — writes public/data/latest.json (Vite SPA).
+
+US 종목: docs/data.json (refresh_data.py · 6,000종목 정교 알고리즘) 변환
+KR 종목: scripts/screener.py KR 스크리너 실행
+
+우선순위:
+  1. docs/data.json 존재 → US 데이터 변환 (정교한 알고리즘)
+  2. 없으면 → 구 top-100 screener fallback
 """
 import sys
 import json
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))   # scripts/
 
-from top100 import fetch_top100          # noqa: E402
-from data_fetcher import fetch_all_sync  # noqa: E402
-from screener import run_screener        # noqa: E402
-
-ROOT = Path(__file__).parent.parent.parent
-DOCS_JSON   = ROOT / "docs" / "data.json"
+ROOT          = Path(__file__).parent.parent.parent
+DOCS_JSON     = ROOT / "docs" / "data.json"
 KR_NAMES_JSON = ROOT / "docs" / "kr_names.json"
-PUBLIC_DIR  = ROOT / "public" / "data"
+PUBLIC_DIR    = ROOT / "public" / "data"
+
+# ── 신호 라벨 매핑 (refresh_data.py signals dict key → 한국어) ──────────────
+SIGNAL_LABELS = {
+    "golden_cross":     "골든크로스 (MA20>MA60)",
+    "early_trend":      "조기 추세 전환 (MA5>MA20)",
+    "ma_alignment":     "MA 완전 정렬 (5>20>60)",
+    "macd_cross":       "MACD 골든크로스",
+    "macd_turned":      "MACD 마이너스→플러스 전환",
+    "volume_confirm":   "거래량 급증 (1.5x+)",
+    "rsi_signal":       "RSI 모멘텀 존 (50-73)",
+    "rsi_oversold":     "RSI 과매도 반등",
+    "rsi_divergence":   "RSI 강세 다이버전스",
+    "bollinger_break":  "볼린저 상단 돌파",
+    "fib_support":      "피보나치 지지선",
+    "stoch_signal":     "스토캐스틱 반등",
+    "relative_strength": "SPY 대비 상대강도",
+}
 
 
-def check_kr_names(tickers: list[str]) -> None:
-    """top-2 티커가 kr_names.json 에 없으면 경고 출력."""
-    if not KR_NAMES_JSON.exists():
-        print(f"⚠ kr_names.json 없음 — {KR_NAMES_JSON}")
-        return
-    with open(KR_NAMES_JSON, encoding="utf-8") as f:
-        kr = json.load(f)
-    for t in tickers:
-        if t not in kr:
-            print(f"⚠ 한국어명 없음: {t} — kr_names.json 에 추가 필요")
+def _reels_to_spa_stock(s: dict, rank: int) -> dict:
+    """docs/data.json 단일 종목 → SPA StockResult 포맷 변환."""
+    det   = s.get("details", {})
+    chart = s.get("chart", {})
+    swing = s.get("swing", {})
+    sigs  = s.get("signals", {})   # dict[str, bool]
+
+    # 신호 → 문자열 리스트 (pre_gc_note 우선)
+    signals_list: list[str] = []
+    note = s.get("pre_gc_note", "")
+    if note:
+        signals_list.append(f"골든크로스 전조: {note}")
+    for k, v in sigs.items():
+        if v:
+            signals_list.append(SIGNAL_LABELS.get(k, k))
+
+    # 가격 히스토리 (30일)
+    closes = chart.get("close", [])
+    price_history_30d = [round(float(v), 2) for v in closes[-30:]] if closes else []
+
+    # MA 값
+    ma20_arr = chart.get("ma20", [])
+    ma60_arr = chart.get("ma60", [])
+    ma_20 = round(float(ma20_arr[-1]), 2) if ma20_arr else 0.0
+    ma_60 = round(float(ma60_arr[-1]), 2) if ma60_arr else 0.0
+
+    # 지표
+    rsi      = det.get("rsi", 50)
+    macd     = det.get("macd", 0)
+    vol_r    = s.get("vol_ratio", 1.0)
+    bb_pos   = det.get("bb_position", 0.5)
+    pre_gc   = s.get("pre_gc_score", 0)
+    ret_20d  = det.get("ret_20d", 0)
+
+    # score_breakdown (SPA 카테고리로 매핑)
+    score_breakdown = {
+        "trend":        min(int(pre_gc), 20),
+        "golden_cross": 12 if sigs.get("golden_cross") else (8 if sigs.get("early_trend") else 0),
+        "momentum":     16 if ret_20d > 10 else (10 if ret_20d > 5 else 5),
+        "volume":       13 if vol_r >= 2.0 else (8 if vol_r >= 1.5 else (4 if vol_r >= 1.0 else 0)),
+        "support":      8 if sigs.get("fib_support") else 0,
+        "bollinger":    5 if sigs.get("bollinger_break") else 0,
+    }
+
+    # 손익 정보
+    entry     = swing.get("entry_low", s.get("price", 0))
+    stop      = swing.get("stop_loss", 0)
+    tp        = swing.get("target1", 0)
+    risk      = round(entry - stop, 2) if stop else 0
+    reward    = round(tp - entry, 2) if tp else 0
+    rr_ratio  = swing.get("rr_ratio", 2.0)
+    stop_pct  = swing.get("stop_pct", -5.0)
+    tp_pct    = swing.get("target1_pct", 10.0)
+
+    checklist = {
+        "above_ma200":         True,
+        "golden_cross_recent": bool(det.get("golden_cross") or det.get("recent_gc")),
+        "volume_surge":        vol_r >= 2.0,
+        "rsi_healthy":         30 <= rsi <= 70,
+        "macd_bullish":        macd > 0,
+        "trend_strong":        pre_gc >= 14,
+        "rr_ratio_good":       rr_ratio >= 2.0,
+    }
+
+    return {
+        "rank":    rank + 1,
+        "ticker":  s["ticker"],
+        "name":    s.get("name", s["ticker"]),
+        "market":  "NASDAQ",
+        "sector":  s.get("sector", "Unknown"),
+        "price":   s.get("price", 0),
+        "change_pct": s.get("change_pct", 0),
+        "score":   s.get("score", 0),
+        "score_breakdown": score_breakdown,
+        "signals": signals_list,
+        "technicals": {
+            "rsi_14":       round(float(rsi), 1),
+            "macd":         round(float(macd), 4),
+            "macd_signal":  0.0,
+            "adx":          None,   # refresh_data.py는 ADX 미계산 (SPA에서 null 처리)
+            "volume_ratio": round(float(vol_r), 2),
+            "bb_position":  round(float(bb_pos), 3),
+        },
+        "risk_reward": {
+            "entry":       round(float(entry), 2),
+            "stop_loss":   round(float(stop), 2),
+            "take_profit": round(float(tp), 2),
+            "risk":        risk,
+            "reward":      reward,
+            "ratio":       round(float(rr_ratio), 2),
+            "risk_pct":    round(float(stop_pct), 1),
+            "reward_pct":  round(float(tp_pct), 1),
+        },
+        "price_history_30d": price_history_30d,
+        "ma_20": ma_20,
+        "ma_60": ma_60,
+        "checklist": checklist,
+    }
+
+
+def _load_us_from_docs() -> tuple[list[dict], str | None]:
+    """
+    docs/data.json (refresh_data.py 출력)을 읽어 SPA 포맷 US 종목 리스트 반환.
+    파일이 없으면 ([], None) 반환.
+    """
+    if not DOCS_JSON.exists():
+        return [], None
+
+    with open(DOCS_JSON, encoding="utf-8") as f:
+        docs = json.load(f)
+
+    stocks = docs.get("stocks", [])
+    updated_at = docs.get("updated_at", None)
+    spa_stocks = [_reels_to_spa_stock(s, i) for i, s in enumerate(stocks[:10])]
+    return spa_stocks, updated_at
 
 
 # ── Market index helpers ────────────────────────────────────────────────────
@@ -66,7 +188,6 @@ def _last_close(ticker: str) -> float:
 
 
 def get_market_summary() -> dict:
-    """Fetch SPY/QQQ/KOSPI/KOSDAQ 20d returns and last close."""
     print("[run] Fetching market indices...")
     indices = {
         "sp500":  {"yf": "SPY",   "label": "S&P 500"},
@@ -83,90 +204,68 @@ def get_market_summary() -> dict:
     return summary
 
 
+# ── KR screener (scripts/screener.py) ──────────────────────────────────────
+
+def _run_kr_screener(benchmark_20d: float) -> list[dict]:
+    """한국 종목 스크리닝 (KR_TEST ~50 주요 종목 · GitHub Actions 20분 제한 고려)."""
+    try:
+        from screener import KR_TEST as kr_universe, analyze
+        print(f"[run] KR 유니버스: {len(kr_universe)}종목 (주요 종목)")
+        results = []
+        for info in kr_universe:
+            r = analyze(info, is_kr=True, min_avg_vol=50_000,
+                        min_price=1_000, benchmark_20d=benchmark_20d)
+            if r:
+                results.append(r)
+        results.sort(key=lambda x: x["score"], reverse=True)
+        top10 = results[:10]
+        for i, s in enumerate(top10):
+            s["rank"] = i + 1
+        top10_str = ", ".join(f"{s['name']}({s['score']}점)" for s in top10)
+        print(f"[run] KR TOP10: {top10_str}")
+        return top10
+    except Exception as e:
+        print(f"[run] KR 스크리너 실패: {e}")
+        return []
+
+
+# ── US fallback (구 top-100 screener) ──────────────────────────────────────
+
+def _run_us_fallback(benchmark_20d: float) -> list[dict]:
+    """docs/data.json 없을 때 기존 top-100 방식으로 US 스캔."""
+    try:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from top100 import fetch_top100
+        from data_fetcher import fetch_all_sync
+        from screener import run_screener, _LEVERAGED_NAME_PATTERNS
+        import yfinance as yf
+
+        print("[run] [fallback] Fetching top-100 NASDAQ tickers...")
+        tickers = fetch_top100()
+        print(f"[run] [fallback] Got {len(tickers)} tickers")
+
+        print("[run] [fallback] Batch-downloading OHLCV...")
+        data_map = fetch_all_sync(tickers, period="6mo", batch_size=50)
+        ok = sum(1 for v in data_map.values() if v is not None)
+        print(f"[run] [fallback] Fetched {ok}/{len(tickers)} ok")
+
+        top_stocks = run_screener(data_map, spy_20d=benchmark_20d, top_n=10)
+        for i, s in enumerate(top_stocks):
+            s["rank"] = i + 1
+        return top_stocks
+    except Exception as e:
+        print(f"[run] [fallback] US 스크리너 실패: {e}")
+        return []
+
+
 # ── Main ────────────────────────────────────────────────────────────────────
-
-from screener import _LEVERAGED_NAME_PATTERNS  # noqa: E402
-
-
-def _filter_leveraged_etfs(stocks: list[dict]) -> list[dict]:
-    """
-    yfinance quoteType + name 기반 레버리지/인버스 ETF 2차 필터링.
-    screener.py의 블랙리스트+변동성 휴리스틱이 1차, 이게 2차(정밀).
-    top_n 후보 전체에 대해 실행 (최대 10개 → API 10회, ~5초).
-    """
-    import yfinance as yf
-    clean = []
-    for s in stocks:
-        ticker = s.get("ticker", "")
-        try:
-            info = yf.Ticker(ticker).info
-            qt   = (info.get("quoteType") or "").upper()
-            cat  = (info.get("category")  or "").lower()
-            name = (info.get("shortName") or info.get("longName") or "").lower()
-
-            # ETF 인지 확인
-            if qt == "ETF":
-                is_lev = (
-                    "leverag" in cat or "inverse" in cat or
-                    any(p in name for p in _LEVERAGED_NAME_PATTERNS)
-                )
-                if is_lev:
-                    print(f"[run] ⚠ 레버리지 ETF 제외: {ticker} ({info.get('shortName','')})")
-                    continue
-
-            # 이름이 없으면 채워줌 (enrich 겸용)
-            s.setdefault("name",   info.get("shortName") or info.get("longName") or ticker)
-            s.setdefault("sector", info.get("sector") or info.get("industryDisp") or "NASDAQ")
-
-        except Exception:
-            s.setdefault("name",   ticker)
-            s.setdefault("sector", "NASDAQ")
-
-        clean.append(s)
-
-    return clean
-
-
-def _ensure_top2_diversity(stocks: list[dict]) -> list[dict]:
-    """
-    Top-2 종목이 같은 ETF 계열(같은 기초자산의 다른 레버리지)이 아닌지 확인.
-    ticker 첫 3글자가 같으면 같은 발행사 계열로 간주해 다음 후보로 교체.
-    """
-    if len(stocks) < 2:
-        return stocks
-
-    result = [stocks[0]]
-    prefix0 = stocks[0]["ticker"][:3].upper()
-
-    for s in stocks[1:]:
-        if s["ticker"][:3].upper() != prefix0:
-            result.append(s)
-        if len(result) >= 2:
-            break
-
-    # 다양성 있는 쌍을 못 찾으면 그냥 1, 2위
-    if len(result) < 2 and len(stocks) >= 2:
-        result = stocks[:2]
-
-    return result
-
-
-def _enrich_stock_info(stocks: list[dict]) -> None:
-    """
-    top-2 종목에 name/sector 보완 (없는 경우에만).
-    _filter_leveraged_etfs 에서 이미 채워지므로 fallback 역할.
-    """
-    for s in stocks[:2]:
-        s.setdefault("name",   s.get("ticker", ""))
-        s.setdefault("sector", "NASDAQ")
-
 
 def main():
     KST = timezone(timedelta(hours=9))
     now_kst = datetime.now(KST)
     now_utc = datetime.now(timezone.utc)
     print(f"\n{'='*60}")
-    print(f" TopStockDaily Screener  {now_kst.strftime('%Y-%m-%d %H:%M KST')}")
+    print(f" Signal Deck Pipeline  {now_kst.strftime('%Y-%m-%d %H:%M KST')}")
     print(f"{'='*60}\n")
 
     try:
@@ -174,132 +273,37 @@ def main():
     except Exception as e:
         print(f"\n[run] ❌ Pipeline error: {e}")
         import traceback; traceback.print_exc()
-        # If previous output exists, keep it — do not overwrite with empty
-        if DOCS_JSON.exists():
-            print("[run] Keeping previous docs/data.json (no overwrite on failure)")
-        raise  # Re-raise so GitHub Actions marks the step as failed (visible in logs)
+        raise
 
 
 def _run_pipeline(now_kst, now_utc):
-    # 1. Market indices
-    market  = get_market_summary()
-    spy_20d = market["sp500"]["change_pct"]
+    # 1. 시장 지수
+    market   = get_market_summary()
+    spy_20d  = market["sp500"]["change_pct"]
+    kospi_20d = market["kospi"]["change_pct"]
 
-    # 2. Top 100 NASDAQ tickers
-    print("\n[run] Fetching top 100 NASDAQ tickers...")
-    tickers = fetch_top100()
-    print(f"[run] Got {len(tickers)} tickers: {tickers[:5]}...")
+    # 2. US 종목 — docs/data.json 우선 (refresh_data.py 정교 알고리즘)
+    print("\n[run] US 종목 로드 중...")
+    us_stocks, docs_updated_at = _load_us_from_docs()
+    if us_stocks:
+        print(f"[run] ✅ docs/data.json 변환 완료 ({len(us_stocks)}종목) [갱신: {docs_updated_at}]")
+        print(f"[run] US TOP3: {[(s['ticker'], s['score']) for s in us_stocks[:3]]}")
+    else:
+        print("[run] ⚠ docs/data.json 없음 → fallback 스크리너 실행")
+        us_stocks = _run_us_fallback(spy_20d)
 
-    if len(tickers) < 10:
-        raise RuntimeError(f"Too few tickers: {len(tickers)}")
+    # 3. KR 종목
+    print("\n[run] KR 종목 스크리닝 중...")
+    kr_stocks = _run_kr_screener(kospi_20d)
 
-    # 3. Batch OHLCV download (1y for 52w high / MACD etc.)
-    print("\n[run] Batch-downloading OHLCV data...")
-    data_map = fetch_all_sync(tickers, period="1y", batch_size=50)
-    ok = sum(1 for v in data_map.values() if v is not None)
-    print(f"[run] Fetched {ok}/{len(tickers)} stocks ok")
-
-    if ok < 5:
-        raise RuntimeError(f"Too few stocks fetched: {ok}")
-
-    # 4. Score & rank (레버리지 1차 필터는 screener.py 내부에서 처리)
-    print("\n[run] Scoring stocks...")
-    top_stocks = run_screener(data_map, spy_20d=spy_20d, top_n=20)  # 여유있게 20개
-    print(f"[run] Top {len(top_stocks)} stocks scored")
-
-    if len(top_stocks) < 2:
-        raise RuntimeError(f"Too few stocks scored: {len(top_stocks)}")
-
-    # 4b. yfinance 기반 레버리지 ETF 2차 정밀 필터 + name/sector 보완
-    print("[run] 레버리지 ETF 2차 필터링 + name/sector 보완...")
-    top_stocks = _filter_leveraged_etfs(top_stocks)
-    print(f"[run] 필터 후: {len(top_stocks)}개")
-
-    if len(top_stocks) < 2:
-        raise RuntimeError(f"레버리지 필터 후 종목 부족: {len(top_stocks)}")
-
-    # 4c. Top-2 다양성 확인 (동일 계열 ETF 쌍 방지)
-    top_stocks = _ensure_top2_diversity(top_stocks)
-
-    # 4d. name/sector fallback
-    _enrich_stock_info(top_stocks)
-
-    # docs_out 은 top-2만 사용하므로 슬라이스
-    top_stocks = top_stocks[:10]
-
-    # 4c. kr_names.json 검증 (top-2)
-    top2_tickers = [s["ticker"] for s in top_stocks[:2]]
-    check_kr_names(top2_tickers)
-
-    updated_at = now_kst.strftime("%Y-%m-%d %H:%M KST")
-
-    # 5. Write docs/data.json  (read by docs/reels/)
-    docs_out = {
-        "updated_at":   updated_at,
-        "spy_20d":      round(spy_20d, 2),
-        "top100_count": ok,
-        "stocks":       top_stocks,
-    }
-    DOCS_JSON.parent.mkdir(parents=True, exist_ok=True)
-    DOCS_JSON.write_text(json.dumps(docs_out, ensure_ascii=False, indent=2))
-    print(f"\n[run] Saved → {DOCS_JSON}")
-
-    # 6. Write public/data/latest.json  (read by Vite SPA)
-    def to_spa_stock(s: dict) -> dict:
-        det  = s.get("details", {})
-        sigs = s.get("signals", {})
-        return {
-            "rank":    s.get("rank", 0),
-            "ticker":  s["ticker"],
-            "name":    s.get("name", s["ticker"]),
-            "market":  "NASDAQ",
-            "sector":  s.get("sector", "NASDAQ"),
-            "price":   s.get("price", 0),
-            "score":   s["score"],
-            "signals": sigs,   # dict[str, bool]
-            "rs_diff":   round(s.get("rs_diff", 0), 2),
-            "rs_bonus":  s.get("rs_bonus", 0),
-            "vol_ratio": round(s.get("vol_ratio", 1.0), 2),
-            "atr":       s.get("atr", 0),
-            "technicals": {
-                "rsi_14":       round(det.get("rsi", 50), 1),
-                "macd":         round(det.get("macd", 0), 4),
-                "macd_crossed": det.get("macd_cross_recent", False),
-                "golden_cross": det.get("golden_cross", False),
-                "recent_gc":    det.get("recent_gc", False),
-                "ma_aligned":   sigs.get("ma_alignment", False),
-                "fib_support":  sigs.get("fib_support", False),
-                "volume_ratio": round(s.get("vol_ratio", 1.0), 2),
-                "bb_position":  round(det.get("bb_position", 0.5), 3),
-                "stoch_k":      round(det.get("stoch_k", 50), 1),
-                "dist_52w":     round(det.get("dist_52w", 0.2), 4),
-                "ret_5d":       round(det.get("ret_5d", 0), 2),
-                "ret_20d":      round(det.get("ret_20d", 0), 2),
-            },
-            "score_breakdown": {
-                "golden_cross": 12 + (5 if det.get("recent_gc") else 0) if det.get("golden_cross") else 0,
-                "volume":       10 if det.get("max_vol_5d", 0) >= 2.5 else (8 if det.get("vol_ratio", 0) >= 2.0 else 6 if det.get("vol_ratio", 0) >= 1.5 else 0),
-                "rsi":          10 if 57 <= det.get("rsi", 0) <= 70 else 6,
-                "macd":         10 if det.get("macd_cross_recent") else (8 if det.get("macd", 0) > 0 else 0),
-                "ma_alignment": 8 if sigs.get("ma_alignment") else 0,
-                "fib_support":  7 if sigs.get("fib_support") else 0,
-                "rs_bonus":     s.get("rs_bonus", 0),
-            },
-            "risk_reward": {
-                "ratio": s.get("swing", {}).get("rr_ratio", 2.0),
-                "entry": s.get("price", 0),
-            },
-            "details":  det,
-            "chart":    s.get("chart", {}),
-            "swing":    s.get("swing"),
-        }
-
+    # 4. latest.json 저장
+    updated_at = now_utc.strftime("%Y-%m-%d %H:%M UTC")
     spa_out = {
         "updated_at":     updated_at,
         "market_summary": market,
         "screening_results": {
-            "kr": [],
-            "us": [to_spa_stock(s) for s in top_stocks],
+            "kr": kr_stocks,
+            "us": us_stocks,
         },
     }
 
@@ -309,16 +313,15 @@ def _run_pipeline(now_kst, now_utc):
 
     latest_path.write_text(json.dumps(spa_out, ensure_ascii=False, indent=2))
     dated_path.write_text(json.dumps(spa_out, ensure_ascii=False, indent=2))
-    print(f"[run] Saved → {latest_path}")
-    print(f"[run] Saved → {dated_path}")
+    print(f"\n[run] ✅ 저장 → {latest_path}")
+    print(f"[run] ✅ 저장 → {dated_path}")
 
-    # Keep only last 7 daily archives
+    # 아카이브 7일치만 유지
     for old in sorted(PUBLIC_DIR.glob("????-??-??.json"))[:-7]:
         old.unlink()
 
-    print(f"\n✅ 완료 — US {len(top_stocks)}개 스탁 스크리닝")
-    print(f"   SPY 20d: {spy_20d:+.2f}%  |  {updated_at}")
-    print(f"   Top-2: {[s['ticker'] for s in top_stocks[:2]]}\n")
+    print(f"\n🎉 완료!  KR {len(kr_stocks)}개 + US {len(us_stocks)}개")
+    print(f"   SP500 20d: {spy_20d:+.2f}%  |  {updated_at}\n")
 
 
 if __name__ == "__main__":

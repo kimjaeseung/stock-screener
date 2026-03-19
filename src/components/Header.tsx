@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, Activity, Film } from 'lucide-react';
 import type { MarketSummary } from '../data/types';
 
 interface Props {
@@ -114,12 +114,29 @@ export default function Header({ marketSummary, updatedAt }: Props) {
             </div>
           </div>
 
-          {/* Market Summary Cards */}
-          <div className="flex flex-wrap gap-3 lg:ml-auto">
+          {/* Market Summary Cards + Reels Link */}
+          <div className="flex flex-wrap gap-3 lg:ml-auto items-center">
             <MarketCard label="KOSPI" index={marketSummary.kospi.index} changePct={marketSummary.kospi.change_pct} />
             <MarketCard label="KOSDAQ" index={marketSummary.kosdaq.index} changePct={marketSummary.kosdaq.change_pct} />
             <MarketCard label="S&P 500" index={marketSummary.sp500.index} changePct={marketSummary.sp500.change_pct} />
             <MarketCard label="NASDAQ" index={marketSummary.nasdaq.index} changePct={marketSummary.nasdaq.change_pct} />
+            <motion.a
+              href="/stock-screener/reels"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              whileHover={{ scale: 1.05 }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
+              style={{
+                background: 'linear-gradient(135deg, rgba(123,47,247,0.25), rgba(0,212,255,0.15))',
+                border: '1px solid rgba(123,47,247,0.45)',
+                color: '#b47fff',
+                textDecoration: 'none',
+                boxShadow: '0 0 12px rgba(123,47,247,0.2)',
+              }}
+            >
+              <Film size={15} />
+              Reels
+            </motion.a>
           </div>
         </div>
       </div>

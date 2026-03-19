@@ -259,7 +259,7 @@ export default function StockCard({ stock, index, onSelect, isKr }: Props) {
             <span>
               ADX{' '}
               <span style={{ color: 'var(--text-secondary)' }}>
-                {stock.technicals.adx.toFixed(0)}
+                {stock.technicals.adx != null ? stock.technicals.adx.toFixed(0) : '—'}
               </span>
             </span>
             <span>
