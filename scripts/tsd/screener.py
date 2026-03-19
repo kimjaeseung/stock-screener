@@ -53,13 +53,15 @@ _LEVERAGED_NAME_PATTERNS = [
 def _is_likely_leveraged_by_volatility(df: pd.DataFrame) -> bool:
     """
     Heuristic: 레버리지 ETF는 일간 변동폭이 비정상적으로 큼.
-    최근 20일 중 5% 초과 일일 변동이 5번 이상이면 레버리지로 판단.
+    - 2x ETF 기준: 기초자산이 5% 움직이면 ETF는 10% 이상 변동
+    - 정상 고변동 주식(MU, INTC 등)과 구분하기 위해 임계값을 높게 설정
+    - 최근 20일 중 10% 초과 일일 변동이 4번 이상 → 레버리지 의심
     """
     if len(df) < 15:
         return False
     daily_ret = df["Close"].pct_change().abs()
-    extreme_days = int((daily_ret.tail(20) > 0.05).sum())
-    return extreme_days >= 5
+    extreme_days = int((daily_ret.tail(20) > 0.10).sum())
+    return extreme_days >= 4
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────

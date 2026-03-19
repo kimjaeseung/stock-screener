@@ -1,1765 +1,1148 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Stock Reels</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
-#phone{
-  position:relative;width:390px;height:844px;
-  background:#050505;overflow:hidden;
-  border-radius:40px;
-  box-shadow:0 0 0 2px #222,0 0 40px #000;
-}
-#segbar{
-  position:absolute;top:0;left:0;width:100%;height:4px;
-  display:flex;gap:3px;padding:0 12px;z-index:10;
-  align-items:center;background:transparent;
-}
-.seg{
-  flex:1;height:3px;border-radius:2px;background:#ffffff33;overflow:hidden;
-}
-.seg-fill{height:100%;background:#fff;border-radius:2px;transform-origin:left;transform:scaleX(0);}
-canvas#cv{position:absolute;top:0;left:0;width:390px;height:844px;}
-#ui{
-  position:absolute;top:0;left:0;width:390px;height:844px;
-  pointer-events:none;z-index:5;font-family:'Noto Sans KR',sans-serif;
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=390, initial-scale=1">
+  <title>TopStockDaily</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <style>
+    /* ── 1. CSS 변수 & 리셋 ─────────────────────────────────── */
+    :root {
+      --gold:#f59e0b; --gold-dim:#f59e0b33;
+      --green:#10b981; --green-dim:#10b98133;
+      --red:#ef4444;   --red-dim:#ef444433;
+      --blue:#60a5fa;
+      --bg:#050505; --bg2:#0a0a0a; --bg3:#111111;
+      --white:#ffffff; --gray:#888888; --muted:#333333;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      margin:0;background:#000;
+      display:flex;align-items:center;justify-content:center;
+      height:100vh;overflow:hidden;
+      font-family:'Noto Sans KR',sans-serif;
+    }
+
+    /* ── #phone ─────────────────────────────────────────────── */
+    #phone{
+      width:390px;height:844px;
+      background:#050505;position:relative;overflow:hidden;
+      cursor:pointer;user-select:none;
+    }
+    @media(max-width:430px){
+      #phone{width:100vw;height:100dvh;}
+      #scene-canvas{width:100vw!important;height:100dvh!important;}
+    }
+
+    /* ── 4. 세그먼트 프로그레스바 ───────────────────────────── */
+    #segbar{
+      position:absolute;top:0;left:0;right:0;
+      height:28px;padding:10px 10px 0;
+      display:flex;gap:3px;z-index:100;
+    }
+    .seg{
+      flex:1;height:3px;border-radius:2px;
+      background:#ffffff22;overflow:hidden;
+    }
+    .seg-fill{
+      height:100%;background:#fff;border-radius:2px;width:0%;
+    }
+
+    /* ── Canvas & UI layer ──────────────────────────────────── */
+    #scene-canvas{
+      position:absolute;top:0;left:0;
+      width:390px;height:844px;
+    }
+    #ui-layer{
+      position:absolute;inset:0;
+      pointer-events:none;
+    }
+    #updated-at{
+      position:absolute;bottom:6px;left:0;right:0;
+      text-align:center;font-size:9px;color:#666;
+      letter-spacing:0.02em;z-index:50;
+    }
+
+    /* ── UI 씬 공통 ─────────────────────────────────────────── */
+    @keyframes pulse-gold{
+      0%,100%{box-shadow:0 0 0 0 #f59e0b00}
+      50%{box-shadow:0 0 0 5px #f59e0b22}
+    }
+    @keyframes blink{
+      0%,100%{opacity:1} 50%{opacity:0.25}
+    }
+  </style>
 </head>
 <body>
-<div id="phone">
-  <div id="segbar"></div>
-  <canvas id="cv"></canvas>
-  <div id="ui"></div>
-</div>
+  <div id="phone">
+    <div id="segbar"></div>
+    <canvas id="scene-canvas"></canvas>
+    <div id="ui-layer"></div>
+    <div id="updated-at"></div>
+  </div>
 
 <script>
-// ─────────────────────────────────────────────
-// [1] Canvas init + DPR
-// ─────────────────────────────────────────────
-const W = 390, H = 844
-const DPR = Math.min(window.devicePixelRatio || 1, 2)
-const cv = document.getElementById('cv')
-cv.width  = W * DPR
-cv.height = H * DPR
-cv.style.cssText = 'position:absolute;top:0;left:0;width:390px;height:844px;'
-const ctx = cv.getContext('2d')
-ctx.scale(DPR, DPR)
-
-// roundRect polyfill
-if (!CanvasRenderingContext2D.prototype.roundRect) {
-  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
-    if (w < 2*r) r = w/2
-    if (h < 2*r) r = h/2
-    this.beginPath()
-    this.moveTo(x+r, y)
-    this.arcTo(x+w, y,   x+w, y+h, r)
-    this.arcTo(x+w, y+h, x,   y+h, r)
-    this.arcTo(x,   y+h, x,   y,   r)
-    this.arcTo(x,   y,   x+w, y,   r)
-    this.closePath()
-    return this
-  }
+'use strict'
+/* ═══════════════════════════════════════════════════════════
+   3. 이징 함수
+════════════════════════════════════════════════════════════ */
+const easeOutCubic  = t => 1 - Math.pow(1-t, 3)
+const easeOutQuint  = t => 1 - Math.pow(1-t, 5)
+const easeOutElastic = t => {
+  if (t === 0 || t === 1) return t
+  return Math.pow(2,-10*t) * Math.sin((t*10-0.75)*(2*Math.PI/3)) + 1
 }
+const lerp  = (a,b,t) => a + (b-a)*t
+const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi,v))
+const prog  = (elapsed, start, dur) => clamp((elapsed-start)/dur, 0, 1)
 
-// ─────────────────────────────────────────────
-// [2] Design tokens
-// ─────────────────────────────────────────────
-const C = {
-  bg:'#050505', bg2:'#0a0a0a', bg3:'#111111',
-  gold:'#f59e0b', goldDim:'rgba(245,158,11,0.2)',
-  green:'#10b981', greenDim:'rgba(16,185,129,0.15)',
-  red:'#ef4444', redDim:'rgba(239,68,68,0.15)',
-  blue:'#60a5fa', white:'#ffffff',
-  gray:'#888888', muted:'#2a2a2a',
-}
-
-// ─────────────────────────────────────────────
-// [3] Easing & math utils
-// ─────────────────────────────────────────────
-const E = {
-  outCubic:   t => 1 - Math.pow(1-t, 3),
-  outQuint:   t => 1 - Math.pow(1-t, 5),
-  outElastic: t => {
-    if (t===0||t===1) return t
-    return Math.pow(2,-10*t)*Math.sin((t*10-0.75)*(2*Math.PI/3))+1
-  },
-  inOutQuad:  t => t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2,
-  outBounce:  t => {
-    const n1=7.5625, d1=2.75
-    if (t < 1/d1)        return n1*t*t
-    if (t < 2/d1)        return n1*(t-=1.5/d1)*t+0.75
-    if (t < 2.5/d1)      return n1*(t-=2.25/d1)*t+0.9375
-    return n1*(t-=2.625/d1)*t+0.984375
-  },
-  linear: t => t,
-}
-const lerp   = (a, b, t) => a + (b-a)*t
-const clamp  = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
-const prog   = (el, s, e) => clamp((el-s)/(e-s), 0, 1)
-
-// ─────────────────────────────────────────────
-// [4] Segment progress bar
-// ─────────────────────────────────────────────
-const SCENES = [
-  { id:'sigi0',  stock:0, type:'sigi',       dur:1500 },
-  { id:'hook0',  stock:0, type:'hook',       dur:2500 },
-  { id:'card0',  stock:0, type:'card',       dur:3000 },
-  { id:'chart0', stock:0, type:'chart',      dur:8000 },
-  { id:'sum0',   stock:0, type:'summary',    dur:3000 },
-  { id:'trans0',          type:'transition', dur:500  },
-  { id:'sigi1',  stock:1, type:'sigi',       dur:1500 },
-  { id:'hook1',  stock:1, type:'hook',       dur:2500 },
-  { id:'card1',  stock:1, type:'card',       dur:3000 },
-  { id:'chart1', stock:1, type:'chart',      dur:8000 },
-  { id:'sum1',   stock:1, type:'summary',    dur:3000 },
-  { id:'final',           type:'final',      dur:2500 },
+/* ═══════════════════════════════════════════════════════════
+   SCENE_PLAN  (총합 30000ms)
+════════════════════════════════════════════════════════════ */
+const SCENE_PLAN = [
+  {id:'s0', stock:0, type:'hook',       dur:2500},
+  {id:'s1', stock:0, type:'entry_card', dur:3000},
+  {id:'s2', stock:0, type:'chart',      dur:4500},
+  {id:'s3', stock:0, type:'summary',    dur:3500},
+  {id:'sx',          type:'transition', dur:500 },
+  {id:'s4', stock:1, type:'hook',       dur:2500},
+  {id:'s5', stock:1, type:'entry_card', dur:3000},
+  {id:'s6', stock:1, type:'chart',      dur:4500},
+  {id:'s7', stock:1, type:'summary',    dur:3500},
+  {id:'s8',          type:'final',      dur:2500},
 ]
 
+/* ═══════════════════════════════════════════════════════════
+   신호 의미 매핑
+════════════════════════════════════════════════════════════ */
+const SIGNAL_LABELS = {
+  golden_cross:      'Golden Cross  (단기 추세 전환 확인)',
+  volume_confirm:    'Volume Surge  (수급 폭증 · 매집 신호)',
+  rsi_signal:        'RSI 모멘텀  (과열 아님 · 상승 여력)',
+  rsi_divergence:    'RSI Divergence  (하락 중 반등 선행)',
+  bollinger_break:   'Bollinger Breakout  (변동성 폭발 임박)',
+  macd_cross:        'MACD Cross  (매수세 우위 전환)',
+  stoch_signal:      'Stochastic  (과매도 탈출 · 반등 시작)',
+  ma_alignment:      'MA 정배열  (5 · 20 · 60 전부 상향)',
+  relative_strength: 'Relative Strength  (나스닥 대비 강세)',
+  fib_support:       'Fibonacci 지지  (핵심 반등 구간 진입)',
+  ichimoku_bull:     'Ichimoku 강세  (구름 위 안착)',
+}
+
+/* ═══════════════════════════════════════════════════════════
+   2. Canvas 전역 변수
+════════════════════════════════════════════════════════════ */
+const W = 390, H = 844
+let DPR = 1
+let canvas, ctx
+
+/* ═══════════════════════════════════════════════════════════
+   6. 마스터 루프 상태
+════════════════════════════════════════════════════════════ */
+let sceneIdx = 0, sceneStartTime = null, paused = false, lastTs = 0
+let stockData = null
+
+/* ═══════════════════════════════════════════════════════════
+   4. 세그먼트 프로그레스바
+════════════════════════════════════════════════════════════ */
 function buildSegBar() {
-  const sb = document.getElementById('segbar')
-  sb.innerHTML = ''
-  SCENES.forEach((_, i) => {
-    const d = document.createElement('div')
-    d.className = 'seg'
-    const f = document.createElement('div')
-    f.className = 'seg-fill'
-    f.id = 'sf' + i
-    d.appendChild(f)
-    sb.appendChild(d)
+  const bar = document.getElementById('segbar')
+  bar.innerHTML = ''
+  SCENE_PLAN.forEach((_, i) => {
+    const seg  = document.createElement('div'); seg.className = 'seg'
+    const fill = document.createElement('div'); fill.className = 'seg-fill'
+    fill.id = 'sf' + i
+    seg.appendChild(fill); bar.appendChild(seg)
   })
 }
 
-function updateSegBar(idx, ratio) {
-  SCENES.forEach((_, i) => {
-    const f = document.getElementById('sf' + i)
-    if (!f) return
-    if (i < idx)        f.style.transform = 'scaleX(1)'
-    else if (i === idx) f.style.transform = `scaleX(${clamp(ratio,0,1)})`
-    else                f.style.transform = 'scaleX(0)'
+function updateSegBar(idx, pct) {
+  SCENE_PLAN.forEach((_, i) => {
+    const f = document.getElementById('sf'+i); if (!f) return
+    f.style.width = (i < idx ? 100 : i === idx ? clamp(pct,0,1)*100 : 0) + '%'
   })
 }
 
-buildSegBar()
+/* ═══════════════════════════════════════════════════��═══════
+   포맷 헬퍼
+════════════════════════════════════════════════════════════ */
+function fmtPrice(v) {
+  if (!v && v !== 0) return '—'
+  if (v < 10)   return '$' + v.toFixed(3)
+  if (v < 1000) return '$' + v.toFixed(2)
+  return '$' + v.toLocaleString('en-US', {maximumFractionDigits:0})
+}
+function fmtChange(pct) {
+  return (pct >= 0 ? '▲ +' : '▼ ') + Math.abs(pct).toFixed(2) + '%'
+}
 
-// ─────────────────────────────────────────────
-// [5] Data loader + mock data + genChart
-// ─────────────────────────────────────────────
-let DATA = null
-let scIdx = 0, scStart = null, lastTs = 0, paused = false
+/* ═══════════════════════════════════════════════════════════
+   Canvas 좌표 헬퍼
+════════════════════════════════════════════════════════════ */
+function normY(vals, minV, maxV, top, bot) {
+  const range = maxV - minV || 1
+  return vals.map(v => v == null ? null : bot - ((v - minV) / range) * (bot - top))
+}
+function xArr(n, L, R) {
+  return Array.from({length:n}, (_,i) => L + (i/(n-1||1))*(R-L))
+}
 
-function genChart(n=120) {
-  const closes = [], highs = [], lows = [], volumes = []
-  let p = 50000 + Math.random()*50000
+/* ═══════════════════════════════════════════════════════════
+   SMA
+════════════════════════════════════════════════════════════ */
+function sma(arr, n) {
+  return arr.map((_, i) => {
+    if (i < n-1) return null
+    let s = 0; for (let j=i-n+1; j<=i; j++) s += arr[j]
+    return s/n
+  })
+}
+
+/* ═══════════════════════════════════════════════════════════
+   8. drawCometLine() — 혜성 라인
+════════════════════════════════════════════════════════════ */
+function drawCometLine(ctx, xs, ys, progress, {
+  color='#6ee7b7', lineWidth=2, glowColor=null, glowBlur=12, comet=true
+}={}) {
+  const n = xs.length
+  const end = (n-1) * easeOutCubic(progress)
+  const drawn = Math.floor(end), frac = end - drawn
+  ctx.save()
+  ctx.strokeStyle = color; ctx.lineWidth = lineWidth
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+  if (glowColor) { ctx.shadowColor = glowColor; ctx.shadowBlur = glowBlur }
+  ctx.beginPath()
+  let started = false
+  for (let i = 0; i <= Math.min(drawn+1, n-1); i++) {
+    const y = ys[i]; if (y == null) { started = false; continue }
+    let x = xs[i]
+    if (i === drawn+1 && drawn < n-1 && ys[drawn] != null) {
+      x = lerp(xs[drawn], x, frac)
+      const yy = lerp(ys[drawn], y, frac)
+      started ? ctx.lineTo(x, yy) : (ctx.moveTo(x, yy), started = true)
+      continue
+    }
+    started ? ctx.lineTo(x, y) : (ctx.moveTo(x, y), started = true)
+  }
+  ctx.stroke()
+  if (comet && progress > 0.02 && progress < 0.97 && ys[drawn] != null) {
+    const hi = Math.min(drawn+1, n-1)
+    const hx = lerp(xs[drawn], xs[hi], frac)
+    const hy = lerp(ys[drawn], ys[hi] ?? ys[drawn], frac)
+    ctx.shadowColor = glowColor||color; ctx.shadowBlur = 24
+    ctx.fillStyle = '#fff'
+    ctx.beginPath(); ctx.arc(hx, hy, lineWidth*1.9, 0, Math.PI*2); ctx.fill()
+  }
+  ctx.restore()
+}
+
+/* ═══════════════════════════════════════════════════════════
+   9. drawBurst() — 폭발 효과
+════════════════════════════════════════════════════════════ */
+function drawBurst(ctx, cx, cy, progress, color='#f59e0b') {
+  const p = clamp(progress, 0, 1)
+  const fa = Math.sin(clamp(p/0.4,0,1)*Math.PI)*0.22
+  if (fa > 0.01) {
+    ctx.save(); ctx.globalAlpha=fa; ctx.fillStyle=color
+    ctx.fillRect(0,0,W,H); ctx.restore()
+  }
+  for (let r=0; r<4; r++) {
+    const rp = easeOutCubic(clamp(p*3-r*0.3, 0, 1))
+    if (rp <= 0.01) continue
+    ctx.save(); ctx.globalAlpha = (1-rp)*0.9
+    ctx.strokeStyle=color; ctx.lineWidth = 2.5*(1-rp*0.7)
+    ctx.shadowColor=color; ctx.shadowBlur = 14*(1-rp)
+    ctx.beginPath(); ctx.arc(cx, cy, rp*55, 0, Math.PI*2); ctx.stroke()
+    ctx.restore()
+  }
+  const pp = easeOutQuint(clamp(p*1.8, 0, 1))
+  if (pp > 0.01 && pp < 0.99) {
+    for (let i=0; i<12; i++) {
+      const a = (i/12)*Math.PI*2
+      ctx.save(); ctx.globalAlpha = (1-pp)*0.95
+      ctx.fillStyle=color; ctx.shadowColor=color; ctx.shadowBlur=8
+      ctx.beginPath()
+      ctx.arc(cx+Math.cos(a)*pp*58, cy+Math.sin(a)*pp*58, 2.8*(1-pp*0.85), 0, Math.PI*2)
+      ctx.fill(); ctx.restore()
+    }
+  }
+  ctx.save()
+  ctx.globalAlpha = clamp(p*4,0,1) * (1-clamp((p-0.7)/0.3,0,1))
+  ctx.shadowColor=color; ctx.shadowBlur=30
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx,cy,5.5,0,Math.PI*2); ctx.fill()
+  ctx.restore()
+}
+
+/* ═══════════════════════════════════════════════════════════
+   10. drawPopLabel() — 팝업 레이블
+════════════════════════════════════════════════════════════ */
+function drawPopLabel(ctx, x, y, text, progress, color='#f59e0b') {
+  const p = easeOutElastic(clamp(progress, 0, 1))
+  const alpha = clamp(p*2, 0, 1); if (alpha < 0.01) return
+  const offsetY = (1-p)*18
+  ctx.save(); ctx.globalAlpha = alpha
+  ctx.font = '700 11px "Noto Sans KR",sans-serif'
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+  const tw = ctx.measureText(text).width
+  const bw = tw+22, bh=24, r=12
+  ctx.fillStyle='#050505ee'; ctx.shadowColor=color; ctx.shadowBlur=18
+  ctx.beginPath(); ctx.roundRect(x-bw/2, y-offsetY-bh, bw, bh, r); ctx.fill()
+  ctx.fillStyle=color; ctx.shadowBlur=8
+  ctx.fillText(text, x, y-offsetY-7)
+  ctx.restore()
+}
+
+/* ═══════════════════════════════════════════════════════════
+   5. 목데이터
+════════════════════════════════════════════════════════════ */
+function generateMockChart(base, n) {
+  let p = base * 0.87
+  const closes=[], highs=[], lows=[], volumes=[]
   for (let i=0; i<n; i++) {
-    const chg = (Math.random()-0.48)*p*0.025
-    p = Math.max(p+chg, 1000)
-    const h = p*(1+Math.random()*0.015)
-    const l = p*(1-Math.random()*0.015)
-    closes.push(Math.round(p))
-    highs.push(Math.round(h))
-    lows.push(Math.round(l))
-    volumes.push(Math.round(1e6 + Math.random()*9e6))
+    let chg
+    if      (i<15) chg = (Math.random()-0.42)*base*0.019
+    else if (i<30) chg = -(Math.random()+0.08)*base*0.011
+    else if (i<45) chg = (Math.random()-0.50)*base*0.008
+    else           chg = (Math.random()+0.30)*base*0.017
+    p = Math.max(base*0.74, p+chg)
+    const v = p*0.013
+    closes.push(+(p.toFixed(2)))
+    highs.push(+(p+Math.random()*v).toFixed(2))
+    lows.push(+(Math.max(p*0.99, p-Math.random()*v)).toFixed(2))
+    volumes.push(Math.round(1200000*(i>=58 ? 2.6+Math.random() : 0.55+Math.random()*0.9)))
   }
-  return { closes, highs, lows, volumes }
-}
-
-function normalizeSock(raw) {
-  const ch  = raw.chart || {}
-  // chart_data (reels format) is preferred; fallback to chart arrays
-  const cd  = raw.chart_data || {}
-  const closes  = cd.closes  || ch.close  || ch.closes  || []
-  const highs   = cd.highs   || ch.high   || ch.highs   || []
-  const lows    = cd.lows    || ch.low    || ch.lows    || []
-  const volumes = cd.volumes || ch.volume || ch.volumes || []
-  const n = closes.length
-
-  // Pre-computed indicator arrays from screener
-  const rsiArr      = ch.rsi       || []
-  const macdHistArr = ch.macd_hist || []
-  const ma5Arr      = ch.ma5       || []
-  const ma20Arr     = ch.ma20      || []
-  const ma60Arr     = ch.ma60      || []
-  const bbUArr      = ch.bb_upper  || []
-  const bbLArr      = ch.bb_lower  || []
-  const stochKArr   = ch.stoch_k   || []
-  const fibData     = ch.fib       || {}
-
-  // Latest indicator values
-  const lastRsi      = rsiArr.length      ? rsiArr[rsiArr.length-1]           : null
-  const lastMacdH    = macdHistArr.length ? macdHistArr[macdHistArr.length-1] : null
-  const prevMacdH    = macdHistArr.length > 1 ? macdHistArr[macdHistArr.length-2] : null
-
-  // swing — stop_pct is stored as positive in new data; keep compat
-  const rawSwing = raw.swing || {}
-  const lastClose = closes[n-1] || raw.price || 0
-  const swing = {
-    entry_low:    rawSwing.entry_low    || lastClose*0.98,
-    entry_high:   rawSwing.entry_high   || lastClose*1.00,
-    stop_loss:    rawSwing.stop_loss    || lastClose*0.92,
-    stop_pct:     rawSwing.stop_pct != null ? Math.abs(rawSwing.stop_pct) : 8,
-    target1:      rawSwing.target1      || lastClose*1.12,
-    target1_pct:  rawSwing.target1_pct  || 12,
-    target1_week: rawSwing.target1_week || '3-4주',
-    target2:      rawSwing.target2      || lastClose*1.25,
-    target2_pct:  rawSwing.target2_pct  || 25,
-    target2_week: rawSwing.target2_week || '6-8주',
-    rr_ratio:     rawSwing.rr_ratio     || 1.8,
-    vol_multiple: rawSwing.vol_multiple || (raw.vol_ratio || 1.4),
-  }
-
-  return {
-    ticker:     raw.ticker || raw.symbol || 'UNKNOWN',
-    name:       raw.name   || raw.ticker || 'Unknown',
-    price:      raw.price  || lastClose  || 0,
-    change_pct: raw.change_pct || raw.change || 0,
-    sector:     raw.sector || 'NASDAQ',
-    score:      raw.score  || 75,
-    vol_ratio:  raw.vol_ratio || 1,
-    // pre-computed signals from screener (13 boolean flags)
-    signals: raw.signals || {
-      golden_cross:false, early_trend:false, volume_confirm:false, rsi_signal:false,
-      rsi_divergence:false, rsi_oversold:false, macd_cross:false, macd_turned:false,
-      bollinger_break:false, stoch_signal:false, ma_alignment:false,
-      relative_strength:false, fib_support:false,
-    },
-    swing,
-    chart_data: { closes, highs, lows, volumes },
-    // pre-computed indicator values for display in renderSummary
-    indicators: {
-      rsi:         lastRsi,
-      macdHistLast: lastMacdH,
-      macdHistPrev: prevMacdH,
-      rsiArr, macdHistArr, ma5Arr, ma20Arr, ma60Arr, bbUArr, bbLArr, stochKArr,
-      fib: fibData,
-    },
-  }
+  return {closes, highs, lows, volumes}
 }
 
 function getMockData() {
-  const s0cd = genChart()
-  const s1cd = genChart()
-  const last0 = s0cd.closes[s0cd.closes.length-1]
-  const last1 = s1cd.closes[s1cd.closes.length-1]
-  return [
-    {
-      ticker:'AAPL', name:'Apple Inc.', price:last0, change_pct:3.7,
-      sector:'Technology', score:92,
-      signals:{ golden_cross:true, volume_confirm:true, rsi_signal:true },
-      swing:{
-        entry_low:last0*0.985, entry_high:last0*1.005,
-        stop_loss:last0*0.91, stop_pct:9,
-        target1:last0*1.15, target1_pct:15, target1_week:'3-4주',
-        target2:last0*1.28, target2_pct:28, target2_week:'6-8주',
-        rr_ratio:2.1, vol_multiple:1.8,
-      },
-      chart_data: s0cd,
-    },
-    {
-      ticker:'NVDA', name:'NVIDIA Corp.', price:last1, change_pct:5.2,
-      sector:'Semiconductor', score:87,
-      signals:{ golden_cross:true, volume_confirm:true, rsi_signal:false },
-      swing:{
-        entry_low:last1*0.99, entry_high:last1*1.01,
-        stop_loss:last1*0.925, stop_pct:7.5,
-        target1:last1*1.18, target1_pct:18, target1_week:'4-5주',
-        target2:last1*1.32, target2_pct:32, target2_week:'8-10주',
-        rr_ratio:2.5, vol_multiple:2.1,
-      },
-      chart_data: s1cd,
-    },
-  ]
-}
-
-async function loadData() {
-  try {
-    const res = await fetch('../data.json')
-    if (!res.ok) throw new Error('fetch fail')
-    const json = await res.json()
-    const list = Array.isArray(json) ? json : (json.stocks || json.data || [json])
-
-    // 기본 필터: 차트 데이터 충분한 종목
-    const valid = list.filter(s => {
-      const ch = s.chart || {}
-      const cd = s.chart_data || {}
-      const closes = cd.closes || ch.close || ch.closes || []
-      return closes.length >= 40
-    })
-
-    if (valid.length === 0) { DATA = getMockData(); requestAnimationFrame(masterLoop); return }
-
-    // ─ 1호: 최고점수 모멘텀 픽
-    const byScore = [...valid].sort((a,b) => (b.score||0)-(a.score||0))
-    const pick1 = byScore[0]
-
-    // ─ 2호: 최적 저점반등 후보
-    // 조건: rsi_oversold OR early_trend (바닥 탈출 초기)
-    //        + macd_turned (모멘텀 전환 시작)
-    //        + 손익비 높은 종목 우선
-    const reversalCandidates = valid.filter(s => {
-      const sig = s.signals || {}
-      const isReversal = sig.rsi_oversold || sig.early_trend || sig.macd_turned
-      const goodRR = (s.swing?.rr_ratio || 0) >= 1.8
-      return isReversal && goodRR && s.ticker !== pick1.ticker
-    })
-
-    // 저점반등 점수 = 손익비 * 2 + 신호 가산
-    const reversalScore = s => {
-      const sig = s.signals || {}
-      const rr  = s.swing?.rr_ratio || 1
-      return rr * 2
-        + (sig.rsi_oversold  ? 5 : 0)
-        + (sig.early_trend   ? 4 : 0)
-        + (sig.macd_turned   ? 3 : 0)
-        + (sig.fib_support   ? 2 : 0)
-        + (sig.volume_confirm? 2 : 0)
-    }
-    reversalCandidates.sort((a,b) => reversalScore(b) - reversalScore(a))
-    const pick2 = reversalCandidates[0] || byScore[1] || byScore[0]
-
-    DATA = [pick1, pick2].map(normalizeSock)
-  } catch(e) {
-    DATA = getMockData()
-  }
-  requestAnimationFrame(masterLoop)
-}
-
-// ─────────────────────────────────────────────
-// [6] Technical indicators
-// ─────────────────────────────────────────────
-function sma(arr, n) {
-  const out = new Array(arr.length).fill(null)
-  for (let i=n-1; i<arr.length; i++) {
-    let s=0; for(let j=0;j<n;j++) s+=arr[i-j]; out[i]=s/n
-  }
-  return out
-}
-
-function ema(arr, n) {
-  const k = 2/(n+1)
-  const out = new Array(arr.length).fill(null)
-  let i0 = -1
-  for (let i=0;i<arr.length;i++) if(arr[i]!=null){i0=i;break}
-  if (i0<0) return out
-  out[i0] = arr[i0]
-  for (let i=i0+1;i<arr.length;i++) {
-    out[i] = (arr[i]==null?out[i-1]:arr[i])*k + out[i-1]*(1-k)
-  }
-  return out
-}
-
-function calcBoll(closes, n=20, k=2) {
-  const mid = sma(closes, n)
-  const upper = [], lower = []
-  for (let i=0; i<closes.length; i++) {
-    if (mid[i]==null) { upper.push(null); lower.push(null); continue }
-    let sq=0
-    for (let j=0;j<n;j++) sq+=Math.pow(closes[i-j]-mid[i],2)
-    const sd = Math.sqrt(sq/n)
-    upper.push(mid[i]+k*sd)
-    lower.push(mid[i]-k*sd)
-  }
-  return { upper, mid, lower }
-}
-
-function calcFib(closes, highs, lows, lb=60) {
-  const sl = Math.max(0, closes.length-lb)
-  const subH = highs.slice(sl), subL = lows.slice(sl)
-  const hi = Math.max(...subH), lo = Math.min(...subL)
-  const d = hi - lo
   return {
-    hi, lo,
-    f618: hi - d*0.618,
-    f500: hi - d*0.500,
-    f382: hi - d*0.382,
-    f236: hi - d*0.236,
+    updated_at: new Date().toISOString().slice(0,10)+' (목데이터)',
+    stocks: [
+      {
+        ticker:'NVDA', name:'NVIDIA Corporation',
+        price:875.40, change_pct:3.24, sector:'AI 반도체', score:89,
+        signals:{
+          golden_cross:true, volume_confirm:true, rsi_signal:true,
+          bollinger_break:true, macd_cross:true, stoch_signal:false,
+          ma_alignment:true, relative_strength:true, fib_support:true,
+        },
+        swing:{
+          entry_low:868, entry_high:883,
+          stop_loss:842, stop_pct:-3.8,
+          target1:950,  target1_pct:8.5,  target1_week:2,
+          target2:1020, target2_pct:16.6, target2_week:4,
+          rr_ratio:2.8, vol_multiple:2.8,
+        },
+        chart_data: generateMockChart(875.40, 65),
+      },
+      {
+        ticker:'COIN', name:'Coinbase Global Inc',
+        price:198.50, change_pct:5.12, sector:'핀테크/크립토', score:78,
+        signals:{
+          golden_cross:true, volume_confirm:true, rsi_signal:true,
+          bollinger_break:false, macd_cross:true, stoch_signal:true,
+          ma_alignment:true, relative_strength:true, fib_support:false,
+        },
+        swing:{
+          entry_low:194, entry_high:202,
+          stop_loss:183, stop_pct:-7.8,
+          target1:225,  target1_pct:13.3, target1_week:2,
+          target2:255,  target2_pct:28.5, target2_week:4,
+          rr_ratio:2.1, vol_multiple:2.1,
+        },
+        chart_data: generateMockChart(198.50, 65),
+      },
+    ],
   }
 }
 
-function findGoldenCross(ma5, ma20) {
-  for (let i=ma20.length-1; i>0; i--) {
-    if (ma5[i]!=null && ma20[i]!=null && ma5[i-1]!=null && ma20[i-1]!=null) {
-      if (ma5[i-1] <= ma20[i-1] && ma5[i] > ma20[i]) return i
-    }
-  }
-  return -1
+/* ── 한국어명 헬퍼 ───────────────────────────────────────── */
+window.KR_NAMES = {}
+function getKrName(ticker, englishName) {
+  return window.KR_NAMES[ticker] || englishName || ticker
 }
 
-function findVolSpike(volumes, n=20) {
-  let best=-1, bv=0
-  for (let i=n; i<volumes.length; i++) {
-    let avg=0; for(let j=1;j<=n;j++) avg+=volumes[i-j]; avg/=n
-    const ratio = volumes[i]/avg
-    if (ratio>bv) { bv=ratio; best=i }
+/* ── kr_names.json 로더 ─────────────────────────────────── */
+async function loadKrNames() {
+  const paths = ['../kr_names.json', '/stock-screener/kr_names.json']
+  for (const p of paths) {
+    try {
+      const r = await fetch(p)
+      if (!r.ok) continue
+      window.KR_NAMES = await r.json()
+      return
+    } catch(e) {}
   }
-  return { idx: best, ratio: bv }
 }
 
-function calcRSI(closes, n=14) {
-  const out = new Array(closes.length).fill(null)
-  if (closes.length < n+2) return out
-  let gU=0, lU=0
-  for (let i=1; i<=n; i++) {
-    const d = closes[i]-closes[i-1]
-    d>0 ? gU+=d : lU+=-d
-  }
-  let aG=gU/n, aL=lU/n
-  out[n] = 100-100/(1+aG/Math.max(aL,0.001))
-  for (let i=n+1; i<closes.length; i++) {
-    const d=closes[i]-closes[i-1]
-    const g=d>0?d:0, l=d<0?-d:0
-    aG=(aG*(n-1)+g)/n; aL=(aL*(n-1)+l)/n
-    out[i] = 100-100/(1+aG/Math.max(aL,0.001))
-  }
-  return out
-}
+/* ── data.json 로더 ──────────────────────────────────────── */
+async function loadData() {
+  // kr_names 와 data.json 을 동시에 요청
+  await loadKrNames()
 
-function calcMACD(closes) {
-  const e12 = ema(closes, 12)
-  const e26 = ema(closes, 26)
-  const macd = e12.map((v,i) => (v!=null&&e26[i]!=null) ? v-e26[i] : null)
-  const signal = ema(macd.map(v=>v||0), 9)
-  const hist = macd.map((v,i) => (v!=null&&signal[i]!=null) ? v-signal[i] : null)
-  return { macd, signal, hist }
-}
-
-// ─────────────────────────────────────────────
-// [7a] Chart Pattern Detection
-// ─────────────────────────────────────────────
-
-function _mean(arr)   { return arr.reduce((a,b)=>a+b,0)/arr.length }
-function _std(arr)    { const m=_mean(arr); return Math.sqrt(arr.reduce((a,b)=>a+(b-m)**2,0)/arr.length) }
-function _slope(arr)  {
-  const n=arr.length, mx=(n-1)/2, my=_mean(arr)
-  let num=0,den=0
-  arr.forEach((v,i)=>{num+=(i-mx)*(v-my);den+=(i-mx)**2})
-  return den ? num/den : 0
-}
-
-function _findExtrema(arr, win=4) {
-  const peaks=[],troughs=[]
-  for(let i=win;i<arr.length-win;i++){
-    if(arr[i]==null) continue
-    let pk=true,tr=true
-    for(let j=i-win;j<=i+win;j++){
-      if(j===i) continue
-      if(arr[j]==null){pk=false;tr=false;break}
-      if(arr[j]>=arr[i]) pk=false
-      if(arr[j]<=arr[i]) tr=false
-    }
-    if(pk) peaks.push(i)
-    if(tr) troughs.push(i)
-  }
-  return {peaks,troughs}
-}
-
-function detectPattern(closes, highs, lows) {
-  const n=closes.length
-  if(n<30) return null
-  const last=closes[n-1]
-  const {peaks,troughs}=_findExtrema(closes,4)
-  const pk=peaks, tr=troughs
-
-  // 1. 더블 바텀 (W패턴, 강세반전)
-  if(tr.length>=2){
-    const i1=tr[tr.length-2],i2=tr[tr.length-1]
-    if(i2-i1>=8){
-      const v1=closes[i1],v2=closes[i2]
-      if(Math.abs(v1-v2)/Math.max(v1,v2)<0.045){
-        let neck=closes[i1]
-        for(let i=i1+1;i<i2;i++) neck=Math.max(neck,closes[i])
-        const recov=(neck-Math.min(v1,v2))/Math.min(v1,v2)
-        if(recov>0.035 && last>neck*0.94)
-          return{type:'double_bottom',name:'더블 바텀',color:'#10b981',bull:true,i1,i2,neck,v1,v2}
-      }
-    }
-  }
-
-  // 2. 역 머리어깨 (강세반전)
-  if(tr.length>=3){
-    const ls=tr[tr.length-3],hd=tr[tr.length-2],rs=tr[tr.length-1]
-    const lsV=closes[ls],hdV=closes[hd],rsV=closes[rs]
-    if(rs-ls>=20){
-      const sim=Math.abs(lsV-rsV)/Math.max(lsV,rsV)
-      const depth=(Math.min(lsV,rsV)-hdV)/Math.min(lsV,rsV)
-      if(sim<0.07&&depth>0.04){
-        const neck=(lsV+rsV)/2
-        if(last>neck*0.96)
-          return{type:'inv_hs',name:'역 머리어깨',color:'#10b981',bull:true,ls,hd,rs,lsV,hdV,rsV,neck}
-      }
-    }
-  }
-
-  // 2b. 콰시모도 패턴 (Quasimodo — 강세반전, 역H&S 변형)
-  // 특징: 우어깨(rs)가 좌어깨(ls)보다 낮지만 머리(hd)보다 높음 → ls>rs>hd
-  if(tr.length>=3){
-    const ls=tr[tr.length-3],hd=tr[tr.length-2],rs=tr[tr.length-1]
-    const lsV=closes[ls],hdV=closes[hd],rsV=closes[rs]
-    if(rs-ls>=15&&hdV<rsV&&rsV<lsV){  // ls>rs>hd (오른쪽어깨가 왼쪽보다 낮음)
-      const lsRsDiff=Math.abs(lsV-rsV)/lsV
-      const depth=(rsV-hdV)/rsV
-      if(lsRsDiff>0.03&&lsRsDiff<0.30&&depth>0.03){
-        const neck=lsV  // 네크라인 = 좌어깨 수준
-        if(last>neck*0.96)
-          return{type:'quasimodo',name:'콰시모도 패턴',color:'#22d3ee',bull:true,ls,hd,rs,lsV,hdV,rsV,neck}
-      }
-    }
-  }
-
-  // 3. 컵앤핸들 (강세 지속)
-  for(let pi=0;pi<pk.length-1;pi++){
-    const p1=pk[pi],p2=pk[pi+1]
-    if(p2-p1<15||p2-p1>50) continue
-    const p1V=closes[p1],p2V=closes[p2]
-    if(Math.abs(p1V-p2V)/Math.max(p1V,p2V)>0.09) continue
-    let minV=p1V,minI=p1
-    for(let i=p1+1;i<p2;i++){if(closes[i]<minV){minV=closes[i];minI=i}}
-    const cupD=(Math.min(p1V,p2V)-minV)/Math.min(p1V,p2V)
-    if(cupD<0.07) continue
-    const handleLow=Math.min(...closes.slice(p2,n))
-    const handleD=(p2V-handleLow)/p2V
-    if(handleD<0.15&&last>=p2V*0.93)
-      return{type:'cup_handle',name:'컵앤핸들',color:'#f59e0b',bull:true,p1,cup:minI,p2,p1V,minV,p2V}
-  }
-
-  // 4. 라운딩 바텀 (소서형 — 느린 반전)
-  if(n>=40){
-    const seg=closes.slice(n-40)
-    const midMin=Math.min(...seg.slice(12,28))
-    const leftAvg=_mean(seg.slice(0,10))
-    const rightAvg=_mean(seg.slice(30,40))
-    if(midMin<leftAvg*0.94&&midMin<rightAvg*0.94&&rightAvg>=leftAvg*0.96)
-      return{type:'rounding_bottom',name:'라운딩 바텀',color:'#34d399',bull:true}
-  }
-
-  // 5. 강세 깃발 (급등 후 횡보)
-  if(n>=22){
-    const pole=closes.slice(n-22,n-7)
-    const flag=closes.slice(n-7,n)
-    const poleRise=(_mean(pole.slice(pole.length-3))-_mean(pole.slice(0,3)))/_mean(pole.slice(0,3))
-    const flagRange=(Math.max(...flag)-Math.min(...flag))/Math.max(...flag)
-    if(poleRise>0.07&&flagRange<0.045)
-      return{type:'bull_flag',name:'강세 깃발',color:'#a78bfa',bull:true}
-  }
-
-  // 6. 상승 삼각형 (수평저항 + 상승지지)
-  if(n>=20){
-    const rH=highs.slice(n-20),rL=lows.slice(n-20)
-    const hStd=_std(rH),hMean=_mean(rH)
-    const lSlope=_slope(rL)
-    if(hStd/hMean<0.028&&lSlope>0)
-      return{type:'asc_tri',name:'상승 삼각형',color:'#38bdf8',bull:true}
-  }
-
-  // 7. 하락 쐐기 돌파 (강세반전)
-  if(n>=20){
-    const rH=highs.slice(n-20),rL=lows.slice(n-20)
-    const hs=_slope(rH),ls=_slope(rL)
-    if(hs<0&&ls<0&&hs<ls*1.25&&last>_mean(rH)*0.99)
-      return{type:'falling_wedge',name:'하락 쐐기 돌파',color:'#10b981',bull:true}
-  }
-
-  // 8. 머리어깨 (하락반전 ⚠)
-  if(pk.length>=3){
-    const ls=pk[pk.length-3],hd=pk[pk.length-2],rs=pk[pk.length-1]
-    const lsV=closes[ls],hdV=closes[hd],rsV=closes[rs]
-    if(rs-ls>=20){
-      const sim=Math.abs(lsV-rsV)/Math.max(lsV,rsV)
-      const headH=(hdV-Math.max(lsV,rsV))/Math.max(lsV,rsV)
-      if(sim<0.07&&headH>0.03){
-        let n1=closes[ls],n2=closes[ls]
-        for(let i=ls+1;i<hd;i++) n1=Math.min(n1,closes[i])
-        for(let i=hd+1;i<rs;i++) n2=Math.min(n2,closes[i])
-        return{type:'head_shoulders',name:'머리어깨 ⚠',color:'#ef4444',bull:false,ls,hd,rs,lsV,hdV,rsV,neck:(n1+n2)/2}
-      }
-    }
-  }
-
-  // 9. 더블 탑 (하락반전 ⚠)
-  if(pk.length>=2){
-    const i1=pk[pk.length-2],i2=pk[pk.length-1]
-    if(i2-i1>=8){
-      const v1=closes[i1],v2=closes[i2]
-      if(Math.abs(v1-v2)/Math.max(v1,v2)<0.04){
-        let neck=closes[i1]
-        for(let i=i1+1;i<i2;i++) neck=Math.min(neck,closes[i])
-        if(last<=v1*1.01)
-          return{type:'double_top',name:'더블 탑 ⚠',color:'#f97316',bull:false,i1,i2,neck,v1,v2}
-      }
-    }
-  }
-
-  // 10. 상승 쐐기 (하락 경고 ⚠)
-  if(n>=20){
-    const rH=highs.slice(n-20),rL=lows.slice(n-20)
-    const hs=_slope(rH),ls=_slope(rL)
-    if(hs>0&&ls>0&&ls>hs*1.3)
-      return{type:'rising_wedge',name:'상승 쐐기 ⚠',color:'#fb923c',bull:false}
-  }
-
-  // 11. 하락 삼각형 (하방 돌파 ⚠)
-  if(n>=20){
-    const rH=highs.slice(n-20),rL=lows.slice(n-20)
-    const lStd=_std(rL),lMean=_mean(rL)
-    const hSlope=_slope(rH)
-    if(lStd/lMean<0.028&&hSlope<0)
-      return{type:'desc_tri',name:'하락 삼각형 ⚠',color:'#f97316',bull:false}
-  }
-
-  // 12. 강세 페넌트 (급등 후 수렴)
-  if(n>=18){
-    const seg=closes.slice(n-18)
-    const poleHigh=Math.max(...seg.slice(0,8))
-    const poleLow=seg[0]
-    const poleRise=(poleHigh-poleLow)/poleLow
-    const pennH=highs.slice(n-10),pennL=lows.slice(n-10)
-    const pennHSlope=_slope(pennH),pennLSlope=_slope(pennL)
-    if(poleRise>0.06&&pennHSlope<0&&pennLSlope>0)
-      return{type:'pennant',name:'강세 페넌트',color:'#c084fc',bull:true}
-  }
-
-  return null
-}
-
-function drawPatternOverlay(ctx, pattern, xs, closes, highs, lows, minP, maxP, alpha, n) {
-  if(!pattern||alpha<=0) return
-  ctx.save(); ctx.globalAlpha=alpha
-
-  const C2=pattern.color
-  // Pattern name badge (below MA legend)
-  ctx.font='bold 10px "Noto Sans KR"'
-  const lbl= pattern.bull ? '▲ '+pattern.name : '▽ '+pattern.name
-  const bw=ctx.measureText(lbl).width+14
-  ctx.fillStyle=C2+'22'; ctx.strokeStyle=C2+'99'; ctx.lineWidth=1
-  ctx.beginPath(); ctx.roundRect(CL+2,CT+38,bw,18,4); ctx.fill(); ctx.stroke()
-  ctx.fillStyle=C2; ctx.textAlign='left'
-  ctx.fillText(lbl, CL+7, CT+51)
-
-  // Pattern-specific overlays
-  const nY=v=>normY(v,minP,maxP)
-  ctx.setLineDash([4,3]); ctx.lineWidth=1.2
-
-  if(pattern.type==='double_bottom'||pattern.type==='double_top'){
-    [pattern.i1,pattern.i2].forEach(idx=>{
-      const px=xs[idx],py=nY(closes[idx])
-      ctx.beginPath(); ctx.arc(px,py,5,0,Math.PI*2)
-      ctx.strokeStyle=C2; ctx.stroke()
-    })
-    const ny=nY(pattern.neck)
-    if(ny>CT&&ny<CB){
-      ctx.strokeStyle=C2+'cc'
-      ctx.beginPath(); ctx.moveTo(xs[pattern.i1],ny); ctx.lineTo(xs[n-1],ny); ctx.stroke()
-    }
-  }
-
-  if(pattern.type==='inv_hs'||pattern.type==='head_shoulders'||pattern.type==='quasimodo'){
-    [pattern.ls,pattern.hd,pattern.rs].forEach((idx,i)=>{
-      const px=xs[idx],py=nY(closes[idx])
-      ctx.beginPath(); ctx.arc(px,py,4+i%2*2,0,Math.PI*2)
-      ctx.strokeStyle=C2; ctx.stroke()
-    })
-    const ny=nY(pattern.neck)
-    if(ny>CT&&ny<CB){
-      ctx.strokeStyle=C2+'bb'
-      ctx.beginPath(); ctx.moveTo(xs[pattern.ls],ny); ctx.lineTo(xs[n-1],ny); ctx.stroke()
-    }
-    // Connect the three key points
-    if(pattern.type==='quasimodo'){
-      ctx.lineWidth=0.8; ctx.setLineDash([2,3])
-      ctx.beginPath()
-      ctx.moveTo(xs[pattern.ls],nY(closes[pattern.ls]))
-      ctx.lineTo(xs[pattern.hd],nY(closes[pattern.hd]))
-      ctx.lineTo(xs[pattern.rs],nY(closes[pattern.rs]))
-      ctx.strokeStyle=C2+'66'; ctx.stroke()
-      ctx.setLineDash([])
-    }
-  }
-
-  if(pattern.type==='cup_handle'){
-    const px1=xs[pattern.p1],cupX=xs[pattern.cup],px3=xs[pattern.p2]
-    const py1=nY(pattern.p1V),cupY=nY(pattern.minV),py3=nY(pattern.p2V)
-    ctx.strokeStyle=C2+'88'; ctx.lineWidth=1.5
-    ctx.beginPath(); ctx.moveTo(px1,py1)
-    ctx.bezierCurveTo(px1+(cupX-px1)*0.5,cupY,cupX-(px3-cupX)*0.5,cupY,px3,py3)
-    ctx.stroke()
-    ctx.beginPath(); ctx.arc(px1,py1,4,0,Math.PI*2); ctx.stroke()
-    ctx.beginPath(); ctx.arc(px3,py3,4,0,Math.PI*2); ctx.stroke()
-    ctx.beginPath(); ctx.arc(cupX,cupY,3,0,Math.PI*2); ctx.stroke()
-  }
-
-  ctx.setLineDash([]); ctx.restore()
-}
-
-// ─────────────────────────────────────────────
-// [7] Coordinate utils
-// ─────────────────────────────────────────────
-const CL=20, CR=346, CT=100, CB=380
-const VT=400, VB=480
-
-function normY(val, minP, maxP) {
-  return CT + (CB-CT)*(1-(val-minP)/(maxP-minP))
-}
-function normVY(val, maxV) {
-  return VB - (VB-VT)*(val/maxV)
-}
-function xArr(idx, n) {
-  return CL + (CR-CL)*(idx/(n-1))
-}
-
-function fmtPrice(v) {
-  if (v==null || v===0) return '-'
-  if (v>=1000000) return (v/1000000).toFixed(2)+'M'
-  if (v>=1000)    return Math.round(v).toLocaleString()
-  return v.toFixed(2)
-}
-function fmtShort(v) {
-  if (v>=1e9)  return (v/1e9).toFixed(1)+'B'
-  if (v>=1e6)  return (v/1e6).toFixed(1)+'M'
-  if (v>=1e3)  return (v/1e3).toFixed(1)+'K'
-  return String(v)
-}
-function fmtChange(v) {
-  return (v>=0?'+':'') + Number(v).toFixed(2) + '%'
-}
-
-function drawYLabels(ctx, minP, maxP, steps=4) {
-  ctx.save()
-  ctx.font = '10px "Noto Sans KR"'
-  ctx.fillStyle = C.gray
-  ctx.textAlign = 'right'
-  for (let i=0; i<=steps; i++) {
-    const val = minP + (maxP-minP)*(i/steps)
-    const y = normY(val, minP, maxP)
-    ctx.fillText(fmtPrice(val), CL-4, y+4)
-    ctx.strokeStyle = '#ffffff08'
-    ctx.lineWidth = 0.5
-    ctx.beginPath(); ctx.moveTo(CL, y); ctx.lineTo(CR, y); ctx.stroke()
-  }
-  ctx.restore()
-}
-
-function drawXLabels(ctx, n) {
-  const steps = 4
-  ctx.save()
-  ctx.font = '10px "Noto Sans KR"'
-  ctx.fillStyle = C.gray
-  ctx.textAlign = 'center'
-  for (let i=0; i<=steps; i++) {
-    const idx = Math.round((n-1)*i/steps)
-    const x = xArr(idx, n)
-    const daysAgo = n-1-idx
-    const label = daysAgo===0 ? '오늘' : `-${daysAgo}d`
-    ctx.fillText(label, x, CB+16)
-  }
-  ctx.restore()
-}
-
-// ─────────────────────────────────────────────
-// [8] drawCometLine
-// ─────────────────────────────────────────────
-function drawCometLine(ctx, xs, ys, progress, {
-  color='#6ee7b7', lw=2, glow=null, glowBlur=12,
-  comet=true, fill=false, fillColor=null,
-}={}) {
-  if (xs.length < 2) return
-  const n = xs.length
-  const endIdx = Math.floor(progress * (n-1))
-  if (endIdx < 1) return
-
-  ctx.save()
-  if (glow) {
-    ctx.shadowColor = glow
-    ctx.shadowBlur  = glowBlur
-  }
-
-  if (fill && fillColor) {
-    ctx.beginPath()
-    ctx.moveTo(xs[0], ys[0])
-    for (let i=1; i<=endIdx; i++) ctx.lineTo(xs[i], ys[i])
-    ctx.lineTo(xs[endIdx], CB)
-    ctx.lineTo(xs[0], CB)
-    ctx.closePath()
-    ctx.fillStyle = fillColor
-    ctx.fill()
-  }
-
-  ctx.beginPath()
-  ctx.moveTo(xs[0], ys[0])
-  for (let i=1; i<=endIdx; i++) ctx.lineTo(xs[i], ys[i])
-  ctx.strokeStyle = color
-  ctx.lineWidth = lw
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-  ctx.stroke()
-
-  if (comet && endIdx < n-1) {
-    const cx = xs[endIdx], cy = ys[endIdx]
-    ctx.shadowBlur = 0
-    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 10)
-    grad.addColorStop(0, color)
-    grad.addColorStop(1, 'transparent')
-    ctx.beginPath()
-    ctx.arc(cx, cy, 4, 0, Math.PI*2)
-    ctx.fillStyle = grad
-    ctx.fill()
-    ctx.beginPath()
-    ctx.arc(cx, cy, 2, 0, Math.PI*2)
-    ctx.fillStyle = color
-    ctx.fill()
-  }
-  ctx.restore()
-}
-
-// ─────────────────────────────────────────────
-// [9] drawBurst
-// ─────────────────────────────────────────────
-function drawBurst(ctx, cx, cy, progress, color, {
-  rings=4, maxR=52, pCount=12, flashA=0.18,
-}={}) {
-  if (!color) color = C.gold
-  ctx.save()
-  // flash
-  const fa = flashA * Math.max(0, 1-progress*3)
-  if (fa>0) {
-    ctx.globalAlpha = fa
-    ctx.fillStyle = color
-    ctx.beginPath(); ctx.arc(cx, cy, 60, 0, Math.PI*2); ctx.fill()
-    ctx.globalAlpha = 1
-  }
-  // rings
-  for (let r=0; r<rings; r++) {
-    const rp = clamp(progress - r*0.1, 0, 1)
-    if (rp<=0) continue
-    const radius = maxR * rp
-    const alpha  = (1-rp)*0.7
-    ctx.globalAlpha = alpha
-    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI*2)
-    ctx.strokeStyle = color
-    ctx.lineWidth = 2
-    ctx.stroke()
-  }
-  ctx.globalAlpha = 1
-  // particles
-  for (let p=0; p<pCount; p++) {
-    const angle = (p/pCount)*Math.PI*2
-    const dist  = maxR*1.4*progress
-    const pa    = clamp(1-progress, 0, 1)
-    const px = cx + Math.cos(angle)*dist
-    const py = cy + Math.sin(angle)*dist
-    ctx.globalAlpha = pa
-    ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI*2)
-    ctx.fillStyle = color
-    ctx.fill()
-  }
-  ctx.globalAlpha = 1
-  // center glow
-  const ca = Math.max(0, 0.9-progress*1.5)
-  if (ca > 0) {
-    const cg = ctx.createRadialGradient(cx, cy, 0, cx, cy, 20)
-    cg.addColorStop(0, '#ffffff')
-    cg.addColorStop(0.3, color)
-    cg.addColorStop(1, 'transparent')
-    ctx.globalAlpha = ca
-    ctx.beginPath(); ctx.arc(cx, cy, 20, 0, Math.PI*2)
-    ctx.fillStyle = cg; ctx.fill()
-    ctx.globalAlpha = 1
-  }
-  ctx.restore()
-}
-
-// ─────────────────────────────────────────────
-// [10] drawPopLabel
-// ─────────────────────────────────────────────
-function drawPopLabel(ctx, x, y, text, progress, color) {
-  if (!color) color = C.gold
-  if (progress<=0) return
-  const t = E.outElastic(clamp(progress*2, 0, 1))
-  const alpha = clamp(progress*3, 0, 1)
-  const py = y - 10*(1-t)
-  ctx.save()
-  ctx.globalAlpha = alpha
-  ctx.font = 'bold 11px "Noto Sans KR"'
-  ctx.textAlign = 'center'
-  const tw = ctx.measureText(text).width
-  const pad = 8
-  const rw = tw + pad*2, rh = 22
-  const rx = x - rw/2, ry = py - rh/2
-  ctx.fillStyle = color
-  ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, 11); ctx.fill()
-  ctx.fillStyle = '#000'
-  ctx.fillText(text, x, py+4)
-  ctx.restore()
-}
-
-// ─────────────────────────────────────────────
-// [11] drawHLine
-// ─────────────────────────────────────────────
-function drawHLine(ctx, y, L, R, label, color, {style='dashed', lw=1, labelRight=true}={}) {
-  ctx.save()
-  ctx.strokeStyle = color
-  ctx.lineWidth = lw
-  if (style==='dashed') ctx.setLineDash([6,4])
-  else if (style==='dotted') ctx.setLineDash([2,4])
-  else ctx.setLineDash([])
-  ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(R, y); ctx.stroke()
-  ctx.setLineDash([])
-  if (label) {
-    ctx.font = '10px "Noto Sans KR"'
-    ctx.fillStyle = color
-    ctx.textAlign = labelRight ? 'right' : 'left'
-    ctx.fillText(label, labelRight ? R : L, y-3)
-  }
-  ctx.restore()
-}
-
-// ─────────────────────────────────────────────
-// [12] UI state management
-// ─────────────────────────────────────────────
-const uiState = { key: null }
-function initUI(key, html) {
-  if (uiState.key === key) return
-  uiState.key = key
-  document.getElementById('ui').innerHTML = html
-}
-function clearUI() {
-  uiState.key = null
-  document.getElementById('ui').innerHTML = ''
-}
-
-// ─────────────────────────────────────────────
-// SIGI data
-// ─────────────────────────────────────────────
-const SIGI = {
-  face:  s => s>=90?'(=ↀωↀ=)✧':s>=80?'(=^ω^=)':s>=70?'(=･ω･=)':s>=60?'(=ↀ_ↀ=)':'(=ΦωΦ=)',
-  line1: s => s>=90?'이건 못 참아...':s>=80?'오늘 이거 진짜임':s>=70?'지금 눈에 띄는게 있는데':s>=60?'뭔가 보이긴 하는데':'음... 좀 지켜봐야 할 것 같기도',
-  line2: s => s>=90?'역대급 신호 포착됨 🔥':s>=80?'강한 매수 신호야 ⚡':s>=70?'괜찮은 그림이 나왔어':s>=60?'신호가 애매해':'아직은 관망이 낫겠는데',
-}
-
-// ─────────────────────────────────────────────
-// [13] Scene renderers
-// ─────────────────────────────────────────────
-
-// ─── SIGI (1500ms) ───
-function renderSigi(sc, el) {
-  const stock = DATA[sc.stock]
-  const s = stock.score
-  const t  = clamp(el/1500, 0, 1)
-
-  // bg
-  const grad = ctx.createLinearGradient(0, 0, 0, H)
-  grad.addColorStop(0, '#0a0a14')
-  grad.addColorStop(1, C.bg)
-  ctx.fillStyle = grad
-  ctx.fillRect(0, 0, W, H)
-
-  // subtle grid lines
-  ctx.strokeStyle = '#ffffff05'
-  ctx.lineWidth = 0.5
-  for (let i=0;i<10;i++) {
-    ctx.beginPath(); ctx.moveTo(i*(W/10), 0); ctx.lineTo(i*(W/10), H); ctx.stroke()
-  }
-  for (let i=0;i<18;i++) {
-    ctx.beginPath(); ctx.moveTo(0, i*(H/18)); ctx.lineTo(W, i*(H/18)); ctx.stroke()
-  }
-
-  const cx=W/2, cy=H/2-40
-  const scoreColor = s>=80?C.gold:s>=60?C.green:C.blue
-  const ringR = 90
-
-  // score ring
-  const ringP = E.outCubic(clamp(t*2,0,1))
-  ctx.save()
-  ctx.strokeStyle = C.muted
-  ctx.lineWidth = 6
-  ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI*2); ctx.stroke()
-  ctx.strokeStyle = scoreColor
-  ctx.lineWidth = 6
-  ctx.lineCap = 'round'
-  ctx.shadowColor = scoreColor; ctx.shadowBlur = 16
-  ctx.beginPath()
-  ctx.arc(cx, cy, ringR, -Math.PI/2, -Math.PI/2 + Math.PI*2*(s/100)*ringP)
-  ctx.stroke()
-  ctx.restore()
-
-  // cat face
-  const faceA     = E.outCubic(clamp((t-0.1)*2.5, 0, 1))
-  const faceScale = E.outElastic(clamp((t-0.05)*1.8, 0, 1))
-  ctx.save()
-  ctx.globalAlpha = faceA
-  ctx.translate(cx, cy)
-  ctx.scale(faceScale, faceScale)
-  ctx.font = 'bold 26px monospace'
-  ctx.fillStyle = scoreColor
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.shadowColor = scoreColor; ctx.shadowBlur = 20
-  ctx.fillText(SIGI.face(s), 0, 0)
-  ctx.textBaseline = 'alphabetic'
-  ctx.restore()
-
-  // score number below ring
-  ctx.save()
-  ctx.globalAlpha = E.outCubic(clamp((t-0.2)*2, 0, 1))
-  ctx.font = 'bold 18px "Noto Sans KR"'
-  ctx.fillStyle = scoreColor
-  ctx.textAlign = 'center'
-  ctx.shadowColor = scoreColor; ctx.shadowBlur = 12
-  const scoreVal = Math.round(s * Math.min(1, t*3))
-  ctx.fillText(`${scoreVal}점`, cx, cy+ringR+30)
-  ctx.restore()
-
-  // line 1
-  ctx.save()
-  ctx.globalAlpha = E.outCubic(clamp((t-0.4)*3, 0, 1))
-  ctx.font = '700 17px "Noto Sans KR"'
-  ctx.fillStyle = C.white
-  ctx.textAlign = 'center'
-  ctx.fillText(SIGI.line1(s), cx, cy+ringR+70)
-  ctx.restore()
-
-  // line 2
-  ctx.save()
-  ctx.globalAlpha = E.outCubic(clamp((t-0.6)*3, 0, 1))
-  ctx.font = '700 15px "Noto Sans KR"'
-  ctx.fillStyle = scoreColor
-  ctx.textAlign = 'center'
-  ctx.shadowColor = scoreColor; ctx.shadowBlur = 8
-  ctx.fillText(SIGI.line2(s), cx, cy+ringR+100)
-  ctx.restore()
-}
-
-// ─── HOOK (2500ms) ───
-function renderHook(sc, el) {
-  const stock = DATA[sc.stock]
-  const t = clamp(el/2500, 0, 1)
-
-  ctx.fillStyle = C.bg
-  ctx.fillRect(0, 0, W, H)
-
-  const tickY = H*0.28
-
-  // ticker
-  const tickScale = E.outElastic(clamp(t*2, 0, 1))
-  ctx.save()
-  ctx.globalAlpha = clamp(t*3, 0, 1)
-  ctx.translate(W/2, tickY)
-  ctx.scale(tickScale, tickScale)
-  ctx.font = '900 48px "Noto Sans KR"'
-  ctx.fillStyle = C.white
-  ctx.textAlign = 'center'
-  ctx.fillText(stock.ticker, 0, 0)
-  ctx.restore()
-
-  // sector badge
-  ctx.save()
-  ctx.globalAlpha = E.outCubic(clamp((t-0.15)*3, 0, 1))
-  ctx.font = '12px "Noto Sans KR"'
-  ctx.textAlign = 'center'
-  const sw2 = ctx.measureText(stock.sector).width
-  const sx = W/2 - sw2/2 - 12, sy = tickY+22
-  ctx.fillStyle = C.muted
-  ctx.beginPath(); ctx.roundRect(sx, sy, sw2+24, 24, 12); ctx.fill()
-  ctx.fillStyle = C.gray
-  ctx.fillText(stock.sector, W/2, sy+16)
-  ctx.restore()
-
-  // price
-  ctx.save()
-  ctx.globalAlpha = E.outCubic(clamp((t-0.25)*3, 0, 1))
-  ctx.font = '700 38px "Noto Sans KR"'
-  ctx.fillStyle = C.white
-  ctx.textAlign = 'center'
-  ctx.fillText(fmtPrice(stock.price), W/2, H*0.46)
-  ctx.restore()
-
-  // change pct
-  const chgColor = stock.change_pct >= 0 ? C.green : C.red
-  ctx.save()
-  ctx.globalAlpha = E.outCubic(clamp((t-0.35)*3, 0, 1))
-  ctx.font = '700 22px "Noto Sans KR"'
-  ctx.fillStyle = chgColor
-  ctx.textAlign = 'center'
-  ctx.shadowColor = chgColor; ctx.shadowBlur = 12
-  ctx.fillText(fmtChange(stock.change_pct), W/2, H*0.54)
-  ctx.restore()
-
-  // signal pills
-  const sigs = [
-    ['골든크로스', stock.signals.golden_cross],
-    ['거래량확인', stock.signals.volume_confirm],
-    ['RSI신호',   stock.signals.rsi_signal],
+  const paths = [
+    '../data.json',
+    '/stock-screener/data.json',
+    'https://kimjaeseung.github.io/stock-screener/data.json',
   ]
-  const pillY = H*0.64
-  const pillW = 104, pillGap = 8
-  const totalW = sigs.length*pillW + (sigs.length-1)*pillGap
-  let px = W/2 - totalW/2
-  sigs.forEach(([label, on], i) => {
-    const pa = E.outCubic(clamp((t-0.45-i*0.08)*4, 0, 1))
-    ctx.save()
-    ctx.globalAlpha = pa
-    ctx.font = '700 11px "Noto Sans KR"'
-    const bgColor = on ? C.green : C.muted
-    const txColor = on ? '#000' : C.gray
-    ctx.fillStyle = bgColor
-    if (on) { ctx.shadowColor = bgColor; ctx.shadowBlur = 10 }
-    ctx.beginPath(); ctx.roundRect(px, pillY, pillW, 28, 14); ctx.fill()
-    ctx.shadowBlur = 0
-    ctx.fillStyle = txColor
-    ctx.textAlign = 'center'
-    ctx.fillText((on?'✓ ':'')+label, px+pillW/2, pillY+18)
+  for (const p of paths) {
+    try {
+      const r = await fetch(p+'?t='+Date.now())
+      if (!r.ok) continue
+      const j = await r.json()
+      if (j.stocks?.length >= 2) return prepareData(j)
+    } catch(e) { /* try next */ }
+  }
+  return getMockData()
+}
+
+/* 실데이터 방어적 전처리 */
+function prepareData(data) {
+  data.stocks = data.stocks.slice(0,2).map(s => {
+    /* chart_data: 스크리너가 {closes,highs,lows,volumes} 로 내보냄.
+       구버전은 s.chart 에 {close,high,low,volume} (단수) 형태로 있을 수 있음. */
+    if (!s.chart_data) {
+      if (s.chart && s.chart.close) {
+        // 구버전 SPA chart 형식 → reels 형식으로 변환
+        s.chart_data = {
+          closes:  s.chart.close  || [],
+          highs:   s.chart.high   || [],
+          lows:    s.chart.low    || [],
+          volumes: s.chart.volume || [],
+        }
+      } else {
+        s.chart_data = generateMockChart(s.price||100, 65)
+      }
+    }
+    /* swing: 없으면 ATR 근사치로 생성 */
+    if (!s.swing) {
+      const p = s.price||100
+      const atr = s.atr || p * 0.025  // fallback: 2.5% of price
+      s.swing = {
+        entry_low:  +(p*0.995).toFixed(2),     entry_high: +(p*1.005).toFixed(2),
+        stop_loss:  +(p - 2.5*atr).toFixed(2), stop_pct:   +(-2.5*atr/p*100).toFixed(1),
+        target1:    +(p + 3*atr).toFixed(2),   target1_pct:+(3*atr/p*100).toFixed(1), target1_week:2,
+        target2:    +(p + 6*atr).toFixed(2),   target2_pct:+(6*atr/p*100).toFixed(1), target2_week:4,
+        rr_ratio:   2.5, vol_multiple: s.vol_ratio||2.0,
+      }
+    }
+    /* signals: 스크리너가 dict[str,bool]로 내보냄.
+       구버전 문자열 리스트라면 키 이름 매핑 시도. */
+    if (Array.isArray(s.signals)) {
+      const arr = s.signals
+      const keyMap = {
+        'golden_cross':     ['golden','Golden Cross','MA20'],
+        'volume_confirm':   ['Volume Surge','Volume Up','volume'],
+        'rsi_signal':       ['RSI Strong','RSI Rising','RSI'],
+        'macd_cross':       ['MACD Bullish','MACD Cross'],
+        'bollinger_break':  ['Bollinger','BB'],
+        'stoch_signal':     ['Stoch'],
+        'ma_alignment':     ['alignment','MA5','정배열'],
+        'relative_strength':['RS +','Relative'],
+        'fib_support':      ['Fibonacci','fib'],
+        'rsi_divergence':   ['Divergence','divergence'],
+      }
+      const newSigs = {}
+      Object.keys(SIGNAL_LABELS).forEach(k => {
+        const patterns = keyMap[k] || [k]
+        newSigs[k] = arr.some(item => patterns.some(p => item.includes(p)))
+      })
+      s.signals = newSigs
+    }
+    if (!s.signals) s.signals = {}
+    if (!s.sector)  s.sector = 'NASDAQ'
+    return s
+  })
+  return data
+}
+
+/* ═══════════════════════════════════════════════════════════
+   setUI 헬퍼
+════════════════════════════════════════════════════════════ */
+function setUI(html) {
+  document.getElementById('ui-layer').innerHTML = html
+}
+
+/* ═══════════════════════════════════════════════════════════
+   11. 후킹 씬 (Canvas)
+════════════════════════════════════════════════════════════ */
+function renderHook(ctx, elapsed, stock) {
+  const sw = stock.swing
+  const cx = W/2
+
+  /* 황금 플래시 배경 */
+  const fp = prog(elapsed, 1200, 280)
+  if (fp > 0 && fp < 1) {
+    ctx.save(); ctx.globalAlpha = Math.sin(fp*Math.PI)*0.38
+    ctx.fillStyle='#f59e0b'; ctx.fillRect(0,0,W,H); ctx.restore()
+  }
+
+  /* 라인1: "오늘의 스윙 기회" */
+  const a1 = easeOutCubic(prog(elapsed, 0, 400))
+  if (a1 > 0.01) {
+    ctx.save(); ctx.globalAlpha = a1
+    ctx.fillStyle='#f59e0b'
+    ctx.font = '300 11px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.letterSpacing = '4px'
+    ctx.fillText('오늘의 스윙 기회', cx, H/2-92)
+    ctx.letterSpacing = '0px'
     ctx.restore()
-    px += pillW + pillGap
+  }
+
+  /* 라인2: "4주 안에 +X% 가능" — slideUp */
+  const a2 = easeOutCubic(prog(elapsed, 600, 450))
+  if (a2 > 0.01) {
+    ctx.save(); ctx.globalAlpha = a2
+    ctx.fillStyle='#ffffff'
+    ctx.font = '700 33px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.fillText(`4주 안에 +${sw.target2_pct}% 가능`, cx, H/2-42 + (1-a2)*22)
+    ctx.restore()
+  }
+
+  /* 라인3: TICKER — easeOutElastic + 글로우 */
+  const a3 = easeOutElastic(prog(elapsed, 1200, 900))
+  if (a3 > 0.01) {
+    const scale = clamp(a3, 0.1, 1.25)
+    ctx.save(); ctx.globalAlpha = Math.min(1, a3*1.3)
+    ctx.fillStyle='#f59e0b'
+    ctx.shadowColor='#f59e0b'; ctx.shadowBlur = 28*Math.min(1,a3)
+    ctx.font = '900 72px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.translate(cx, H/2+28)
+    ctx.scale(scale, scale)
+    ctx.fillText(stock.ticker, 0, 0)
+    ctx.restore()
+  }
+
+  /* 라인4: 한국어명 + sector */
+  const a4 = easeOutCubic(prog(elapsed, 1600, 400))
+  if (a4 > 0.01) {
+    const krName = getKrName(stock.ticker, stock.name)
+    const sectorTxt = stock.sector && stock.sector !== 'NASDAQ' ? stock.sector : 'NASDAQ'
+    ctx.save(); ctx.globalAlpha = a4
+    ctx.fillStyle='#888888'
+    ctx.font = '400 12px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.fillText(krName, cx, H/2+58)
+    ctx.fillStyle='#555555'
+    ctx.font = '300 11px "Noto Sans KR",sans-serif'
+    ctx.fillText(sectorTxt + ' · NASDAQ', cx, H/2+74)
+    ctx.restore()
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   12. 진입 조건 카드 씬 (Canvas — 녹화 캡처 가능)
+════════════════════════════════════════════════════════════ */
+function renderEntryCard(ctx, elapsed, stock) {
+  setUI('')
+  const sw = stock.swing
+  const cardP = easeOutCubic(prog(elapsed, 0, 600))
+  if (cardP < 0.01) return
+  const offY = (1 - cardP) * 80
+
+  ctx.save()
+  ctx.globalAlpha = cardP
+  ctx.translate(0, offY)
+
+  const mx = 20, cw = W - mx * 2
+  const rowH = 47, nRows = 6
+  const cardH = 16 + nRows * rowH
+  const startY = 218
+
+  ctx.fillStyle = '#fff'
+  ctx.font = '900 26px "Noto Sans KR",sans-serif'
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+  ctx.fillText(stock.ticker, mx, startY)
+
+  ctx.fillStyle = '#aaa'
+  ctx.font = '400 12px "Noto Sans KR",sans-serif'
+  ctx.fillText(getKrName(stock.ticker, stock.name) || stock.ticker, mx, startY + 22)
+
+  const cY = startY + 38
+  ctx.fillStyle = '#0a0a0a'; ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1
+  ctx.beginPath(); ctx.roundRect(mx, cY, cw, cardH, 16); ctx.fill(); ctx.stroke()
+
+  const rowDefs = [
+    { delay:200, icon:'📌', label:'종목',
+      main:()=>`${stock.ticker}  ${fmtPrice(stock.price)}`,
+      sub:()=>fmtChange(stock.change_pct),
+      mainC:'#fff', subC:()=>stock.change_pct>=0?'#10b981':'#ef4444' },
+    { delay:300, icon:'💰', label:'진입가',
+      main:()=>`${fmtPrice(sw.entry_low)} ~ ${fmtPrice(sw.entry_high)}`,
+      mainC:'#f59e0b', pulse:true },
+    { delay:400, icon:'🛑', label:'손절가',
+      main:()=>fmtPrice(sw.stop_loss), sub:()=>`(${sw.stop_pct}%)`,
+      mainC:'#ef4444', subC:()=>'#ef444488' },
+    { delay:500, icon:'🎯', label:'목표1',
+      main:()=>fmtPrice(sw.target1), sub:()=>`(+${sw.target1_pct}%)`,
+      mainC:'#10b981', subC:()=>'#10b98188' },
+    { delay:600, icon:'🎯', label:'목표2',
+      main:()=>fmtPrice(sw.target2), sub:()=>`(+${sw.target2_pct}%)`,
+      mainC:'#6ee7b7', subC:()=>'#6ee7b788' },
+    { delay:700, icon:'⚖️', label:'손익비',
+      main:()=>`${sw.rr_ratio} : 1${sw.rr_ratio>=2?' ⭐':''}`,
+      mainC: sw.rr_ratio>=2?'#f59e0b':'#ccc' },
+  ]
+
+  rowDefs.forEach((row, ri) => {
+    const rp = easeOutCubic(prog(elapsed, row.delay, 380))
+    if (rp < 0.01) return
+    const rowTopY = cY + 8 + ri * rowH
+    const midY    = rowTopY + rowH / 2
+
+    ctx.save(); ctx.globalAlpha = rp
+
+    if (ri > 0) {
+      ctx.strokeStyle = row.pulse ? '#f59e0b22' : '#111111'; ctx.lineWidth = 1
+      ctx.beginPath(); ctx.moveTo(mx+12, rowTopY); ctx.lineTo(mx+cw-12, rowTopY); ctx.stroke()
+    }
+
+    if (row.pulse) {
+      const pa = (Math.sin(elapsed*0.004)*0.5+0.5)*0.07
+      ctx.fillStyle = '#f59e0b'; ctx.globalAlpha = rp*pa
+      ctx.fillRect(mx+1, rowTopY, cw-2, rowH)
+      ctx.globalAlpha = rp
+    }
+
+    ctx.fillStyle = '#aaa'; ctx.font = '400 12px "Noto Sans KR",sans-serif'
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
+    ctx.fillText(`${row.icon} ${row.label}`, mx+12, midY)
+
+    let rx = mx + cw - 12
+    if (row.sub) {
+      const subTxt = row.sub()
+      ctx.font = '400 11px "Noto Sans KR",sans-serif'
+      const sw2 = ctx.measureText(subTxt).width
+      ctx.fillStyle = row.subC ? row.subC() : '#888'
+      ctx.textAlign = 'right'; ctx.fillText(subTxt, rx, midY)
+      rx -= sw2 + 4
+    }
+    ctx.fillStyle = row.mainC || '#fff'; ctx.font = '700 13px "Noto Sans KR",sans-serif'
+    ctx.textAlign = 'right'; ctx.fillText(row.main(), rx, midY)
+
+    ctx.restore()
   })
 
-  // RR badge
-  ctx.save()
-  ctx.globalAlpha = clamp((t-0.7)*5, 0, 1)
-  const rrScale = E.outElastic(clamp((t-0.7)*3, 0, 1))
-  ctx.font = '700 13px "Noto Sans KR"'
-  const rrText = `RR ${stock.swing.rr_ratio.toFixed(1)}:1`
-  const rrW = ctx.measureText(rrText).width + 24
-  ctx.translate(W/2, H*0.76+16)
-  ctx.scale(rrScale, rrScale)
-  ctx.fillStyle = C.gold
-  ctx.shadowColor = C.gold; ctx.shadowBlur = 16
-  ctx.beginPath(); ctx.roundRect(-rrW/2, -16, rrW, 32, 16); ctx.fill()
-  ctx.shadowBlur = 0
-  ctx.fillStyle = '#000'
-  ctx.textAlign = 'center'
-  ctx.fillText(rrText, 0, 5)
-  ctx.restore()
+  const hintY = cY + cardH + 22
+  const h1 = easeOutCubic(prog(elapsed, 1500, 400))
+  const h2 = easeOutCubic(prog(elapsed, 1700, 400))
+  if (h1 > 0.01) {
+    ctx.save(); ctx.globalAlpha = h1*0.7
+    ctx.fillStyle='#f59e0b'; ctx.font='400 12px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.fillText('이 가격대 지켜주면 홀드', W/2, hintY); ctx.restore()
+  }
+  if (h2 > 0.01) {
+    ctx.save(); ctx.globalAlpha = h2*0.7
+    ctx.fillStyle='#ef4444'; ctx.font='400 11px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.fillText('손절가 이탈 시 즉시 매도', W/2, hintY+20); ctx.restore()
+  }
 
-  // name
-  ctx.save()
-  ctx.globalAlpha = E.outCubic(clamp((t-0.5)*3, 0, 1)) * 0.6
-  ctx.font = '14px "Noto Sans KR"'
-  ctx.fillStyle = C.gray
-  ctx.textAlign = 'center'
-  ctx.fillText(stock.name, W/2, H*0.86)
   ctx.restore()
 }
 
-// ─── CARD (3000ms) HTML ───
-function renderCard(sc, el) {
-  ctx.fillStyle = C.bg
-  ctx.fillRect(0, 0, W, H)
-  const stock = DATA[sc.stock]
-  const swing = stock.swing
-  const chgColor = stock.change_pct >= 0 ? '#10b981' : '#ef4444'
-  const key = 'card_' + sc.id
-
-  initUI(key, `
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;animation:cardIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;">
-    <style>
-    @keyframes cardIn{from{opacity:0;transform:translate(-50%,-54%) scale(0.92)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-    .crow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #1a1a1a;}
-    .crow:last-child{border-bottom:none;}
-    .clbl{font-size:12px;color:#666;}
-    .cval{font-size:14px;font-weight:700;color:#fff;}
-    </style>
-    <div style="background:linear-gradient(135deg,#111 0%,#0d0d1a 100%);border:1px solid #222;border-radius:20px;padding:20px 24px;box-shadow:0 20px 60px rgba(0,0,0,0.8);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
-        <div>
-          <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px;">${stock.ticker}</div>
-          <div style="font-size:11px;color:#555;margin-top:2px;">${stock.name}</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:22px;font-weight:700;color:#fff;">${fmtPrice(stock.price)}</div>
-          <div style="font-size:14px;font-weight:700;color:${chgColor};margin-top:2px;">${fmtChange(stock.change_pct)}</div>
-        </div>
-      </div>
-      <div style="margin-bottom:16px;animation:fadeUp 0.4s 0.2s both;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <span style="font-size:11px;color:#555;">종합 점수</span>
-          <span style="font-size:13px;font-weight:700;color:#f59e0b;">${stock.score}점</span>
-        </div>
-        <div style="height:6px;background:#1a1a1a;border-radius:3px;overflow:hidden;">
-          <div style="height:100%;width:${stock.score}%;background:linear-gradient(90deg,#f59e0b,#ef4444);border-radius:3px;"></div>
-        </div>
-      </div>
-      <div style="animation:fadeUp 0.4s 0.35s both;">
-        <div class="crow"><span class="clbl">진입 구간</span><span class="cval">${fmtPrice(swing.entry_low)} – ${fmtPrice(swing.entry_high)}</span></div>
-        <div class="crow"><span class="clbl">손절 라인</span><span class="cval" style="color:#ef4444;">${fmtPrice(swing.stop_loss)} <span style="font-size:11px;opacity:0.7;">(-${swing.stop_pct}%)</span></span></div>
-        <div class="crow"><span class="clbl">목표1</span><span class="cval" style="color:#10b981;">${fmtPrice(swing.target1)} <span style="font-size:11px;opacity:0.7;">(+${swing.target1_pct}%)</span></span></div>
-        <div class="crow"><span class="clbl">목표2</span><span class="cval" style="color:#10b981;">${fmtPrice(swing.target2)} <span style="font-size:11px;opacity:0.7;">(+${swing.target2_pct}%)</span></span></div>
-        <div class="crow" style="border-bottom:none;"><span class="clbl">리스크 보상비</span><span class="cval" style="color:#f59e0b;">1 : ${swing.rr_ratio.toFixed(1)}</span></div>
-      </div>
-    </div>
-  </div>`)
-}
-
-// ─── CHART (5000ms) ───
-function renderChart(sc, el) {
-  const stock = DATA[sc.stock]
-  const cd = stock.chart_data
-  const closes = cd.closes, highs = cd.highs, lows = cd.lows, volumes = cd.volumes
+/* ═══════════════════════════════════════════════════════════
+   13~17. 차트 씬 (Canvas)
+════════════════════════════════════════════════════════════ */
+function renderChart(ctx, elapsed, stock) {
+  const {closes, highs, lows, volumes} = stock.chart_data
+  const sw = stock.swing
   const n = closes.length
 
-  const ma5arr  = sma(closes, 5)
-  const ma20arr = sma(closes, 20)
-  const boll    = calcBoll(closes)
-  const fib     = calcFib(closes, highs, lows)
-  const swing   = stock.swing
-  const gcIdx   = findGoldenCross(ma5arr, ma20arr)
-  const volSpike = findVolSpike(volumes)
+  /* 레이아웃 */
+  const PAD_L=8, PAD_R=54
+  const CT=112, CB=590   /* 가격 차트 top/bottom */
+  const VT=602, VB=680   /* 거래량 top/bottom */
+  const CL=PAD_L, CR=W-PAD_R
 
-  const minP = Math.min(Math.min(...lows), swing.stop_loss) * 0.995
-  const maxP = Math.max(Math.max(...highs), swing.target1)  * 1.005
+  /* 최근 60봉 */
+  const DN = Math.min(n,60)
+  const dc = closes.slice(-DN), dh = highs.slice(-DN)
+  const dl = lows.slice(-DN),   dv = volumes.slice(-DN)
 
-  const xs  = closes.map((_, i) => xArr(i, n))
-  const ys  = closes.map(v => normY(v, minP, maxP))
-  const maxV = Math.max(...volumes)
+  /* 가격 범위 (차트 데이터 기준, 목표가 상단 확보) */
+  const dataMin = Math.min(...dl)
+  const dataMax = Math.max(...dh)
+  const rangePad = (dataMax-dataMin)*0.06
+  const minV = dataMin - rangePad
+  const maxV = dataMax + rangePad
 
-  // bg
-  ctx.fillStyle = C.bg
-  ctx.fillRect(0, 0, W, H)
+  const xs    = xArr(DN, CL, CR)
+  const closeY = normY(dc, minV, maxV, CT, CB)
+  const highY  = normY(dh, minV, maxV, CT, CB)
+  const lowY   = normY(dl, minV, maxV, CT, CB)
 
-  // header
-  ctx.save()
-  ctx.font = '700 14px "Noto Sans KR"'
-  ctx.fillStyle = C.white
-  ctx.textAlign = 'left'
-  ctx.fillText(stock.ticker, CL, 30)
-  ctx.font = '12px "Noto Sans KR"'
-  ctx.fillStyle = C.gray
-  ctx.fillText(stock.name, CL, 50)
-  const chgColor = stock.change_pct>=0?C.green:C.red
-  ctx.font = '700 16px "Noto Sans KR"'
-  ctx.fillStyle = chgColor
-  ctx.textAlign = 'right'
-  ctx.fillText(fmtChange(stock.change_pct), CR, 36)
-  ctx.font = '700 20px "Noto Sans KR"'
-  ctx.fillStyle = C.white
-  ctx.fillText(fmtPrice(stock.price), CR, 60)
-  ctx.restore()
+  /* MA5 / MA20 */
+  const ma5  = sma(dc, 5);  const ma5Y  = normY(ma5,  minV, maxV, CT, CB)
+  const ma20 = sma(dc, 20); const ma20Y = normY(ma20, minV, maxV, CT, CB)
 
-  // chart area border
-  ctx.save()
-  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1
-  ctx.strokeRect(CL, CT, CR-CL, CB-CT)
-  ctx.strokeRect(CL, VT+4, CR-CL, VB-VT-4)
-  ctx.restore()
-
-  drawYLabels(ctx, minP, maxP)
-  drawXLabels(ctx, n)
-
-  // Phase 1: Boll + price comet (0–1200ms)
-  const p1 = prog(el, 0, 1200)
-  if (p1 > 0) {
-    const bU = boll.upper.map(v => v!=null ? normY(v, minP, maxP) : null)
-    const bL = boll.lower.map(v => v!=null ? normY(v, minP, maxP) : null)
-    const bMid = boll.mid.map(v => v!=null ? normY(v, minP, maxP) : null)
-    const bEnd = Math.floor(p1*(n-1))
-
-    // Boll fill
-    ctx.save()
-    ctx.beginPath()
-    let bollStarted = false
-    for (let i=0; i<=bEnd; i++) {
-      if(bU[i]==null) continue
-      if(!bollStarted){ctx.moveTo(xs[i],bU[i]);bollStarted=true}
-      else ctx.lineTo(xs[i],bU[i])
+  /* 골든크로스 탐지 */
+  let gcIdx = Math.floor(DN*0.65)
+  for (let i=1; i<DN; i++) {
+    if (ma5[i]!=null && ma20[i]!=null && ma5[i-1]!=null && ma20[i-1]!=null) {
+      if (ma5[i-1] < ma20[i-1] && ma5[i] >= ma20[i]) { gcIdx=i; break }
     }
-    for (let i=bEnd; i>=0; i--) {
-      if(bL[i]==null) continue
-      ctx.lineTo(xs[i],bL[i])
-    }
-    ctx.closePath()
-    ctx.fillStyle='rgba(96,165,250,0.07)'; ctx.fill()
+  }
 
-    // Boll mid dashed
-    ctx.setLineDash([3,5])
-    ctx.strokeStyle='rgba(96,165,250,0.3)'; ctx.lineWidth=0.8
-    ctx.beginPath()
-    let bmStarted=false
-    for(let i=0;i<=bEnd;i++){
-      if(bMid[i]==null) continue
-      if(!bmStarted){ctx.moveTo(xs[i],bMid[i]);bmStarted=true}
-      else ctx.lineTo(xs[i],bMid[i])
-    }
-    ctx.stroke()
-    ctx.setLineDash([])
+  /* Y → 가격 좌표 변환 */
+  const toY = price => CB - ((price-minV)/(maxV-minV||1))*(CB-CT)
+
+  /* 헤더 */
+  const hA = easeOutCubic(prog(elapsed, 0, 350))
+  if (hA > 0.01) {
+    ctx.save(); ctx.globalAlpha = hA
+    ctx.fillStyle='#fff'; ctx.font='900 20px "Noto Sans KR",sans-serif'
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic'
+    ctx.fillText(stock.ticker, 16, 52)
+    ctx.fillStyle='#10b981'; ctx.font='400 12px "Noto Sans KR",sans-serif'
+    ctx.fillText(fmtPrice(stock.price) + '  ' + fmtChange(stock.change_pct), 16, 70)
+    ctx.fillStyle='#666'; ctx.font='300 10px "Noto Sans KR",sans-serif'
+    ctx.fillText('60일 캔들 차트', 16, 88)
     ctx.restore()
+  }
 
-    // price comet line
-    const vxs=[], vys=[]
-    xs.forEach((x,i)=>{ if(closes[i]!=null){vxs.push(x);vys.push(ys[i])} })
-    drawCometLine(ctx, vxs, vys, p1, {
-      color:C.green, lw:2,
-      glow:C.green, glowBlur:10,
-      fill:true, fillColor:'rgba(16,185,129,0.06)',
+  /* ── 13. Phase 0: 가격선 혜성 + 일목 구름 (0~1200ms) ── */
+  const p0 = prog(elapsed, 0, 1200)
+  if (p0 > 0) {
+    /* 구름 (MA5↔MA20 사이 반투명 채우기) */
+    const cA = easeOutCubic(prog(elapsed, 0, 700))*0.25
+    if (cA > 0.01) {
+      ctx.save(); ctx.globalAlpha = cA
+      ctx.beginPath(); let ok=false
+      for (let i=0; i<DN; i++) {
+        if (ma5Y[i]==null) continue
+        ok ? ctx.lineTo(xs[i], ma5Y[i]) : (ctx.moveTo(xs[i], ma5Y[i]), ok=true)
+      }
+      for (let i=DN-1; i>=0; i--) {
+        if (ma20Y[i]==null) continue; ctx.lineTo(xs[i], ma20Y[i])
+      }
+      ctx.closePath()
+      const grad = ctx.createLinearGradient(CL, CT, CL, CB)
+      grad.addColorStop(0,'#10b98140'); grad.addColorStop(1,'#10b98108')
+      ctx.fillStyle = grad; ctx.fill(); ctx.restore()
+    }
+    /* 혜성 가격선 */
+    drawCometLine(ctx, xs, closeY, p0, {
+      color:'#6ee7b7', lineWidth:2, glowColor:'#10b981', glowBlur:10, comet:p0<0.97
     })
   }
 
-  // Pattern detection (done once)
-  const pattern = detectPattern(closes, highs, lows)
-
-  // Phase 2: MA lines + short-term cross + pattern overlay (1200–2200ms)
-  const p2 = prog(el, 1200, 2200)
-  if (p2 > 0) {
-    const endI = Math.floor(p2*(n-1))
-    const ma5xs=[], ma5ys=[], ma20xs=[], ma20ys=[]
-    for(let i=0;i<=endI;i++){
-      if(ma5arr[i]!=null){ma5xs.push(xs[i]);ma5ys.push(normY(ma5arr[i],minP,maxP))}
-      if(ma20arr[i]!=null){ma20xs.push(xs[i]);ma20ys.push(normY(ma20arr[i],minP,maxP))}
-    }
-    drawCometLine(ctx,ma5xs,ma5ys,1,{color:'#fbbf24',lw:1.5,comet:false})
-    drawCometLine(ctx,ma20xs,ma20ys,1,{color:'#a78bfa',lw:1.5,comet:false})
-
-    // MA legend
-    ctx.save()
-    ctx.globalAlpha=clamp(p2*5,0,1)
-    ctx.font='10px "Noto Sans KR"'
-    ctx.fillStyle='#fbbf24'; ctx.fillRect(CL+4,CT+6,12,2)
-    ctx.fillText('MA5',CL+20,CT+11); ctx.fillStyle='#fbbf24'
-    ctx.fillStyle='#a78bfa'; ctx.fillRect(CL+4,CT+18,12,2)
-    ctx.fillStyle='#a78bfa'; ctx.fillText('MA20',CL+20,CT+23)
-    ctx.restore()
-
-    // Short-term cross (MA5 > MA20) — 단기돌파 (골든크로스가 아님)
-    if (gcIdx>=0 && endI>=gcIdx) {
-      const gcx = xs[gcIdx], gcy = normY(closes[gcIdx], minP, maxP)
-      drawBurst(ctx, gcx, gcy, clamp(p2*3-0.3, 0, 1), C.gold)
-      drawPopLabel(ctx, gcx, gcy-20, '단기 돌파!', clamp((p2-0.2)*3, 0, 1), C.gold)
-    }
-
-    // Pattern overlay (fades in mid-phase)
-    drawPatternOverlay(ctx, pattern, xs, closes, highs, lows, minP, maxP,
-      clamp((p2-0.4)*4, 0, 1), n)
-  }
-
-  // Phase 3: Volume bars (2200–3200ms)
-  const p3 = prog(el, 2200, 3200)
-  if (p3 > 0) {
-    const barW = (CR-CL)/n * 0.6
-    const endI = Math.floor(p3*(n-1))
-    for (let i=0; i<=endI; i++) {
-      const vY = normVY(volumes[i], maxV)
-      const vH = VB - vY
-      if(vH<=0) continue
-      const isSpike = i===volSpike.idx
-      const vc = i>0 && closes[i] >= closes[i-1] ? C.green : C.red
-      ctx.save()
-      ctx.fillStyle = isSpike ? C.gold : vc
-      ctx.globalAlpha = isSpike ? 0.9 : 0.5
-      if(isSpike){ctx.shadowColor=C.gold;ctx.shadowBlur=12}
-      ctx.fillRect(xs[i]-barW/2, vY, barW, vH)
-      ctx.restore()
-    }
-    if (volSpike.idx>=0 && endI>=volSpike.idx) {
-      drawPopLabel(ctx, xs[volSpike.idx], VT-8, `${volSpike.ratio.toFixed(1)}x 급등!`, clamp((p3-0.4)*4,0,1), C.gold)
-    }
-    ctx.save()
-    ctx.globalAlpha=clamp(p3*5,0,1)
-    ctx.font='10px "Noto Sans KR"'; ctx.fillStyle=C.gray; ctx.textAlign='left'
-    ctx.fillText('Volume', CL+4, VT+16)
-    ctx.restore()
-  }
-
-  // Phase 4: Fibonacci (3200–4200ms)
-  const p4 = prog(el, 3200, 4200)
-  if (p4 > 0) {
+  /* ── 14. Phase 1: 피보나치 + 진입 구간 (1200~2200ms) ── */
+  const p1total = prog(elapsed, 1200, 1000)
+  if (p1total > 0) {
+    const swHigh = Math.max(...dh), swLow = Math.min(...dl)
     const fibs = [
-      [fib.f618,'Fib 61.8%','rgba(167,139,250,0.7)'],
-      [fib.f500,'Fib 50.0%','rgba(96,165,250,0.5)'],
-      [fib.f382,'Fib 38.2%','rgba(52,211,153,0.5)'],
+      {r:0.382, label:'38.2%', color:'#60a5fa'},
+      {r:0.500, label:'50.0%', color:'#a78bfa'},
+      {r:0.618, label:'61.8%', color:'#f59e0b'},
     ]
-    fibs.forEach(([val,lbl,col], i) => {
-      const fa = clamp((p4-i*0.15)*4, 0, 1)
-      if(fa<=0) return
-      const fy = normY(val, minP, maxP)
-      if(fy<CT||fy>CB) return
-      ctx.save(); ctx.globalAlpha=fa
-      drawHLine(ctx, fy, CL, CR, lbl, col, {style:'dotted',lw:0.8})
+    fibs.forEach(({r, label, color}, fi) => {
+      const fp = easeOutCubic(prog(elapsed, 1200+fi*220, 380))
+      if (fp < 0.01) return
+      const fy = toY(swHigh - r*(swHigh-swLow))
+      ctx.save(); ctx.globalAlpha = fp*0.55
+      ctx.strokeStyle=color; ctx.lineWidth=1; ctx.setLineDash([6,4])
+      ctx.beginPath(); ctx.moveTo(CL, fy); ctx.lineTo(CR, fy); ctx.stroke()
+      ctx.setLineDash([])
+      ctx.fillStyle=color; ctx.font='500 9px "Noto Sans KR",sans-serif'
+      ctx.textAlign='left'; ctx.textBaseline='middle'
+      ctx.globalAlpha=fp*0.75; ctx.fillText(label, CR+5, fy)
       ctx.restore()
     })
-    // entry zone
-    const ezA = clamp((p4-0.4)*3, 0, 1)
-    if(ezA>0){
-      const ey1 = normY(swing.entry_high, minP, maxP)
-      const ey2 = normY(swing.entry_low,  minP, maxP)
-      if(ey1>=CT && ey2<=CB){
-        ctx.save()
-        ctx.globalAlpha=ezA*0.25; ctx.fillStyle=C.gold
-        ctx.fillRect(CL, ey1, CR-CL, ey2-ey1)
-        ctx.globalAlpha=ezA*0.7; ctx.font='bold 10px "Noto Sans KR"'
-        ctx.fillStyle=C.gold; ctx.textAlign='right'
-        ctx.fillText('진입 구간', CR, ey1-3)
-        ctx.restore()
+
+    /* 진입 구간 황금 하이라이트 */
+    const ezA = easeOutCubic(prog(elapsed, 1550, 380))*0.14
+    if (ezA > 0.01) {
+      const ey1 = toY(sw.entry_high), ey2 = toY(sw.entry_low)
+      ctx.save(); ctx.globalAlpha=ezA; ctx.fillStyle='#f59e0b'
+      ctx.fillRect(CL, ey1, CR-CL, ey2-ey1); ctx.restore()
+    }
+
+    /* popLabel: 핵심 지지구간 진입 중 */
+    const popA1 = prog(elapsed, 1750, 400)
+    if (popA1 > 0) {
+      const midY = clamp(toY((sw.entry_low+sw.entry_high)/2), CT+30, CB-10)
+      drawPopLabel(ctx, W/2, midY, '핵심 지지구간 진입 중', popA1, '#f59e0b')
+    }
+  }
+
+  /* ── 15. Phase 2: MA 라인 + 골든크로스 폭발 (2200~3000ms) ── */
+  const p2 = prog(elapsed, 2200, 800)
+  if (p2 > 0) {
+    const maA = easeOutCubic(p2)
+    drawCometLine(ctx, xs, ma5Y,  maA, {color:'#f59e0b', lineWidth:1.5, glowColor:'#f59e0b', glowBlur:5, comet:false})
+    drawCometLine(ctx, xs, ma20Y, maA, {color:'#60a5fa', lineWidth:1.5, glowColor:'#60a5fa', glowBlur:5, comet:false})
+
+    /* 골든크로스 점 표시 */
+    if (ma5Y[gcIdx] != null) {
+      const gx = xs[gcIdx], gy = ma5Y[gcIdx]
+      const bP = prog(elapsed, 2200, 1100)
+      if (bP > 0) drawBurst(ctx, gx, gy, bP, '#f59e0b')
+
+      const pl2 = prog(elapsed, 2650, 400)
+      if (pl2 > 0) {
+        const lx = gx > W*0.6 ? gx-55 : gx+55
+        drawPopLabel(ctx, lx, clamp(gy-28, CT+20, CB-10), '단기 모멘텀 켜짐 ✓', pl2, '#f59e0b')
       }
     }
   }
 
-  // Phase 5: Stop/Target 반짝 라인 + 가격 패널 (4200–8000ms)
-  const p5 = prog(el, 4200, 8000)
-  if (p5 > 0) {
-    const fadeIn = clamp(p5*5, 0, 1)
-    const blink  = 0.55 + 0.45 * Math.sin(el * 0.007)  // 반짝 주기 ~900ms
-    const stopY  = normY(swing.stop_loss, minP, maxP)
-    const t1Y    = normY(swing.target1,   minP, maxP)
-    const t2Y    = normY(swing.target2,   minP, maxP)
+  /* ── 16. Phase 3: 거래량 바 (3000~3800ms) ── */
+  const p3 = prog(elapsed, 3000, 800)
+  if (p3 > 0) {
+    const maxVol = Math.max(...dv)
+    const bw = (CR-CL)/DN*0.72
+    const avgVol = dv.reduce((a,b)=>a+b,0)/DN
 
-    // 손절 — 빨간 반짝
-    if (stopY>=CT && stopY<=CB) {
-      ctx.save()
-      ctx.globalAlpha = fadeIn * blink
-      ctx.shadowColor = C.red; ctx.shadowBlur = 10*blink
-      drawHLine(ctx, stopY, CL, CR, `손절 ${fmtPrice(swing.stop_loss)}`, C.red, {style:'dashed',lw:1.5})
+    dv.forEach((vol, i) => {
+      const vp = easeOutQuint(clamp(p3*1.6-(i/DN)*0.4, 0, 1))
+      const bh = (vol/maxVol)*(VB-VT)
+      const isSpike = vol > avgVol*1.8
+      const pulse = isSpike ? (Math.sin(elapsed*0.007)*0.3+0.85) : 1
+      ctx.save(); ctx.globalAlpha = vp * (isSpike?pulse:0.55)
+      ctx.fillStyle = isSpike ? '#10b981' : '#1d3d2d'
+      if (isSpike) { ctx.shadowColor='#10b981'; ctx.shadowBlur=10 }
+      ctx.fillRect(xs[i]-bw/2, VB-bh*vp, bw, bh*vp)
       ctx.restore()
-    }
-    // 목표1 — 초록 반짝
-    if (t1Y>=CT && t1Y<=CB) {
-      ctx.save()
-      ctx.globalAlpha = fadeIn * blink
-      ctx.shadowColor = C.green; ctx.shadowBlur = 10*blink
-      drawHLine(ctx, t1Y, CL, CR, `목표1 ${fmtPrice(swing.target1)}`, C.green, {style:'dashed',lw:1.5})
+    })
+
+    /* 거래량 popLabel — swing.vol_multiple(최근 5일 최대) 우선 사용 */
+    const spikeIdx = dv.reduce((mi,v,i) => v > dv[mi] ? i : mi, 0)
+    const vm = (sw.vol_multiple && sw.vol_multiple >= 1.0)
+      ? sw.vol_multiple
+      : Math.round(dv[spikeIdx] / avgVol * 10) / 10
+    const spikeX = clamp(xs[spikeIdx] ?? W/2, W*0.2, W*0.8)
+    const pl3 = prog(elapsed, 3350, 400)
+    if (pl3 > 0) drawPopLabel(ctx, spikeX, VT-8, `평균 대비 ${vm}배 — 수급 확인 ✓`, pl3, '#10b981')
+  }
+
+  /* ── 17. Phase 4: 목표/손절선 + RR 뱃지 (3800~4500ms) ── */
+  const p4 = prog(elapsed, 3800, 700)
+  if (p4 > 0) {
+    const lA = easeOutCubic(p4)
+
+    /* hLine: 선은 정확한 가격 y에, 라벨은 겹침 방지 후 우측에 */
+    const hLineData = []
+    function hLine(price, color, dashed) {
+      const ly = clamp(toY(price), CT+2, CB-2)
+      ctx.save(); ctx.globalAlpha=lA*0.88
+      ctx.strokeStyle=color; ctx.lineWidth=1.5
+      if (dashed) ctx.setLineDash([5,3])
+      ctx.beginPath(); ctx.moveTo(CL, ly); ctx.lineTo(CR, ly); ctx.stroke()
+      ctx.setLineDash([])
       ctx.restore()
-    }
-    // 목표2 — 연한 초록
-    if (t2Y>=CT && t2Y<=CB) {
-      ctx.save()
-      ctx.globalAlpha = fadeIn * 0.75
-      drawHLine(ctx, t2Y, CL, CR, `목표2 ${fmtPrice(swing.target2)}`, '#6ee7b7', {style:'dashed',lw:1})
-      ctx.restore()
+      return ly
     }
 
-    // ─ 가격 정보 패널 (거래량 하단)
-    const infoA = clamp((p5-0.1)*5, 0, 1)
-    if (infoA > 0) {
-      const panelRows = [
-        ['진입가',    `${fmtPrice(swing.entry_low)} – ${fmtPrice(swing.entry_high)}`, C.gold],
-        ['1차 목표가', `+${swing.target1_pct}%  →  ${fmtPrice(swing.target1)}  (${swing.target1_week})`, C.green],
-        ['손절가',    `-${swing.stop_pct}%  →  ${fmtPrice(swing.stop_loss)}`, C.red],
-      ]
-      panelRows.forEach(([lbl, val, col], i) => {
-        const ry = VB + 14 + i*24
-        ctx.save()
-        ctx.globalAlpha = infoA
-        if (i > 0) {
-          ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=0.5
-          ctx.beginPath(); ctx.moveTo(CL, ry-6); ctx.lineTo(CR, ry-6); ctx.stroke()
-        }
-        ctx.font='11px "Noto Sans KR"'; ctx.fillStyle=C.gray; ctx.textAlign='left'
-        ctx.fillText(lbl, CL, ry+2)
-        ctx.font='bold 12px "Noto Sans KR"'; ctx.fillStyle=col
-        ctx.shadowColor=col; ctx.shadowBlur=4; ctx.textAlign='right'
-        ctx.fillText(val, CR, ry+2)
-        ctx.restore()
-      })
+    const lyStop = hLine(sw.stop_loss, '#ef4444', true)
+    const lyT1   = hLine(sw.target1,   '#10b981', false)
+    const lyT2   = hLine(sw.target2,   '#6ee7b7', true)
 
-      // RR badge
-      const rrA = E.outElastic(clamp((p5-0.15)*4, 0, 1))
-      const rrAl = clamp((p5-0.15)*6, 0, 1)
-      if (rrAl > 0) {
-        ctx.save()
-        ctx.globalAlpha = rrAl
-        ctx.font = 'bold 12px "Noto Sans KR"'
-        const rrTxt = `RR  1 : ${swing.rr_ratio.toFixed(1)}`
-        const rw2 = ctx.measureText(rrTxt).width + 26
-        ctx.translate(W/2, VB + 100)
-        ctx.scale(rrA, rrA)
-        ctx.fillStyle=C.gold
-        ctx.shadowColor=C.gold; ctx.shadowBlur=12*(0.55+0.45*Math.sin(el*0.006))
-        ctx.beginPath(); ctx.roundRect(-rw2/2,-14,rw2,28,14); ctx.fill()
-        ctx.shadowBlur=0; ctx.fillStyle='#000'; ctx.textAlign='center'
-        ctx.fillText(rrTxt, 0, 5)
-        ctx.restore()
-      }
+    /* 라벨: 수직 겹침 방지 — 최소 13px 간격 보장 */
+    const lbls = [
+      {ly: lyStop, color:'#ef4444', txt:'🛑 '+fmtPrice(sw.stop_loss)},
+      {ly: lyT1,   color:'#10b981', txt:'🎯 '+fmtPrice(sw.target1)},
+      {ly: lyT2,   color:'#6ee7b7', txt:'🎯 '+fmtPrice(sw.target2)},
+    ]
+    lbls.sort((a,b)=>a.ly-b.ly)
+    for (let i=1; i<lbls.length; i++) {
+      if (lbls[i].ly - lbls[i-1].ly < 13) lbls[i].ly = lbls[i-1].ly + 13
+    }
+    ctx.save(); ctx.globalAlpha=lA
+    ctx.font='bold 10px "Noto Sans KR",sans-serif'
+    ctx.textAlign='left'; ctx.textBaseline='middle'
+    for (const {color, txt, ly} of lbls) {
+      ctx.fillStyle=color; ctx.fillText(txt, CR+4, ly)
+    }
+    ctx.restore()
+
+    /* 진입 구간 박스 */
+    const ey1=toY(sw.entry_high), ey2=toY(sw.entry_low)
+    ctx.save(); ctx.globalAlpha=lA*0.10; ctx.fillStyle='#f59e0b'
+    ctx.fillRect(CL, ey1, CR-CL, ey2-ey1)
+    ctx.globalAlpha=lA*0.45; ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1
+    ctx.strokeRect(CL, ey1, CR-CL, ey2-ey1); ctx.restore()
+
+    /* 손익비 뱃지 — 차트 좌측 하단, 수평선 라벨(우측)과 겹치지 않음 */
+    const bp = easeOutElastic(prog(elapsed, 3950, 550))
+    if (bp > 0.01) {
+      const bx=CL+62, by=CB-26
+      ctx.save(); ctx.globalAlpha=Math.min(1,bp*1.4)
+      ctx.translate(bx, by); ctx.scale(bp, bp)
+      ctx.fillStyle='#0a0a0a'
+      ctx.shadowColor='#f59e0b'; ctx.shadowBlur=16
+      ctx.strokeStyle='#f59e0b'; ctx.lineWidth=1.5
+      ctx.beginPath(); ctx.roundRect(-58,-14,116,28,14); ctx.fill(); ctx.stroke()
+      ctx.shadowBlur=0; ctx.fillStyle='#f59e0b'
+      ctx.font='bold 12px "Noto Sans KR",sans-serif'
+      ctx.textAlign='center'; ctx.textBaseline='middle'
+      ctx.fillText(`R:R  ${sw.rr_ratio}:1  ⭐`, 0, 1)
+      ctx.restore()
     }
   }
 }
 
-// ─── SUMMARY (3000ms) HTML ───
-function renderSummary(sc, el) {
-  ctx.fillStyle = C.bg
-  ctx.fillRect(0, 0, W, H)
-  const stock = DATA[sc.stock]
-  const sw  = stock.swing
-  const key = 'summary_' + sc.id
+/* ═══════════════════════════════════════════════════════════
+   18. 스윙 조건 요약 씬 (Canvas — 녹화 캡처 가능)
+════════════════════════════════════════════════════════════ */
+function renderSummary(ctx, elapsed, stock) {
+  setUI('')
+  const sw = stock.swing
+  const sigs = Object.entries(stock.signals||{})
+    .filter(([,v])=>v)
+    .map(([k])=>SIGNAL_LABELS[k])
+    .filter(Boolean).slice(0,5)
 
-  // ── pre-computed signals from screener (authoritative) ──
-  const S   = stock.signals     // { golden_cross, volume_confirm, rsi_signal, ... }
-  const ind = stock.indicators  // pre-computed arrays
-
-  // supplementary computed values (only what screener doesn't provide)
-  const cls = stock.chart_data.closes
-  const vols = stock.chart_data.volumes
-  const n   = cls.length
-  const last = cls[n-1]
-
-  // MACD histogram trend (pre-computed if available, else from calcMACD)
-  const macdH  = ind.macdHistLast
-  const macdHP = ind.macdHistPrev
-  const macdHistRising = (macdH != null && macdHP != null) ? macdH > macdHP : (() => {
-    const {hist} = calcMACD(cls)
-    return (hist[n-1]||0) > (hist[n-2]||0)
-  })()
-
-  // 30-day high breakout (not in screener signals)
-  const hi30 = Math.max(...cls.slice(Math.max(0, n-31), n-1))
-  const trendBreakout = last > hi30
-
-  // RSI value for display
-  const rsiVal = (ind.rsi != null) ? ind.rsi : (() => {
-    const arr = calcRSI(cls); return arr[n-1] || 50
-  })()
-
-  // 14개 기술 지표 — screener pre-computed signals (스코어링과 완전 정렬)
-  const sigs = [
-    // 트렌드 (② 조기추세+골든크로스 최대 13pt)
-    ['📈 골든크로스 (MA20>MA60)',   S.golden_cross],
-    ['📐 MA 완전 정렬 (5>20>60)',   S.ma_alignment],
-    ['🌱 조기 추세 전환 (MA5>MA20)', S.early_trend],
-    // 모멘텀 (③ MACD 최대 8pt)
-    ['🔀 MACD 골든크로스',          S.macd_cross],
-    ['⚡ MACD 전환 (음→양)',        S.macd_turned],
-    ['📊 MACD 히스토그램 상승',     macdHistRising],
-    // RSI (⑤ 최대 8pt)
-    ['🟢 RSI 모멘텀 (50-73)',       S.rsi_signal],
-    ['🔄 RSI 과매도 반등',          S.rsi_oversold],
-    // 거래량 (④ 최대 10pt)
-    ['📦 거래량 급증 (1.5x+)',      S.volume_confirm],
-    ['💪 SPY 대비 상대강도',        S.relative_strength],
-    // 패턴·구조 (⑥⑦⑧⑨ 합계 최대 15pt)
-    ['🎯 볼린저 밴드 돌파',         S.bollinger_break],
-    ['🌀 피보나치 지지선',          S.fib_support],
-    ['🌊 스토캐스틱 반등',          S.stoch_signal],
-    ['💥 30일 추세 돌파',           trendBreakout],
-  ]
-
-  const trueN = sigs.filter(([,v])=>v).length
-  const pct   = Math.round(trueN/sigs.length*100)
-  const pctColor = pct>=70?'#10b981':pct>=50?'#f59e0b':'#ef4444'
-  const pctBg    = pct>=70?'rgba(16,185,129,0.12)':pct>=50?'rgba(245,158,11,0.12)':'rgba(239,68,68,0.12)'
-  const pctBd    = pct>=70?'rgba(16,185,129,0.3)':pct>=50?'rgba(245,158,11,0.3)':'rgba(239,68,68,0.3)'
-
-  initUI(key, `
-  <div style="
-    position:absolute;top:50%;left:50%;
-    transform:translate(-50%,-50%);
-    width:340px;
-    animation:sumIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
-  ">
-    <style>
-    @keyframes sumIn{from{opacity:0;transform:translate(-50%,-56%) scale(0.9)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
-    </style>
-
-    <!-- 헤더 -->
-    ${(()=>{
-      // 픽 유형 판단: 0번은 모멘텀, 1번은 저점반등
-      const isReversal = S.rsi_oversold || S.early_trend
-      const pickLabel  = isReversal
-        ? {txt:'🔄 저점 반등 픽', bg:'rgba(96,165,250,0.12)', bd:'rgba(96,165,250,0.3)', col:'#60a5fa'}
-        : {txt:'🚀 모멘텀 픽',    bg:'rgba(245,158,11,0.12)', bd:'rgba(245,158,11,0.3)',  col:'#f59e0b'}
-      return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px;">${stock.ticker}</span>
-          <span style="font-size:9px;padding:3px 8px;border-radius:20px;font-weight:700;
-            background:${pickLabel.bg};border:1px solid ${pickLabel.bd};color:${pickLabel.col};">
-            ${pickLabel.txt}
-          </span>
-        </div>
-        <div style="font-size:11px;color:#555;margin-top:2px;">${stock.name}</div>
-      </div>
-      <div style="text-align:center;padding:6px 12px;border-radius:20px;
-        background:${pctBg};border:1px solid ${pctBd};">
-        <div style="font-size:18px;font-weight:900;color:${pctColor};">${pct}%</div>
-        <div style="font-size:9px;color:${pctColor};opacity:0.8;">${trueN}/${sigs.length} 신호</div>
-      </div>
-    </div>`})()}
-
-    <!-- 지표 그리드 2열 -->
-    <div style="background:#0a0a12;border:1px solid #1a1a2a;border-radius:14px;padding:10px 12px;margin-bottom:8px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
-        ${sigs.map(([lbl,on])=>`
-        <div style="
-          display:flex;align-items:center;gap:5px;
-          padding:5px 7px;border-radius:8px;
-          background:${on?'rgba(16,185,129,0.08)':'rgba(255,255,255,0.02)'};
-          border:1px solid ${on?'rgba(16,185,129,0.2)':'#1a1a1a'};
-        ">
-          <span style="font-size:11px;font-weight:900;color:${on?'#10b981':'#3a3a3a'};flex-shrink:0;">${on?'✓':'✗'}</span>
-          <span style="font-size:10px;color:${on?'#bbb':'#444'};line-height:1.3;">${lbl}</span>
-        </div>`).join('')}
-      </div>
-    </div>
-
-    <!-- 스윙 가격 -->
-    <div style="background:#0a0a12;border:1px solid #1a1a2a;border-radius:14px;padding:10px 14px;margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-        <span style="font-size:11px;color:#555;">진입가</span>
-        <span style="font-size:12px;font-weight:700;color:#f59e0b;">${fmtPrice(sw.entry_low)} – ${fmtPrice(sw.entry_high)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-        <span style="font-size:11px;color:#555;">1차 목표 <span style="color:#333;">(${sw.target1_week})</span></span>
-        <span style="font-size:12px;font-weight:700;color:#10b981;">+${sw.target1_pct}% → ${fmtPrice(sw.target1)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-        <span style="font-size:11px;color:#555;">2차 목표 <span style="color:#333;">(${sw.target2_week})</span></span>
-        <span style="font-size:12px;font-weight:700;color:#10b981;">+${sw.target2_pct}% → ${fmtPrice(sw.target2)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;">
-        <span style="font-size:11px;color:#555;">손절가</span>
-        <span style="font-size:12px;font-weight:700;color:#ef4444;">-${sw.stop_pct}% → ${fmtPrice(sw.stop_loss)}</span>
-      </div>
-    </div>
-
-    <!-- 스탯 5개 -->
-    ${(()=>{
-      const rsDiff = stock.rs_diff || 0
-      const rsColor = rsDiff>=15?'#10b981':rsDiff>=0?'#60a5fa':'#ef4444'
-      const rsText = (rsDiff>=0?'+':'')+rsDiff.toFixed(1)+'%'
-      return `<div style="display:flex;gap:4px;">
-      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:6px 2px;text-align:center;">
-        <div style="font-size:8px;color:#555;margin-bottom:2px;">RR비</div>
-        <div style="font-size:14px;font-weight:900;color:#f59e0b;">1:${sw.rr_ratio.toFixed(1)}</div>
-      </div>
-      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:6px 2px;text-align:center;">
-        <div style="font-size:8px;color:#555;margin-bottom:2px;">거래량</div>
-        <div style="font-size:14px;font-weight:900;color:#60a5fa;">${sw.vol_multiple.toFixed(1)}x</div>
-      </div>
-      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:6px 2px;text-align:center;">
-        <div style="font-size:8px;color:#555;margin-bottom:2px;">RSI</div>
-        <div style="font-size:14px;font-weight:900;color:${rsiVal>70?'#ef4444':rsiVal>50?'#10b981':'#60a5fa'};">${rsiVal.toFixed(0)}</div>
-      </div>
-      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:6px 2px;text-align:center;">
-        <div style="font-size:8px;color:#555;margin-bottom:2px;">20일</div>
-        <div style="font-size:14px;font-weight:900;color:${rsColor};">${rsText}</div>
-      </div>
-      <div style="flex:1;background:#0a0a12;border:1px solid #1a1a2a;border-radius:10px;padding:6px 2px;text-align:center;">
-        <div style="font-size:8px;color:#555;margin-bottom:2px;">점수</div>
-        <div style="font-size:14px;font-weight:900;color:#a78bfa;">${stock.score}</div>
-      </div>
-    </div>`})()}
-  </div>`)
-}
-
-// ─── TRANSITION (500ms) ───
-function renderTransition(sc, el) {
-  const t = clamp(el/500, 0, 1)
-  ctx.fillStyle = C.bg
-  ctx.fillRect(0, 0, W, H)
-  const alpha = t < 0.3
-    ? E.outQuint(t/0.3)
-    : E.outCubic(1-(t-0.3)/0.7)
-  ctx.save()
-  ctx.globalAlpha = alpha * 0.85
-  ctx.fillStyle = C.white
-  ctx.fillRect(0, 0, W, H)
-  ctx.restore()
-  clearUI()
-}
-
-// ─── FINAL (2500ms) HTML ───
-function renderFinal(sc, el) {
-  ctx.fillStyle = C.bg
-  ctx.fillRect(0, 0, W, H)
-
-  // particle background
-  const t = clamp(el/2500, 0, 1)
-  for (let i=0; i<30; i++) {
-    const seed = i * 137.508
-    const px = (Math.sin(seed)*0.5+0.5)*W
-    const py = (Math.cos(seed*1.3)*0.5+0.5)*H
-    const phase = (t*2 + i*0.2) % 1
-    const sz = 1.5 + Math.sin(seed)*0.8
-    ctx.save()
-    ctx.globalAlpha = clamp(t*4,0,1) * (0.3+Math.sin(phase*Math.PI)*0.4)
-    ctx.fillStyle = [C.gold, C.green, C.blue][i%3]
-    ctx.beginPath(); ctx.arc(px, py, sz, 0, Math.PI*2); ctx.fill()
+  const hA = easeOutCubic(prog(elapsed, 0, 380))
+  if (hA > 0.01) {
+    ctx.save(); ctx.globalAlpha = hA
+    ctx.fillStyle='#f59e0b'; ctx.font='700 18px "Noto Sans KR",sans-serif'
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic'
+    ctx.fillText('진입 시그널 확인 !', 20, 140)
     ctx.restore()
   }
 
-  initUI('final', `
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;text-align:center;animation:finalIn 0.6s cubic-bezier(0.34,1.56,0.64,1) both;">
-    <style>
-    @keyframes finalIn{from{opacity:0;transform:translate(-50%,-60%) scale(0.85)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
-    @keyframes pulse{0%,100%{opacity:0.6;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
-    </style>
-    <div style="font-size:40px;margin-bottom:8px;">🐱</div>
-    <div style="font-size:24px;font-weight:900;color:#fff;margin-bottom:4px;">오늘의 추천 완료</div>
-    <div style="font-size:13px;color:#555;margin-bottom:24px;">Top 2 스윙 트레이딩 종목</div>
-    ${DATA.map(s=>`
-    <div style="background:linear-gradient(135deg,#111,#0d0d1a);border:1px solid #222;border-radius:14px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <div style="text-align:left;">
-        <div style="font-size:18px;font-weight:900;color:#fff;">${s.ticker}</div>
-        <div style="font-size:11px;color:#555;">${s.sector}</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:15px;font-weight:700;color:#f59e0b;">${fmtChange(s.change_pct)}</div>
-        <div style="font-size:12px;color:#888;margin-top:2px;">점수 ${s.score}</div>
-      </div>
-    </div>`).join('')}
-    <div style="margin-top:16px;padding:10px 20px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:10px;font-size:11px;color:#f59e0b;animation:pulse 2s ease-in-out infinite;">⚠ 본 분석은 참고용입니다. 투자 결정은 본인 판단으로.</div>
-  </div>`)
-}
+  const sigStartY=158, sigH=36, sigGap=4
+  sigs.forEach((label, i) => {
+    const p = easeOutCubic(prog(elapsed, 100+i*120, 380))
+    if (p < 0.01) return
+    const sy = sigStartY + i*(sigH+sigGap)
+    ctx.save(); ctx.globalAlpha = p
+    ctx.translate((1-p)*38, 0)
+    ctx.fillStyle='#070707'; ctx.strokeStyle='#111111'; ctx.lineWidth=1
+    ctx.beginPath(); ctx.roundRect(20,sy,W-40,sigH,8); ctx.fill(); ctx.stroke()
+    const bx=36, by=sy+sigH/2
+    ctx.fillStyle='#f59e0b'; ctx.beginPath(); ctx.arc(bx,by,8,0,Math.PI*2); ctx.fill()
+    ctx.fillStyle='#000'; ctx.font='700 9px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('✓',bx,by)
+    ctx.fillStyle='#ddd'; ctx.font='400 12px "Noto Sans KR",sans-serif'
+    ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(label,52,by)
+    ctx.restore()
+  })
 
-// ─────────────────────────────────────────────
-// [14] renderScene dispatcher
-// ─────────────────────────────────────────────
-function renderScene(sc, el) {
-  switch(sc.type) {
-    case 'sigi':       renderSigi(sc, el);       break
-    case 'hook':       renderHook(sc, el);        break
-    case 'card':       renderCard(sc, el);        break
-    case 'chart':      renderChart(sc, el);       break
-    case 'summary':    renderSummary(sc, el);     break
-    case 'transition': renderTransition(sc, el);  break
-    case 'final':      renderFinal(sc, el);       break
+  const rA = easeOutCubic(prog(elapsed, 1500, 400))
+  const statStartY = sigStartY + sigs.length*(sigH+sigGap) + 10
+  const statH=32, statGap=4
+  if (rA > 0.01) {
+    const statDefs = [
+      {icon:'🛑', l:'손절가',                       v:`${fmtPrice(sw.stop_loss)} (${sw.stop_pct}%)`, c:'#ef4444'},
+      {icon:'🎯', l:`목표 2 (${sw.target2_week}주)`, v:`+${sw.target2_pct}%`,                        c:'#10b981'},
+      {icon:'⚖️', l:'손익비',                       v:`${sw.rr_ratio}:1`,                            c:sw.rr_ratio>=2?'#f59e0b':'#ccc'},
+    ]
+    statDefs.forEach((r, si) => {
+      const sy = statStartY + si*(statH+statGap)
+      ctx.save(); ctx.globalAlpha = rA
+      ctx.fillStyle='#0a0a0a'; ctx.strokeStyle='#111111'; ctx.lineWidth=1
+      ctx.beginPath(); ctx.roundRect(20,sy,W-40,statH,8); ctx.fill(); ctx.stroke()
+      ctx.fillStyle='#aaa'; ctx.font='400 12px "Noto Sans KR",sans-serif'
+      ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillText(`${r.icon} ${r.l}`,32,sy+statH/2)
+      ctx.fillStyle=r.c; ctx.font='700 13px "Noto Sans KR",sans-serif'
+      ctx.textAlign='right'; ctx.fillText(r.v,W-32,sy+statH/2)
+      ctx.restore()
+    })
+  }
+
+  const score = stock.score||0
+  let gradeText='⚠ 추가 관망', gradeColor='#888'
+  if (score>=80) { gradeText='⭐ 강력 매수 신호'; gradeColor='#f59e0b' }
+  else if (score>=60) { gradeText='👍 매수 신호'; gradeColor='#10b981' }
+  const gP = easeOutElastic(prog(elapsed, 2200, 650))
+  if (gP > 0.01) {
+    ctx.save(); ctx.globalAlpha = Math.min(1,gP)
+    ctx.translate(W/2, H-96)
+    const s=clamp(gP,0.2,1); ctx.scale(s,s)
+    ctx.fillStyle='#0a0a0a'; ctx.strokeStyle=gradeColor; ctx.lineWidth=2
+    ctx.shadowColor=gradeColor; ctx.shadowBlur=22
+    ctx.beginPath(); ctx.roundRect(-100,-22,200,44,50); ctx.fill(); ctx.stroke()
+    ctx.shadowBlur=0; ctx.fillStyle=gradeColor
+    ctx.font='700 15px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(gradeText,0,1)
+    ctx.restore()
   }
 }
 
-// ─────────────────────────────────────────────
-// [15] Master loop
-// ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════
+   19. 전환 씬 (Canvas + UI 초기화)
+════════════════════════════════════════════════════════════ */
+function renderTransition(ctx, elapsed) {
+  setUI('')
+  const p = prog(elapsed, 0, 500)
+  ctx.save(); ctx.globalAlpha = Math.sin(p*Math.PI)*0.82
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H); ctx.restore()
+  const sp = easeOutCubic(prog(elapsed, 80, 320))
+  ctx.save(); ctx.globalAlpha = Math.sin(p*Math.PI)*0.85
+  ctx.fillStyle='#050505'
+  ctx.font='700 13px "Noto Sans KR",sans-serif'
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+  ctx.fillText('다음 추천주 →', lerp(-60, W/2, sp), H/2)
+  ctx.restore()
+}
+
+/* ═══════════════════════════════════════════════════════════
+   20. 마무리 씬 (Canvas — 녹화 캡처 가능)
+════════════════════════════════════════════════════════════ */
+function renderFinal(ctx, elapsed, stocks) {
+  setUI('')
+  const hA    = easeOutCubic(prog(elapsed, 0, 380))
+  const blink = (Math.sin(elapsed*0.006)+1)/2
+
+  const headerY=230, cardTop=252, cardH=218
+  const belowY=cardTop+cardH+26
+
+  if (hA > 0.01) {
+    ctx.save(); ctx.globalAlpha = hA
+    ctx.fillStyle='#f59e0b'; ctx.font='400 12px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic'
+    ctx.letterSpacing='3px'; ctx.fillText('오늘의 스윙 픽',W/2,headerY); ctx.letterSpacing='0px'
+    ctx.restore()
+  }
+
+  const gap=12, mx=20
+  const halfW=(W-mx*2-gap)/2
+
+  function drawCard(s, dir, delay, cx) {
+    const p=easeOutCubic(prog(elapsed,delay,500))
+    if (p<0.01) return
+    const sw2=s.swing
+    ctx.save(); ctx.globalAlpha=p
+    ctx.translate((1-p)*60*dir,0)
+    ctx.fillStyle='#0a0a0a'; ctx.strokeStyle='#1d1d1d'; ctx.lineWidth=1
+    ctx.beginPath(); ctx.roundRect(cx,cardTop,halfW,cardH,14); ctx.fill(); ctx.stroke()
+    ctx.fillStyle='#fff'; ctx.font='900 19px "Noto Sans KR",sans-serif'
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic'
+    ctx.fillText(s.ticker,cx+12,cardTop+26)
+    ctx.fillStyle='#aaa'; ctx.font='400 10px "Noto Sans KR",sans-serif'
+    ctx.fillText((getKrName(s.ticker,s.name)||s.ticker).slice(0,14),cx+12,cardTop+40)
+    ctx.fillStyle='#ccc'; ctx.font='400 11px "Noto Sans KR",sans-serif'
+    ctx.fillText(fmtPrice(s.price),cx+12,cardTop+56)
+    const miniRows=[
+      {l:'진입',  v:fmtPrice(sw2.entry_low), c:'#f59e0b'},
+      {l:'목표',  v:`+${sw2.target2_pct}%`,  c:'#10b981'},
+      {l:'손절',  v:`${sw2.stop_pct}%`,       c:'#ef4444'},
+      {l:'손익비',v:`${sw2.rr_ratio}:1`,      c:sw2.rr_ratio>=2?'#f59e0b':'#ccc'},
+    ]
+    const miniRowH=34, miniStartY=cardTop+68
+    miniRows.forEach((r,ri)=>{
+      const ry=miniStartY+ri*miniRowH
+      if(ri>0){ctx.strokeStyle='#111111';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(cx+8,ry);ctx.lineTo(cx+halfW-8,ry);ctx.stroke()}
+      ctx.fillStyle='#888';ctx.font='400 10px "Noto Sans KR",sans-serif'
+      ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(r.l,cx+12,ry+miniRowH/2)
+      ctx.fillStyle=r.c;ctx.font='700 11px "Noto Sans KR",sans-serif'
+      ctx.textAlign='right';ctx.fillText(r.v,cx+halfW-12,ry+miniRowH/2)
+    })
+    ctx.restore()
+  }
+
+  drawCard(stocks[0],-1,200,mx)
+  drawCard(stocks[1], 1,400,mx+halfW+gap)
+
+  const pin1A=easeOutCubic(prog(elapsed,800,400))
+  if(pin1A>0.01){
+    ctx.save();ctx.globalAlpha=pin1A*blink
+    ctx.fillStyle='#f59e0b';ctx.font='700 13px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center';ctx.textBaseline='alphabetic'
+    ctx.fillText('저장해두고 직접 확인해보세요 📌',W/2,belowY+14);ctx.restore()
+  }
+  const pin2A=easeOutCubic(prog(elapsed,1200,400))
+  if(pin2A>0.01){
+    ctx.save();ctx.globalAlpha=pin2A
+    ctx.fillStyle='#f59e0b';ctx.font='900 16px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center';ctx.textBaseline='alphabetic'
+    ctx.fillText('TopStockDaily',W/2,belowY+42);ctx.restore()
+  }
+  const disc=easeOutCubic(prog(elapsed,1400,400))
+  if(disc>0.01){
+    ctx.save();ctx.globalAlpha=disc
+    ctx.fillStyle='#555555';ctx.font='300 9px "Noto Sans KR",sans-serif'
+    ctx.textAlign='center';ctx.textBaseline='alphabetic'
+    ctx.fillText('⚠ 투자 참고용 · 손익 책임은 본인에게',W/2,belowY+62);ctx.restore()
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   7. 씬 렌더 디스패처
+════════════════════════════════════════════════════════════ */
+function renderScene(scene, elapsed, data) {
+  const stock = scene.stock !== undefined ? data.stocks[scene.stock] : null
+  switch(scene.type) {
+    case 'hook':       setUI(''); renderHook(ctx, elapsed, stock);          break
+    case 'entry_card': renderEntryCard(ctx, elapsed, stock);                break
+    case 'chart':      setUI(''); renderChart(ctx, elapsed, stock);         break
+    case 'summary':    renderSummary(ctx, elapsed, stock);                  break
+    case 'transition': renderTransition(ctx, elapsed);                      break
+    case 'final':      renderFinal(ctx, elapsed, data.stocks);              break
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   6. 마스터 루프  (21. 30초 자동재생 + 루프)
+════════════════════════════════════════════════════════════ */
 function masterLoop(ts) {
   requestAnimationFrame(masterLoop)
   if (paused) return
-  if (!lastTs) lastTs = ts
   lastTs = ts
-  if (!scStart) scStart = ts
-  const el = ts - scStart
+  if (!sceneStartTime) sceneStartTime = ts
+  const elapsed = ts - sceneStartTime
 
+  /* 캔버스 클리어 */
   ctx.clearRect(0, 0, W, H)
-  ctx.fillStyle = C.bg
-  ctx.fillRect(0, 0, W, H)
+  ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, W, H)
 
-  const sc = SCENES[scIdx]
-  if (DATA) renderScene(sc, el)
-  updateSegBar(scIdx, el / sc.dur)
+  const scene = SCENE_PLAN[sceneIdx]
+  updateSegBar(sceneIdx, elapsed / scene.dur)
 
-  if (el >= sc.dur) {
-    scIdx = (scIdx + 1) % SCENES.length
-    scStart = ts
-    clearUI()
+  if (stockData) renderScene(scene, elapsed, stockData)
+
+  /* 씬 전환 */
+  if (elapsed >= scene.dur) {
+    sceneIdx = (sceneIdx + 1) % SCENE_PLAN.length
+    sceneStartTime = ts
   }
 }
 
-// tap to pause
-document.getElementById('phone').addEventListener('click', () => { paused = !paused })
+/* ═══════════════════════════════════════════════════════════
+   2. Canvas 초기화 + 탭 토글 + 부팅
+════════════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', async () => {
+  /* 4. 세그바 */
+  buildSegBar()
 
-// ─────────────────────────────────────────────
-// [16] Boot — wait for fonts then load data
-// ─────────────────────────────────────────────
-;(async () => {
-  await document.fonts.ready
-  try {
-    await Promise.all([
-      document.fonts.load('400 14px "Noto Sans KR"'),
-      document.fonts.load('700 14px "Noto Sans KR"'),
-      document.fonts.load('900 14px "Noto Sans KR"'),
-    ])
-  } catch(e) {}
-  await loadData()
-})()
+  /* 2. Canvas 초기화 — DPR 처리 */
+  canvas = document.getElementById('scene-canvas')
+  DPR    = Math.min(window.devicePixelRatio || 1, 2)
+  canvas.width  = W * DPR
+  canvas.height = H * DPR
+  canvas.style.width  = W + 'px'
+  canvas.style.height = H + 'px'
+  ctx = canvas.getContext('2d')
+  ctx.scale(DPR, DPR)
+
+  /* 6. 탭 → 일시정지 토글 */
+  document.getElementById('phone').addEventListener('click', () => { paused = !paused })
+
+  /* 5. 데이터 로드 → 22. 실데이터 연동 */
+  stockData = await loadData()
+  /* 업데이트 시간 표시: "데이터 기준 2026-03-18 01:03 UTC (KST 10:03)" */
+  const ua = stockData.updated_at || ''
+  let uaLabel = ua ? `데이터 기준 ${ua}` : ''
+  if (ua && ua.includes('UTC')) {
+    try {
+      const dt = new Date(ua.replace(' UTC','Z').replace(' ','T'))
+      const kstH = ((dt.getUTCHours()+9)%24).toString().padStart(2,'0')
+      const kstM = dt.getUTCMinutes().toString().padStart(2,'0')
+      const kstDay = dt.getUTCHours()+9 >= 24 ? dt.getUTCDate()+1 : dt.getUTCDate()
+      uaLabel = `데이터 기준 ${ua}  ·  KST ${kstH}:${kstM}`
+    } catch(e) {}
+  }
+  document.getElementById('updated-at').textContent = uaLabel
+
+  /* 21. 자동재생 시작 */
+  requestAnimationFrame(masterLoop)
+})
 </script>
 </body>
 </html>
