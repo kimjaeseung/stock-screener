@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-04-12 04:49 UTC",
+  "updated_at": "2026-04-13 05:16 UTC",
   "market_summary": {
     "sp500": {
       "index": 679.46,
@@ -10,16 +10,103 @@
       "change_pct": 2.44
     },
     "kospi": {
-      "index": 5858.87,
-      "change_pct": 6.77
+      "index": 5804.78,
+      "change_pct": 4.59
     },
     "kosdaq": {
-      "index": 1093.63,
-      "change_pct": -5.15
+      "index": 1100.35,
+      "change_pct": -3.33
     }
   },
   "screening_results": {
     "kr": [
+      {
+        "ticker": "051910.KS",
+        "name": "LG화학",
+        "market": "KOSPI",
+        "sector": "화학",
+        "price": 356000.0,
+        "change_pct": 0.3,
+        "score": 69,
+        "score_breakdown": {
+          "trend": 11,
+          "golden_cross": 5,
+          "momentum": 15,
+          "volume": 5,
+          "support": 5,
+          "bollinger": 5
+        },
+        "signals": [
+          "역헤드앤숄더 🎯",
+          "200일선 위",
+          "20일선 우상향 중",
+          "ADX 38 — 추세 강함",
+          "MACD > Signal (상승 추세)",
+          "MACD 히스토그램 증가 ↑"
+        ],
+        "technicals": {
+          "rsi_14": 61.1,
+          "macd": 5513.6554,
+          "macd_signal": -909.8025,
+          "adx": 38.4,
+          "volume_ratio": 0.89,
+          "bb_position": 1
+        },
+        "risk_reward": {
+          "entry": 356000.0,
+          "stop_loss": 318390.0,
+          "take_profit": 421291.0,
+          "risk": 37610.0,
+          "reward": 65291.0,
+          "ratio": 1.74,
+          "risk_pct": -10.6,
+          "reward_pct": 18.3
+        },
+        "price_history_30d": [
+          414832.25,
+          358693.28,
+          305038.34,
+          322426.5,
+          324413.72,
+          298083.06,
+          309012.78,
+          313484.03,
+          304044.72,
+          295599.03,
+          290134.19,
+          305535.12,
+          317955.25,
+          301560.69,
+          308019.16,
+          288146.97,
+          311993.59,
+          315968.03,
+          311993.59,
+          311000.0,
+          322000.0,
+          299000.0,
+          313500.0,
+          302000.0,
+          304500.0,
+          317000.0,
+          323500.0,
+          344500.0,
+          355000.0,
+          356000.0
+        ],
+        "ma_20": 314965.33,
+        "ma_60": 325404.31,
+        "checklist": {
+          "above_ma200": true,
+          "golden_cross_recent": false,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": false
+        },
+        "rank": 1
+      },
       {
         "ticker": "011200.KS",
         "name": "HMM",
@@ -104,93 +191,6 @@
           "macd_bullish": true,
           "trend_strong": false,
           "rr_ratio_good": true
-        },
-        "rank": 1
-      },
-      {
-        "ticker": "051910.KS",
-        "name": "LG화학",
-        "market": "KOSPI",
-        "sector": "화학",
-        "price": 356000.0,
-        "change_pct": 0.3,
-        "score": 66,
-        "score_breakdown": {
-          "trend": 11,
-          "golden_cross": 5,
-          "momentum": 15,
-          "volume": 5,
-          "support": 5,
-          "bollinger": 5
-        },
-        "signals": [
-          "역헤드앤숄더 🎯",
-          "200일선 위",
-          "20일선 우상향 중",
-          "ADX 38 — 추세 강함",
-          "MACD > Signal (상승 추세)",
-          "MACD 히스토그램 증가 ↑"
-        ],
-        "technicals": {
-          "rsi_14": 61.1,
-          "macd": 5513.6554,
-          "macd_signal": -909.8025,
-          "adx": 38.4,
-          "volume_ratio": 0.89,
-          "bb_position": 1
-        },
-        "risk_reward": {
-          "entry": 356000.0,
-          "stop_loss": 318390.0,
-          "take_profit": 421291.0,
-          "risk": 37610.0,
-          "reward": 65291.0,
-          "ratio": 1.74,
-          "risk_pct": -10.6,
-          "reward_pct": 18.3
-        },
-        "price_history_30d": [
-          414832.25,
-          358693.28,
-          305038.34,
-          322426.5,
-          324413.72,
-          298083.06,
-          309012.78,
-          313484.03,
-          304044.72,
-          295599.03,
-          290134.19,
-          305535.12,
-          317955.25,
-          301560.69,
-          308019.16,
-          288146.97,
-          311993.59,
-          315968.03,
-          311993.59,
-          311000.0,
-          322000.0,
-          299000.0,
-          313500.0,
-          302000.0,
-          304500.0,
-          317000.0,
-          323500.0,
-          344500.0,
-          355000.0,
-          356000.0
-        ],
-        "ma_20": 314965.33,
-        "ma_60": 325404.31,
-        "checklist": {
-          "above_ma200": true,
-          "golden_cross_recent": false,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": true,
-          "trend_strong": false,
-          "rr_ratio_good": false
         },
         "rank": 2
       },
@@ -288,7 +288,7 @@
         "sector": "지주",
         "price": 93000.0,
         "change_pct": 2.6,
-        "score": 42,
+        "score": 44,
         "score_breakdown": {
           "trend": 11,
           "golden_cross": 10,
@@ -817,8 +817,8 @@
         ],
         "technicals": {
           "rsi_14": 45.3,
-          "macd": -1848.5405,
-          "macd_signal": -1388.9489,
+          "macd": -1848.5404,
+          "macd_signal": -1388.9488,
           "adx": 10.6,
           "volume_ratio": 1.56,
           "bb_position": 0.21
