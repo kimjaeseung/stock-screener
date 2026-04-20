@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-04-19 04:52 UTC",
+  "updated_at": "2026-04-20 05:15 UTC",
   "market_summary": {
     "sp500": {
       "index": 710.14,
@@ -10,12 +10,12 @@
       "change_pct": 9.55
     },
     "kospi": {
-      "index": 6191.92,
-      "change_pct": 7.1
+      "index": 6255.2,
+      "change_pct": 15.71
     },
     "kosdaq": {
-      "index": 1170.04,
-      "change_pct": 0.73
+      "index": 1178.0,
+      "change_pct": 7.39
     }
   },
   "screening_results": {
@@ -46,8 +46,8 @@
         ],
         "technicals": {
           "rsi_14": 58.9,
-          "macd": 3158.8869,
-          "macd_signal": -3656.0673,
+          "macd": 3158.8868,
+          "macd_signal": -3656.0674,
           "adx": 27.3,
           "volume_ratio": 0.71,
           "bb_position": 1
@@ -114,7 +114,7 @@
         "sector": "의료기기",
         "price": 58200.0,
         "change_pct": 1.0,
-        "score": 59,
+        "score": 57,
         "score_breakdown": {
           "trend": 9,
           "golden_cross": 10,
@@ -220,7 +220,7 @@
         ],
         "technicals": {
           "rsi_14": 57.2,
-          "macd": 662.3551,
+          "macd": 662.355,
           "macd_signal": -4298.5364,
           "adx": 29.5,
           "volume_ratio": 0.7,
