@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-03 05:33 UTC",
+  "updated_at": "2026-05-04 05:37 UTC",
   "market_summary": {
     "sp500": {
       "index": 720.65,
@@ -10,12 +10,12 @@
       "change_pct": 15.24
     },
     "kospi": {
-      "index": 6598.87,
-      "change_pct": 26.08
+      "index": 6906.56,
+      "change_pct": 28.44
     },
     "kosdaq": {
-      "index": 1192.35,
-      "change_pct": 12.88
+      "index": 1213.3,
+      "change_pct": 14.06
     }
   },
   "screening_results": {
@@ -477,8 +477,8 @@
         ],
         "technicals": {
           "rsi_14": 35.7,
-          "macd": -29270.3929,
-          "macd_signal": -20305.3676,
+          "macd": -29270.3927,
+          "macd_signal": -20305.3673,
           "adx": 31.0,
           "volume_ratio": 0.87,
           "bb_position": 0.0
