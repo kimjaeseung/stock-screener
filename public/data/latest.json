@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-05-31 06:22 UTC",
+  "updated_at": "2026-06-01 07:01 UTC",
   "market_summary": {
     "sp500": {
       "index": 756.48,
@@ -10,12 +10,12 @@
       "change_pct": 10.57
     },
     "kospi": {
-      "index": 8476.15,
-      "change_pct": 27.63
+      "index": 8788.38,
+      "change_pct": 31.35
     },
     "kosdaq": {
-      "index": 1074.8,
-      "change_pct": -11.58
+      "index": 1050.03,
+      "change_pct": -13.95
     }
   },
   "screening_results": {
@@ -134,7 +134,7 @@
         "technicals": {
           "rsi_14": 50.3,
           "macd": -6246.4161,
-          "macd_signal": -822.3564,
+          "macd_signal": -822.3563,
           "adx": 27.8,
           "volume_ratio": 2.27,
           "bb_position": 0.39
@@ -220,8 +220,8 @@
         ],
         "technicals": {
           "rsi_14": 36.4,
-          "macd": -42407.4481,
-          "macd_signal": -42910.3612,
+          "macd": -42407.4482,
+          "macd_signal": -42910.3613,
           "adx": 39.8,
           "volume_ratio": 1.92,
           "bb_position": 0.17
@@ -307,8 +307,8 @@
         ],
         "technicals": {
           "rsi_14": 45.5,
-          "macd": -855.8219,
-          "macd_signal": 2920.8059,
+          "macd": -855.8218,
+          "macd_signal": 2920.8061,
           "adx": 26.3,
           "volume_ratio": 2.0,
           "bb_position": 0.16
@@ -394,7 +394,7 @@
         "technicals": {
           "rsi_14": 39.5,
           "macd": -1551.4332,
-          "macd_signal": -1570.6298,
+          "macd_signal": -1570.6299,
           "adx": 29.2,
           "volume_ratio": 1.26,
           "bb_position": 0.29
@@ -478,8 +478,8 @@
         ],
         "technicals": {
           "rsi_14": 36.2,
-          "macd": -2748.763,
-          "macd_signal": -1839.0478,
+          "macd": -2748.7629,
+          "macd_signal": -1839.0477,
           "adx": 26.8,
           "volume_ratio": 2.29,
           "bb_position": 0.03
@@ -822,8 +822,8 @@
         ],
         "technicals": {
           "rsi_14": 33.2,
-          "macd": -50751.9283,
-          "macd_signal": -42476.6183,
+          "macd": -50751.9282,
+          "macd_signal": -42476.6181,
           "adx": 29.2,
           "volume_ratio": 1.53,
           "bb_position": 0.11
