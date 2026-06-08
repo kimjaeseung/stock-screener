@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-06-07 06:27 UTC",
+  "updated_at": "2026-06-08 06:47 UTC",
   "market_summary": {
     "sp500": {
       "index": 737.55,
@@ -10,12 +10,12 @@
       "change_pct": 1.46
     },
     "kospi": {
-      "index": 8160.59,
-      "change_pct": 10.51
+      "index": 7488.79,
+      "change_pct": -0.02
     },
     "kosdaq": {
-      "index": 1002.44,
-      "change_pct": -17.17
+      "index": 911.26,
+      "change_pct": -24.01
     }
   },
   "screening_results": {
@@ -46,8 +46,8 @@
         ],
         "technicals": {
           "rsi_14": 45.9,
-          "macd": -2145.0311,
-          "macd_signal": -2655.0286,
+          "macd": -2145.031,
+          "macd_signal": -2655.0285,
           "adx": 29.9,
           "volume_ratio": 0.7,
           "bb_position": 0.38
@@ -134,7 +134,7 @@
         "technicals": {
           "rsi_14": 42.2,
           "macd": 7453.7199,
-          "macd_signal": 18906.9703,
+          "macd_signal": 18906.9704,
           "adx": 26.7,
           "volume_ratio": 0.64,
           "bb_position": 0.05
@@ -193,6 +193,93 @@
           "rr_ratio_good": true
         },
         "rank": 2
+      },
+      {
+        "ticker": "000270.KS",
+        "name": "기아",
+        "market": "KOSPI",
+        "sector": "자동차",
+        "price": 161100.0,
+        "change_pct": -1.9,
+        "score": 45,
+        "score_breakdown": {
+          "trend": 14,
+          "golden_cross": 10,
+          "momentum": 5,
+          "volume": 0,
+          "support": 8,
+          "bollinger": 3
+        },
+        "signals": [
+          "중장기 정배열 (20>60>120)",
+          "200일선 위",
+          "20일선 우상향 중",
+          "MACD 골든크로스 ✨",
+          "RSI 48 (건강한 구간)",
+          "피보나치 38.2~61.8% 지지 구간"
+        ],
+        "technicals": {
+          "rsi_14": 48.1,
+          "macd": 1668.9463,
+          "macd_signal": 2157.5696,
+          "adx": 17.6,
+          "volume_ratio": 0.56,
+          "bb_position": 0.32
+        },
+        "risk_reward": {
+          "entry": 161100.0,
+          "stop_loss": 147700.0,
+          "take_profit": 181690.0,
+          "risk": 13400.0,
+          "reward": 20590.0,
+          "ratio": 1.54,
+          "risk_pct": -8.3,
+          "reward_pct": 12.8
+        },
+        "price_history_30d": [
+          160000.0,
+          160000.0,
+          158400.0,
+          153400.0,
+          152600.0,
+          155600.0,
+          156900.0,
+          151800.0,
+          154000.0,
+          154600.0,
+          157600.0,
+          164500.0,
+          174700.0,
+          168300.0,
+          179500.0,
+          178100.0,
+          168000.0,
+          162500.0,
+          154900.0,
+          149400.0,
+          167900.0,
+          164800.0,
+          167000.0,
+          164700.0,
+          164300.0,
+          169200.0,
+          169900.0,
+          168800.0,
+          164300.0,
+          161100.0
+        ],
+        "ma_20": 165975.0,
+        "ma_60": 158820.28,
+        "checklist": {
+          "above_ma200": true,
+          "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": false,
+          "trend_strong": false,
+          "rr_ratio_good": false
+        },
+        "rank": 3
       },
       {
         "ticker": "015760.KS",
@@ -279,93 +366,6 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
-        "rank": 3
-      },
-      {
-        "ticker": "000270.KS",
-        "name": "기아",
-        "market": "KOSPI",
-        "sector": "자동차",
-        "price": 161100.0,
-        "change_pct": -1.9,
-        "score": 41,
-        "score_breakdown": {
-          "trend": 14,
-          "golden_cross": 10,
-          "momentum": 5,
-          "volume": 0,
-          "support": 8,
-          "bollinger": 3
-        },
-        "signals": [
-          "중장기 정배열 (20>60>120)",
-          "200일선 위",
-          "20일선 우상향 중",
-          "MACD 골든크로스 ✨",
-          "RSI 48 (건강한 구간)",
-          "피보나치 38.2~61.8% 지지 구간"
-        ],
-        "technicals": {
-          "rsi_14": 48.1,
-          "macd": 1668.9463,
-          "macd_signal": 2157.5697,
-          "adx": 17.6,
-          "volume_ratio": 0.56,
-          "bb_position": 0.32
-        },
-        "risk_reward": {
-          "entry": 161100.0,
-          "stop_loss": 147700.0,
-          "take_profit": 181690.0,
-          "risk": 13400.0,
-          "reward": 20590.0,
-          "ratio": 1.54,
-          "risk_pct": -8.3,
-          "reward_pct": 12.8
-        },
-        "price_history_30d": [
-          160000.0,
-          160000.0,
-          158400.0,
-          153400.0,
-          152600.0,
-          155600.0,
-          156900.0,
-          151800.0,
-          154000.0,
-          154600.0,
-          157600.0,
-          164500.0,
-          174700.0,
-          168300.0,
-          179500.0,
-          178100.0,
-          168000.0,
-          162500.0,
-          154900.0,
-          149400.0,
-          167900.0,
-          164800.0,
-          167000.0,
-          164700.0,
-          164300.0,
-          169200.0,
-          169900.0,
-          168800.0,
-          164300.0,
-          161100.0
-        ],
-        "ma_20": 165975.0,
-        "ma_60": 158820.28,
-        "checklist": {
-          "above_ma200": true,
-          "golden_cross_recent": true,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": false,
-          "trend_strong": false,
-          "rr_ratio_good": false
-        },
         "rank": 4
       },
       {
@@ -394,7 +394,7 @@
         "technicals": {
           "rsi_14": 37.1,
           "macd": -1502.482,
-          "macd_signal": -1621.051,
+          "macd_signal": -1621.0511,
           "adx": 33.6,
           "volume_ratio": 0.64,
           "bb_position": 0.17
@@ -481,7 +481,7 @@
         "technicals": {
           "rsi_14": 49.8,
           "macd": 2039.8591,
-          "macd_signal": 7021.5749,
+          "macd_signal": 7021.575,
           "adx": 21.8,
           "volume_ratio": 1.39,
           "bb_position": 0.46
@@ -740,7 +740,7 @@
         "technicals": {
           "rsi_14": 35.6,
           "macd": -32045.5698,
-          "macd_signal": -12223.2646,
+          "macd_signal": -12223.2645,
           "adx": 38.7,
           "volume_ratio": 0.43,
           "bb_position": 0.0
