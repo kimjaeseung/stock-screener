@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-06-20 06:24 UTC",
+  "updated_at": "2026-06-21 06:53 UTC",
   "market_summary": {
     "sp500": {
       "index": 746.74,
@@ -561,8 +561,8 @@
         ],
         "technicals": {
           "rsi_14": 46.6,
-          "macd": -914.7744,
-          "macd_signal": 10229.6783,
+          "macd": -914.7745,
+          "macd_signal": 10229.6782,
           "adx": 17.5,
           "volume_ratio": 1.18,
           "bb_position": 0.25
