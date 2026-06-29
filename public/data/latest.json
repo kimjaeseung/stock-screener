@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-06-28 06:21 UTC",
+  "updated_at": "2026-06-29 06:51 UTC",
   "market_summary": {
     "sp500": {
       "index": 728.99,
@@ -10,12 +10,12 @@
       "change_pct": -3.85
     },
     "kospi": {
-      "index": 8411.21,
-      "change_pct": 2.76
+      "index": 8416.83,
+      "change_pct": -0.7
     },
     "kosdaq": {
-      "index": 851.37,
-      "change_pct": -22.91
+      "index": 920.55,
+      "change_pct": -14.35
     }
   },
   "screening_results": {
@@ -107,6 +107,93 @@
         "rank": 1
       },
       {
+        "ticker": "329180.KS",
+        "name": "HD현대중공업",
+        "market": "KOSPI",
+        "sector": "조선",
+        "price": 564000.0,
+        "change_pct": -3.1,
+        "score": 33,
+        "score_breakdown": {
+          "trend": 7,
+          "golden_cross": 0,
+          "momentum": 13,
+          "volume": 0,
+          "support": 10,
+          "bollinger": 0
+        },
+        "signals": [
+          "중장기 정배열 (20>60>120)",
+          "ADX 28 — 추세 강함",
+          "RSI 36 — 과매도 탈출 직전 🎯",
+          "스토캐스틱 상향 돌파 (8%)",
+          "피보나치 38.2~61.8% 지지 구간",
+          "볼린저 하단 반등"
+        ],
+        "technicals": {
+          "rsi_14": 36.1,
+          "macd": -15626.593,
+          "macd_signal": -1623.7285,
+          "adx": 28.4,
+          "volume_ratio": 0.8,
+          "bb_position": 0.01
+        },
+        "risk_reward": {
+          "entry": 564000.0,
+          "stop_loss": 481322.0,
+          "take_profit": 742133.0,
+          "risk": 82678.0,
+          "reward": 178133.0,
+          "ratio": 2.15,
+          "risk_pct": -14.7,
+          "reward_pct": 31.6
+        },
+        "price_history_30d": [
+          671000.0,
+          640000.0,
+          615000.0,
+          598000.0,
+          636000.0,
+          672000.0,
+          680000.0,
+          745000.0,
+          744000.0,
+          704000.0,
+          696000.0,
+          684000.0,
+          673000.0,
+          651000.0,
+          664000.0,
+          621000.0,
+          612000.0,
+          641000.0,
+          646000.0,
+          650000.0,
+          714000.0,
+          698000.0,
+          707000.0,
+          684000.0,
+          667000.0,
+          636000.0,
+          588000.0,
+          587000.0,
+          582000.0,
+          564000.0
+        ],
+        "ma_20": 648250.0,
+        "ma_60": 614516.67,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": false,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": false,
+          "trend_strong": false,
+          "rr_ratio_good": true
+        },
+        "rank": 2
+      },
+      {
         "ticker": "336260.KQ",
         "name": "두산퓨얼셀",
         "market": "KOSDAQ",
@@ -190,7 +277,7 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
-        "rank": 2
+        "rank": 3
       },
       {
         "ticker": "012450.KS",
@@ -216,8 +303,8 @@
         ],
         "technicals": {
           "rsi_14": 35.8,
-          "macd": -44085.7339,
-          "macd_signal": -46405.0134,
+          "macd": -44085.7336,
+          "macd_signal": -46405.013,
           "adx": 27.7,
           "volume_ratio": 1.18,
           "bb_position": 0.18
@@ -275,7 +362,7 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
-        "rank": 3
+        "rank": 4
       },
       {
         "ticker": "068270.KS",
@@ -360,7 +447,7 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
-        "rank": 4
+        "rank": 5
       },
       {
         "ticker": "055550.KS",
@@ -446,92 +533,6 @@
           "trend_strong": false,
           "rr_ratio_good": false
         },
-        "rank": 5
-      },
-      {
-        "ticker": "329180.KS",
-        "name": "HD현대중공업",
-        "market": "KOSPI",
-        "sector": "조선",
-        "price": 564000.0,
-        "change_pct": -3.1,
-        "score": 30,
-        "score_breakdown": {
-          "trend": 7,
-          "golden_cross": 0,
-          "momentum": 10,
-          "volume": 0,
-          "support": 10,
-          "bollinger": 0
-        },
-        "signals": [
-          "중장기 정배열 (20>60>120)",
-          "ADX 28 — 추세 강함",
-          "RSI 36 — 과매도 탈출 직전 🎯",
-          "피보나치 38.2~61.8% 지지 구간",
-          "볼린저 하단 반등"
-        ],
-        "technicals": {
-          "rsi_14": 36.1,
-          "macd": -15626.593,
-          "macd_signal": -1623.7284,
-          "adx": 28.4,
-          "volume_ratio": 0.8,
-          "bb_position": 0.01
-        },
-        "risk_reward": {
-          "entry": 564000.0,
-          "stop_loss": 481322.0,
-          "take_profit": 742133.0,
-          "risk": 82678.0,
-          "reward": 178133.0,
-          "ratio": 2.15,
-          "risk_pct": -14.7,
-          "reward_pct": 31.6
-        },
-        "price_history_30d": [
-          671000.0,
-          640000.0,
-          615000.0,
-          598000.0,
-          636000.0,
-          672000.0,
-          680000.0,
-          745000.0,
-          744000.0,
-          704000.0,
-          696000.0,
-          684000.0,
-          673000.0,
-          651000.0,
-          664000.0,
-          621000.0,
-          612000.0,
-          641000.0,
-          646000.0,
-          650000.0,
-          714000.0,
-          698000.0,
-          707000.0,
-          684000.0,
-          667000.0,
-          636000.0,
-          588000.0,
-          587000.0,
-          582000.0,
-          564000.0
-        ],
-        "ma_20": 648250.0,
-        "ma_60": 614516.67,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": false,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": false,
-          "trend_strong": false,
-          "rr_ratio_good": true
-        },
         "rank": 6
       },
       {
@@ -558,7 +559,7 @@
         "technicals": {
           "rsi_14": 44.4,
           "macd": -775.4413,
-          "macd_signal": -876.9505,
+          "macd_signal": -876.9504,
           "adx": 20.6,
           "volume_ratio": 1.23,
           "bb_position": 0.35
@@ -727,7 +728,7 @@
         "technicals": {
           "rsi_14": 36.3,
           "macd": -19583.986,
-          "macd_signal": 2822.2343,
+          "macd_signal": 2822.2344,
           "adx": 22.2,
           "volume_ratio": 0.6,
           "bb_position": 0.11
