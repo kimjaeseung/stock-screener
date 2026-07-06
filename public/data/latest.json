@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-07-05 06:07 UTC",
+  "updated_at": "2026-07-06 06:39 UTC",
   "market_summary": {
     "sp500": {
       "index": 744.78,
@@ -10,12 +10,12 @@
       "change_pct": -4.14
     },
     "kospi": {
-      "index": 8088.34,
-      "change_pct": -0.89
+      "index": 8047.09,
+      "change_pct": 7.52
     },
     "kosdaq": {
-      "index": 868.41,
-      "change_pct": -13.37
+      "index": 846.1,
+      "change_pct": -7.16
     }
   },
   "screening_results": {
@@ -220,7 +220,7 @@
         ],
         "technicals": {
           "rsi_14": 39.9,
-          "macd": -6072.9421,
+          "macd": -6072.942,
           "macd_signal": -6197.8078,
           "adx": 40.3,
           "volume_ratio": 0.68,
@@ -653,7 +653,7 @@
         ],
         "technicals": {
           "rsi_14": 32.0,
-          "macd": -16702.372,
+          "macd": -16702.3719,
           "macd_signal": -13782.7207,
           "adx": 43.4,
           "volume_ratio": 0.86,
@@ -826,8 +826,8 @@
         ],
         "technicals": {
           "rsi_14": 40.3,
-          "macd": -16602.1715,
-          "macd_signal": -4317.8523,
+          "macd": -16602.1714,
+          "macd_signal": -4317.8522,
           "adx": 19.6,
           "volume_ratio": 0.68,
           "bb_position": 0.11
