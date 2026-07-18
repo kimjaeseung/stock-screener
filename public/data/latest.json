@@ -1,13 +1,13 @@
 {
-  "updated_at": "2026-07-17 05:16 UTC",
+  "updated_at": "2026-07-18 04:50 UTC",
   "market_summary": {
     "sp500": {
-      "index": 750.72,
-      "change_pct": 0.31
+      "index": 743.29,
+      "change_pct": 0.57
     },
     "nasdaq": {
-      "index": 705.94,
-      "change_pct": -3.17
+      "index": 695.33,
+      "change_pct": -3.66
     },
     "kospi": {
       "index": 6820.6,
