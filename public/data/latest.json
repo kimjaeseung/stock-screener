@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-07-19 05:24 UTC",
+  "updated_at": "2026-07-20 05:42 UTC",
   "market_summary": {
     "sp500": {
       "index": 743.29,
@@ -10,12 +10,12 @@
       "change_pct": -3.66
     },
     "kospi": {
-      "index": 6820.6,
-      "change_pct": -24.75
+      "index": 6505.45,
+      "change_pct": -28.14
     },
     "kosdaq": {
-      "index": 791.84,
-      "change_pct": -20.89
+      "index": 751.35,
+      "change_pct": -22.27
     }
   },
   "screening_results": {
@@ -47,7 +47,7 @@
         "technicals": {
           "rsi_14": 63.2,
           "macd": 937.1824,
-          "macd_signal": -2362.638,
+          "macd_signal": -2362.6381,
           "adx": 47.9,
           "volume_ratio": 3.46,
           "bb_position": 1
@@ -133,8 +133,8 @@
         ],
         "technicals": {
           "rsi_14": 46.4,
-          "macd": -15731.9867,
-          "macd_signal": -16025.5311,
+          "macd": -15731.9868,
+          "macd_signal": -16025.5313,
           "adx": 44.0,
           "volume_ratio": 1.11,
           "bb_position": 0.46
@@ -201,7 +201,7 @@
         "sector": "2차전지",
         "price": 434500.0,
         "change_pct": -4.3,
-        "score": 42,
+        "score": 45,
         "score_breakdown": {
           "trend": 7,
           "golden_cross": 10,
@@ -220,8 +220,8 @@
         ],
         "technicals": {
           "rsi_14": 41.3,
-          "macd": -30966.4773,
-          "macd_signal": -32705.7325,
+          "macd": -30966.4774,
+          "macd_signal": -32705.7326,
           "adx": 26.3,
           "volume_ratio": 0.85,
           "bb_position": 0.29
@@ -288,7 +288,7 @@
         "sector": "지주",
         "price": 98800.0,
         "change_pct": -3.5,
-        "score": 41,
+        "score": 44,
         "score_breakdown": {
           "trend": 5,
           "golden_cross": 5,
@@ -375,7 +375,7 @@
         "sector": "자동차부품",
         "price": 482000.0,
         "change_pct": -1.5,
-        "score": 41,
+        "score": 44,
         "score_breakdown": {
           "trend": 5,
           "golden_cross": 10,
@@ -389,12 +389,13 @@
           "MACD 골든크로스 ✨",
           "RSI 42 (건강한 구간)",
           "MACD 히스토그램 증가 ↑",
-          "볼린저 밴드 수축 추세 📉"
+          "볼린저 밴드 수축 추세 📉",
+          "상대강도 시장 대비 +8%"
         ],
         "technicals": {
           "rsi_14": 41.7,
-          "macd": -26992.3225,
-          "macd_signal": -27220.7752,
+          "macd": -26992.3224,
+          "macd_signal": -27220.7751,
           "adx": 19.2,
           "volume_ratio": 0.61,
           "bb_position": 0.34
@@ -455,100 +456,13 @@
         "rank": 5
       },
       {
-        "ticker": "373220.KS",
-        "name": "LG에너지솔루션",
-        "market": "KOSPI",
-        "sector": "2차전지",
-        "price": 334000.0,
-        "change_pct": -0.3,
-        "score": 40,
-        "score_breakdown": {
-          "trend": 0,
-          "golden_cross": 10,
-          "momentum": 17,
-          "volume": 0,
-          "support": 0,
-          "bollinger": 3
-        },
-        "signals": [
-          "MACD 골든크로스 ✨",
-          "RSI 43 (건강한 구간)",
-          "MACD 히스토그램 증가 ↑",
-          "5일 수익률 +7%",
-          "볼린저 밴드 수축 추세 📉",
-          "상대강도 시장 대비 +8%"
-        ],
-        "technicals": {
-          "rsi_14": 42.7,
-          "macd": -19518.0783,
-          "macd_signal": -19916.5319,
-          "adx": 22.8,
-          "volume_ratio": 0.7,
-          "bb_position": 0.35
-        },
-        "risk_reward": {
-          "entry": 334000.0,
-          "stop_loss": 309500.0,
-          "take_profit": 404436.0,
-          "risk": 24500.0,
-          "reward": 70436.0,
-          "ratio": 2.87,
-          "risk_pct": -7.3,
-          "reward_pct": 21.1
-        },
-        "price_history_30d": [
-          414000.0,
-          388500.0,
-          396500.0,
-          385500.0,
-          384500.0,
-          400000.0,
-          420500.0,
-          410500.0,
-          416000.0,
-          400000.0,
-          404500.0,
-          385500.0,
-          362000.0,
-          365500.0,
-          352000.0,
-          331500.0,
-          400500.0,
-          362000.0,
-          348000.0,
-          354000.0,
-          362500.0,
-          354500.0,
-          332000.0,
-          315500.0,
-          313500.0,
-          326000.0,
-          328500.0,
-          322000.0,
-          335000.0,
-          334000.0
-        ],
-        "ma_20": 349450.0,
-        "ma_60": 405358.33,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": true,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": true,
-          "trend_strong": false,
-          "rr_ratio_good": true
-        },
-        "rank": 6
-      },
-      {
         "ticker": "051910.KS",
         "name": "LG화학",
         "market": "KOSPI",
         "sector": "화학",
         "price": 260500.0,
         "change_pct": -1.5,
-        "score": 39,
+        "score": 41,
         "score_breakdown": {
           "trend": 2,
           "golden_cross": 10,
@@ -566,8 +480,8 @@
         ],
         "technicals": {
           "rsi_14": 38.1,
-          "macd": -20459.6285,
-          "macd_signal": -21026.9709,
+          "macd": -20459.6287,
+          "macd_signal": -21026.9711,
           "adx": 31.1,
           "volume_ratio": 0.7,
           "bb_position": 0.29
@@ -625,6 +539,93 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
+        "rank": 6
+      },
+      {
+        "ticker": "373220.KS",
+        "name": "LG에너지솔루션",
+        "market": "KOSPI",
+        "sector": "2차전지",
+        "price": 334000.0,
+        "change_pct": -0.3,
+        "score": 40,
+        "score_breakdown": {
+          "trend": 0,
+          "golden_cross": 10,
+          "momentum": 17,
+          "volume": 0,
+          "support": 0,
+          "bollinger": 3
+        },
+        "signals": [
+          "MACD 골든크로스 ✨",
+          "RSI 43 (건강한 구간)",
+          "MACD 히스토그램 증가 ↑",
+          "5일 수익률 +7%",
+          "볼린저 밴드 수축 추세 📉",
+          "상대강도 시장 대비 +12%"
+        ],
+        "technicals": {
+          "rsi_14": 42.7,
+          "macd": -19518.0785,
+          "macd_signal": -19916.5321,
+          "adx": 22.8,
+          "volume_ratio": 0.7,
+          "bb_position": 0.35
+        },
+        "risk_reward": {
+          "entry": 334000.0,
+          "stop_loss": 309500.0,
+          "take_profit": 404436.0,
+          "risk": 24500.0,
+          "reward": 70436.0,
+          "ratio": 2.87,
+          "risk_pct": -7.3,
+          "reward_pct": 21.1
+        },
+        "price_history_30d": [
+          414000.0,
+          388500.0,
+          396500.0,
+          385500.0,
+          384500.0,
+          400000.0,
+          420500.0,
+          410500.0,
+          416000.0,
+          400000.0,
+          404500.0,
+          385500.0,
+          362000.0,
+          365500.0,
+          352000.0,
+          331500.0,
+          400500.0,
+          362000.0,
+          348000.0,
+          354000.0,
+          362500.0,
+          354500.0,
+          332000.0,
+          315500.0,
+          313500.0,
+          326000.0,
+          328500.0,
+          322000.0,
+          335000.0,
+          334000.0
+        ],
+        "ma_20": 349450.0,
+        "ma_60": 405358.33,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": true
+        },
         "rank": 7
       },
       {
@@ -649,12 +650,12 @@
           "RSI 46 (건강한 구간)",
           "60일선 근처 지지",
           "볼린저 하단 반등",
-          "상대강도 시장 대비 +17% 💪"
+          "상대강도 시장 대비 +20% 💪"
         ],
         "technicals": {
           "rsi_14": 46.1,
           "macd": -70.1759,
-          "macd_signal": 221.1489,
+          "macd_signal": 221.149,
           "adx": 19.4,
           "volume_ratio": 0.74,
           "bb_position": 0.24
@@ -825,8 +826,8 @@
         ],
         "technicals": {
           "rsi_14": 34.6,
-          "macd": -16450.8432,
-          "macd_signal": -16919.6339,
+          "macd": -16450.8433,
+          "macd_signal": -16919.634,
           "adx": 44.9,
           "volume_ratio": 0.44,
           "bb_position": 0.22
