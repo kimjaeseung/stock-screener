@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-02 05:30 UTC",
+  "updated_at": "2026-08-03 05:45 UTC",
   "market_summary": {
     "sp500": {
       "index": 747.03,
@@ -10,12 +10,12 @@
       "change_pct": -3.45
     },
     "kospi": {
-      "index": 6595.45,
-      "change_pct": -13.76
+      "index": 6249.23,
+      "change_pct": -22.74
     },
     "kosdaq": {
-      "index": 719.76,
-      "change_pct": -16.96
+      "index": 737.44,
+      "change_pct": -15.08
     }
   },
   "screening_results": {
@@ -46,8 +46,8 @@
         ],
         "technicals": {
           "rsi_14": 55.5,
-          "macd": -2044.4129,
-          "macd_signal": -6933.2221,
+          "macd": -2044.4127,
+          "macd_signal": -6933.2218,
           "adx": 26.6,
           "volume_ratio": 1.19,
           "bb_position": 0.95
@@ -201,7 +201,7 @@
         "sector": "금융",
         "price": 100700.0,
         "change_pct": -0.1,
-        "score": 53,
+        "score": 56,
         "score_breakdown": {
           "trend": 16,
           "golden_cross": 0,
@@ -280,6 +280,93 @@
           "rr_ratio_good": true
         },
         "rank": 3
+      },
+      {
+        "ticker": "015760.KS",
+        "name": "한국전력",
+        "market": "KOSPI",
+        "sector": "전기",
+        "price": 34800.0,
+        "change_pct": 5.3,
+        "score": 50,
+        "score_breakdown": {
+          "trend": 2,
+          "golden_cross": 10,
+          "momentum": 17,
+          "volume": 2,
+          "support": 3,
+          "bollinger": 0
+        },
+        "signals": [
+          "변동성 수축 (VCP) 📐",
+          "ADX 35 — 추세 강함",
+          "MACD 골든크로스 ✨",
+          "RSI 47 (건강한 구간)",
+          "MACD 히스토그램 증가 ↑",
+          "스토캐스틱 상향 돌파 (62%)"
+        ],
+        "technicals": {
+          "rsi_14": 47.0,
+          "macd": -995.2321,
+          "macd_signal": -1058.656,
+          "adx": 34.8,
+          "volume_ratio": 1.01,
+          "bb_position": 0.46
+        },
+        "risk_reward": {
+          "entry": 34800.0,
+          "stop_loss": 32000.0,
+          "take_profit": 39086.0,
+          "risk": 2800.0,
+          "reward": 4286.0,
+          "ratio": 1.53,
+          "risk_pct": -8.0,
+          "reward_pct": 12.3
+        },
+        "price_history_30d": [
+          37900.0,
+          38000.0,
+          36250.0,
+          36750.0,
+          38800.0,
+          37100.0,
+          38250.0,
+          37000.0,
+          37600.0,
+          38150.0,
+          38250.0,
+          39150.0,
+          38200.0,
+          36750.0,
+          35200.0,
+          36200.0,
+          34250.0,
+          33950.0,
+          33900.0,
+          34050.0,
+          33000.0,
+          33700.0,
+          33900.0,
+          35600.0,
+          35400.0,
+          36200.0,
+          33650.0,
+          33100.0,
+          33050.0,
+          34800.0
+        ],
+        "ma_20": 35115.0,
+        "ma_60": 37708.33,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": false
+        },
+        "rank": 4
       },
       {
         "ticker": "105560.KS",
@@ -364,93 +451,6 @@
           "rsi_healthy": true,
           "macd_bullish": false,
           "trend_strong": true,
-          "rr_ratio_good": false
-        },
-        "rank": 4
-      },
-      {
-        "ticker": "015760.KS",
-        "name": "한국전력",
-        "market": "KOSPI",
-        "sector": "전기",
-        "price": 34800.0,
-        "change_pct": 5.3,
-        "score": 47,
-        "score_breakdown": {
-          "trend": 2,
-          "golden_cross": 10,
-          "momentum": 17,
-          "volume": 2,
-          "support": 3,
-          "bollinger": 0
-        },
-        "signals": [
-          "변동성 수축 (VCP) 📐",
-          "ADX 35 — 추세 강함",
-          "MACD 골든크로스 ✨",
-          "RSI 47 (건강한 구간)",
-          "MACD 히스토그램 증가 ↑",
-          "스토캐스틱 상향 돌파 (62%)"
-        ],
-        "technicals": {
-          "rsi_14": 47.0,
-          "macd": -995.2321,
-          "macd_signal": -1058.6561,
-          "adx": 34.8,
-          "volume_ratio": 1.01,
-          "bb_position": 0.46
-        },
-        "risk_reward": {
-          "entry": 34800.0,
-          "stop_loss": 32000.0,
-          "take_profit": 39086.0,
-          "risk": 2800.0,
-          "reward": 4286.0,
-          "ratio": 1.53,
-          "risk_pct": -8.0,
-          "reward_pct": 12.3
-        },
-        "price_history_30d": [
-          37900.0,
-          38000.0,
-          36250.0,
-          36750.0,
-          38800.0,
-          37100.0,
-          38250.0,
-          37000.0,
-          37600.0,
-          38150.0,
-          38250.0,
-          39150.0,
-          38200.0,
-          36750.0,
-          35200.0,
-          36200.0,
-          34250.0,
-          33950.0,
-          33900.0,
-          34050.0,
-          33000.0,
-          33700.0,
-          33900.0,
-          35600.0,
-          35400.0,
-          36200.0,
-          33650.0,
-          33100.0,
-          33050.0,
-          34800.0
-        ],
-        "ma_20": 35115.0,
-        "ma_60": 37708.33,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": true,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": true,
-          "trend_strong": false,
           "rr_ratio_good": false
         },
         "rank": 5
@@ -542,186 +542,13 @@
         "rank": 6
       },
       {
-        "ticker": "131970.KQ",
-        "name": "두산테스나",
-        "market": "KOSDAQ",
-        "sector": "반도체",
-        "price": 64100.0,
-        "change_pct": 23.7,
-        "score": 40,
-        "score_breakdown": {
-          "trend": 2,
-          "golden_cross": 0,
-          "momentum": 13,
-          "volume": 15,
-          "support": 5,
-          "bollinger": 0
-        },
-        "signals": [
-          "ADX 46 — 추세 강함",
-          "RSI 36 — 과매도 탈출 직전 🎯",
-          "스토캐스틱 상향 돌파 (24%)",
-          "거래량 1.7배 증가",
-          "볼린저 하단 반등"
-        ],
-        "technicals": {
-          "rsi_14": 35.6,
-          "macd": -15902.3766,
-          "macd_signal": -14467.7419,
-          "adx": 46.5,
-          "volume_ratio": 1.74,
-          "bb_position": 0.17
-        },
-        "risk_reward": {
-          "entry": 64100.0,
-          "stop_loss": 50600.0,
-          "take_profit": 115951.0,
-          "risk": 13500.0,
-          "reward": 51851.0,
-          "ratio": 3.84,
-          "risk_pct": -21.1,
-          "reward_pct": 80.9
-        },
-        "price_history_30d": [
-          134400.0,
-          142700.0,
-          125000.0,
-          119600.0,
-          119300.0,
-          115700.0,
-          117000.0,
-          116300.0,
-          112600.0,
-          101000.0,
-          107500.0,
-          106800.0,
-          103200.0,
-          91000.0,
-          90700.0,
-          99900.0,
-          92500.0,
-          87900.0,
-          96700.0,
-          86900.0,
-          80600.0,
-          81900.0,
-          80000.0,
-          83300.0,
-          76400.0,
-          81000.0,
-          66400.0,
-          55900.0,
-          51800.0,
-          64100.0
-        ],
-        "ma_20": 84225.0,
-        "ma_60": 125951.67,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": false,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": false,
-          "trend_strong": false,
-          "rr_ratio_good": true
-        },
-        "rank": 7
-      },
-      {
-        "ticker": "000660.KS",
-        "name": "SK하이닉스",
-        "market": "KOSPI",
-        "sector": "반도체",
-        "price": 1718000.0,
-        "change_pct": 30.0,
-        "score": 39,
-        "score_breakdown": {
-          "trend": 7,
-          "golden_cross": 0,
-          "momentum": 10,
-          "volume": 15,
-          "support": 5,
-          "bollinger": 1
-        },
-        "signals": [
-          "200일선 위",
-          "ADX 45 — 추세 강함",
-          "RSI 45 (건강한 구간)",
-          "스토캐스틱 상향 돌파 (51%)",
-          "거래량 1.6배 증가",
-          "볼린저 하단 반등"
-        ],
-        "technicals": {
-          "rsi_14": 44.7,
-          "macd": -191573.3751,
-          "macd_signal": -148363.4929,
-          "adx": 44.8,
-          "volume_ratio": 1.58,
-          "bb_position": 0.34
-        },
-        "risk_reward": {
-          "entry": 1718000.0,
-          "stop_loss": 1246000.0,
-          "take_profit": 2488389.0,
-          "risk": 472000.0,
-          "reward": 770389.0,
-          "ratio": 1.63,
-          "risk_pct": -27.5,
-          "reward_pct": 44.8
-        },
-        "price_history_30d": [
-          2764000.0,
-          2919000.0,
-          2555000.0,
-          2621000.0,
-          2917000.0,
-          2673000.0,
-          2628000.0,
-          2650000.0,
-          2560000.0,
-          2187000.0,
-          2425000.0,
-          2343000.0,
-          2201000.0,
-          2076000.0,
-          2186000.0,
-          2180000.0,
-          1845000.0,
-          1913000.0,
-          2082000.0,
-          1842000.0,
-          1764000.0,
-          1836000.0,
-          1830000.0,
-          1919000.0,
-          1759000.0,
-          1816000.0,
-          1550000.0,
-          1401000.0,
-          1322000.0,
-          1718000.0
-        ],
-        "ma_20": 1900400.0,
-        "ma_60": 2106972.18,
-        "checklist": {
-          "above_ma200": true,
-          "golden_cross_recent": false,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": false,
-          "trend_strong": false,
-          "rr_ratio_good": false
-        },
-        "rank": 8
-      },
-      {
         "ticker": "003490.KS",
         "name": "대한항공",
         "market": "KOSPI",
         "sector": "항공",
         "price": 25900.0,
         "change_pct": 5.1,
-        "score": 39,
+        "score": 42,
         "score_breakdown": {
           "trend": 6,
           "golden_cross": 0,
@@ -735,7 +562,8 @@
           "200일선 위",
           "RSI 48 (건강한 구간)",
           "스토캐스틱 상향 돌파 (49%)",
-          "20일선 근처 지지"
+          "20일선 근처 지지",
+          "상대강도 시장 대비 +13%"
         ],
         "technicals": {
           "rsi_14": 48.1,
@@ -798,7 +626,7 @@
           "trend_strong": false,
           "rr_ratio_good": false
         },
-        "rank": 9
+        "rank": 7
       },
       {
         "ticker": "357780.KQ",
@@ -807,7 +635,7 @@
         "sector": "반도체소재",
         "price": 252500.0,
         "change_pct": 12.5,
-        "score": 38,
+        "score": 42,
         "score_breakdown": {
           "trend": 2,
           "golden_cross": 10,
@@ -826,8 +654,8 @@
         ],
         "technicals": {
           "rsi_14": 39.6,
-          "macd": -28083.1614,
-          "macd_signal": -25601.5906,
+          "macd": -28083.1612,
+          "macd_signal": -25601.5903,
           "adx": 37.6,
           "volume_ratio": 0.75,
           "bb_position": 0.2
@@ -884,6 +712,180 @@
           "macd_bullish": false,
           "trend_strong": false,
           "rr_ratio_good": true
+        },
+        "rank": 8
+      },
+      {
+        "ticker": "000660.KS",
+        "name": "SK하이닉스",
+        "market": "KOSPI",
+        "sector": "반도체",
+        "price": 1718000.0,
+        "change_pct": 30.0,
+        "score": 41,
+        "score_breakdown": {
+          "trend": 7,
+          "golden_cross": 0,
+          "momentum": 10,
+          "volume": 15,
+          "support": 5,
+          "bollinger": 1
+        },
+        "signals": [
+          "200일선 위",
+          "ADX 45 — 추세 강함",
+          "RSI 45 (건강한 구간)",
+          "스토캐스틱 상향 돌파 (51%)",
+          "거래량 1.6배 증가",
+          "볼린저 하단 반등"
+        ],
+        "technicals": {
+          "rsi_14": 44.7,
+          "macd": -191573.375,
+          "macd_signal": -148363.4927,
+          "adx": 44.8,
+          "volume_ratio": 1.58,
+          "bb_position": 0.34
+        },
+        "risk_reward": {
+          "entry": 1718000.0,
+          "stop_loss": 1246000.0,
+          "take_profit": 2488389.0,
+          "risk": 472000.0,
+          "reward": 770389.0,
+          "ratio": 1.63,
+          "risk_pct": -27.5,
+          "reward_pct": 44.8
+        },
+        "price_history_30d": [
+          2764000.0,
+          2919000.0,
+          2555000.0,
+          2621000.0,
+          2917000.0,
+          2673000.0,
+          2628000.0,
+          2650000.0,
+          2560000.0,
+          2187000.0,
+          2425000.0,
+          2343000.0,
+          2201000.0,
+          2076000.0,
+          2186000.0,
+          2180000.0,
+          1845000.0,
+          1913000.0,
+          2082000.0,
+          1842000.0,
+          1764000.0,
+          1836000.0,
+          1830000.0,
+          1919000.0,
+          1759000.0,
+          1816000.0,
+          1550000.0,
+          1401000.0,
+          1322000.0,
+          1718000.0
+        ],
+        "ma_20": 1900400.0,
+        "ma_60": 2106972.18,
+        "checklist": {
+          "above_ma200": true,
+          "golden_cross_recent": false,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": false,
+          "trend_strong": false,
+          "rr_ratio_good": false
+        },
+        "rank": 9
+      },
+      {
+        "ticker": "247540.KQ",
+        "name": "에코프로비엠",
+        "market": "KOSDAQ",
+        "sector": "2차전지소재",
+        "price": 103500.0,
+        "change_pct": 7.3,
+        "score": 41,
+        "score_breakdown": {
+          "trend": 2,
+          "golden_cross": 5,
+          "momentum": 17,
+          "volume": 2,
+          "support": 5,
+          "bollinger": 5
+        },
+        "signals": [
+          "ADX 39 — 추세 강함",
+          "MACD > Signal (상승 추세)",
+          "RSI 40 — 과매도 탈출 직전 🎯",
+          "MACD 히스토그램 증가 ↑",
+          "볼린저 하단 반등",
+          "볼린저 스퀴즈 (폭 하위 20%)"
+        ],
+        "technicals": {
+          "rsi_14": 39.7,
+          "macd": -13557.6505,
+          "macd_signal": -14593.1786,
+          "adx": 39.5,
+          "volume_ratio": 1.1,
+          "bb_position": 0.27
+        },
+        "risk_reward": {
+          "entry": 103500.0,
+          "stop_loss": 88300.0,
+          "take_profit": 129975.0,
+          "risk": 15200.0,
+          "reward": 26475.0,
+          "ratio": 1.74,
+          "risk_pct": -14.7,
+          "reward_pct": 25.6
+        },
+        "price_history_30d": [
+          169400.0,
+          166700.0,
+          150900.0,
+          152500.0,
+          144000.0,
+          133700.0,
+          154500.0,
+          142500.0,
+          132700.0,
+          125500.0,
+          124400.0,
+          121700.0,
+          120200.0,
+          112600.0,
+          111500.0,
+          121600.0,
+          119800.0,
+          112600.0,
+          120900.0,
+          112400.0,
+          104100.0,
+          105900.0,
+          107500.0,
+          118200.0,
+          108300.0,
+          110500.0,
+          101800.0,
+          92600.0,
+          96500.0,
+          103500.0
+        ],
+        "ma_20": 111330.0,
+        "ma_60": 159683.33,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": false,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": false
         },
         "rank": 10
       }
