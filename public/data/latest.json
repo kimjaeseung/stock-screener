@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-09 03:45 UTC",
+  "updated_at": "2026-08-10 03:58 UTC",
   "market_summary": {
     "sp500": {
       "index": 773.26,
@@ -10,12 +10,12 @@
       "change_pct": -0.34
     },
     "kospi": {
-      "index": 6258.77,
-      "change_pct": -14.17
+      "index": 6305.59,
+      "change_pct": -15.65
     },
     "kosdaq": {
-      "index": 798.81,
-      "change_pct": 0.61
+      "index": 849.05,
+      "change_pct": 1.39
     }
   },
   "screening_results": {
@@ -46,7 +46,7 @@
         ],
         "technicals": {
           "rsi_14": 63.9,
-          "macd": 483.5264,
+          "macd": 483.5263,
           "macd_signal": -46.0093,
           "adx": 39.5,
           "volume_ratio": 1.79,
@@ -307,8 +307,8 @@
         ],
         "technicals": {
           "rsi_14": 53.6,
-          "macd": -7998.6294,
-          "macd_signal": -12850.1859,
+          "macd": -7998.6293,
+          "macd_signal": -12850.1857,
           "adx": 20.6,
           "volume_ratio": 0.92,
           "bb_position": 1
@@ -390,12 +390,12 @@
           "5일 수익률 +20% 강세 📈",
           "피보나치 38.2~61.8% 지지 구간",
           "볼린저 스퀴즈 (폭 하위 28%)",
-          "상대강도 시장 대비 +29% 💪"
+          "상대강도 시장 대비 +31% 💪"
         ],
         "technicals": {
           "rsi_14": 60.2,
-          "macd": -6350.5161,
-          "macd_signal": -35152.5791,
+          "macd": -6350.5157,
+          "macd_signal": -35152.5785,
           "adx": 23.6,
           "volume_ratio": 0.7,
           "bb_position": 1
@@ -454,6 +454,93 @@
           "rr_ratio_good": false
         },
         "rank": 5
+      },
+      {
+        "ticker": "000270.KS",
+        "name": "기아",
+        "market": "KOSPI",
+        "sector": "자동차",
+        "price": 134900.0,
+        "change_pct": 1.0,
+        "score": 38,
+        "score_breakdown": {
+          "trend": 0,
+          "golden_cross": 10,
+          "momentum": 14,
+          "volume": 0,
+          "support": 3,
+          "bollinger": 3
+        },
+        "signals": [
+          "MACD 골든크로스 ✨",
+          "RSI 47 (건강한 구간)",
+          "MACD 히스토그램 증가 ↑",
+          "20일선 근처 지지",
+          "볼린저 밴드 수축 추세 📉",
+          "상대강도 시장 대비 +9%"
+        ],
+        "technicals": {
+          "rsi_14": 47.1,
+          "macd": -4795.5678,
+          "macd_signal": -5492.7788,
+          "adx": 20.6,
+          "volume_ratio": 0.84,
+          "bb_position": 0.47
+        },
+        "risk_reward": {
+          "entry": 134900.0,
+          "stop_loss": 120687.0,
+          "take_profit": 156239.0,
+          "risk": 14213.0,
+          "reward": 21339.0,
+          "ratio": 1.5,
+          "risk_pct": -10.5,
+          "reward_pct": 15.8
+        },
+        "price_history_30d": [
+          135300.0,
+          140600.0,
+          138000.0,
+          141500.0,
+          145200.0,
+          152000.0,
+          160700.0,
+          153700.0,
+          156800.0,
+          144800.0,
+          147500.0,
+          143500.0,
+          139600.0,
+          145000.0,
+          149700.0,
+          140000.0,
+          144600.0,
+          146800.0,
+          149800.0,
+          130500.0,
+          130400.0,
+          121800.0,
+          120400.0,
+          120800.0,
+          131900.0,
+          129600.0,
+          129600.0,
+          133000.0,
+          133600.0,
+          134900.0
+        ],
+        "ma_20": 136150.0,
+        "ma_60": 150485.0,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": false
+        },
+        "rank": 6
       },
       {
         "ticker": "336260.KQ",
@@ -539,92 +626,6 @@
           "macd_bullish": true,
           "trend_strong": false,
           "rr_ratio_good": true
-        },
-        "rank": 6
-      },
-      {
-        "ticker": "000270.KS",
-        "name": "기아",
-        "market": "KOSPI",
-        "sector": "자동차",
-        "price": 134900.0,
-        "change_pct": 1.0,
-        "score": 35,
-        "score_breakdown": {
-          "trend": 0,
-          "golden_cross": 10,
-          "momentum": 14,
-          "volume": 0,
-          "support": 3,
-          "bollinger": 3
-        },
-        "signals": [
-          "MACD 골든크로스 ✨",
-          "RSI 47 (건강한 구간)",
-          "MACD 히스토그램 증가 ↑",
-          "20일선 근처 지지",
-          "볼린저 밴드 수축 추세 📉"
-        ],
-        "technicals": {
-          "rsi_14": 47.1,
-          "macd": -4795.5678,
-          "macd_signal": -5492.7788,
-          "adx": 20.6,
-          "volume_ratio": 0.84,
-          "bb_position": 0.47
-        },
-        "risk_reward": {
-          "entry": 134900.0,
-          "stop_loss": 120687.0,
-          "take_profit": 156239.0,
-          "risk": 14213.0,
-          "reward": 21339.0,
-          "ratio": 1.5,
-          "risk_pct": -10.5,
-          "reward_pct": 15.8
-        },
-        "price_history_30d": [
-          135300.0,
-          140600.0,
-          138000.0,
-          141500.0,
-          145200.0,
-          152000.0,
-          160700.0,
-          153700.0,
-          156800.0,
-          144800.0,
-          147500.0,
-          143500.0,
-          139600.0,
-          145000.0,
-          149700.0,
-          140000.0,
-          144600.0,
-          146800.0,
-          149800.0,
-          130500.0,
-          130400.0,
-          121800.0,
-          120400.0,
-          120800.0,
-          131900.0,
-          129600.0,
-          129600.0,
-          133000.0,
-          133600.0,
-          134900.0
-        ],
-        "ma_20": 136150.0,
-        "ma_60": 150485.0,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": true,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": true,
-          "trend_strong": false,
-          "rr_ratio_good": false
         },
         "rank": 7
       },
@@ -721,7 +722,7 @@
         "sector": "반도체",
         "price": 30000.0,
         "change_pct": -2.9,
-        "score": 25,
+        "score": 27,
         "score_breakdown": {
           "trend": 0,
           "golden_cross": 10,
