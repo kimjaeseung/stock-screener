@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-15 02:53 UTC",
+  "updated_at": "2026-08-16 03:02 UTC",
   "market_summary": {
     "sp500": {
       "index": 776.34,
@@ -15,7 +15,7 @@
     },
     "kosdaq": {
       "index": 864.65,
-      "change_pct": 9.2
+      "change_pct": 4.25
     }
   },
   "screening_results": {
