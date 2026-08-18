@@ -1,21 +1,21 @@
 {
-  "updated_at": "2026-08-17 03:01 UTC",
+  "updated_at": "2026-08-18 02:57 UTC",
   "market_summary": {
     "sp500": {
-      "index": 776.34,
-      "change_pct": 4.45
+      "index": 772.67,
+      "change_pct": 4.12
     },
     "nasdaq": {
-      "index": 731.07,
-      "change_pct": 5.14
+      "index": 729.87,
+      "change_pct": 4.86
     },
     "kospi": {
-      "index": 6977.94,
-      "change_pct": 2.51
+      "index": 6959.62,
+      "change_pct": 6.8
     },
     "kosdaq": {
-      "index": 864.65,
-      "change_pct": 4.25
+      "index": 849.98,
+      "change_pct": 7.34
     }
   },
   "screening_results": {
@@ -27,7 +27,7 @@
         "sector": "지주",
         "price": 120000.0,
         "change_pct": 5.5,
-        "score": 65,
+        "score": 62,
         "score_breakdown": {
           "trend": 10,
           "golden_cross": 5,
@@ -114,7 +114,7 @@
         "sector": "자동차부품",
         "price": 547000.0,
         "change_pct": 7.0,
-        "score": 64,
+        "score": 61,
         "score_breakdown": {
           "trend": 10,
           "golden_cross": 5,
@@ -134,7 +134,7 @@
         "technicals": {
           "rsi_14": 61.4,
           "macd": 2520.436,
-          "macd_signal": -6189.9932,
+          "macd_signal": -6189.9931,
           "adx": 27.4,
           "volume_ratio": 1.11,
           "bb_position": 1
@@ -195,13 +195,100 @@
         "rank": 2
       },
       {
+        "ticker": "039030.KQ",
+        "name": "이오테크닉스",
+        "market": "KOSDAQ",
+        "sector": "반도체장비",
+        "price": 404000.0,
+        "change_pct": 6.7,
+        "score": 60,
+        "score_breakdown": {
+          "trend": 10,
+          "golden_cross": 5,
+          "momentum": 20,
+          "volume": 5,
+          "support": 8,
+          "bollinger": 0
+        },
+        "signals": [
+          "200일선 위",
+          "20일선 우상향 중",
+          "ADX 34 — 추세 강함",
+          "MACD > Signal (상승 추세)",
+          "RSI 60 (건강한 구간)",
+          "MACD 히스토그램 증가 ↑"
+        ],
+        "technicals": {
+          "rsi_14": 59.8,
+          "macd": 194.3581,
+          "macd_signal": -16682.6675,
+          "adx": 34.3,
+          "volume_ratio": 1.44,
+          "bb_position": 1.0
+        },
+        "risk_reward": {
+          "entry": 404000.0,
+          "stop_loss": 340676.0,
+          "take_profit": 623000.0,
+          "risk": 63324.0,
+          "reward": 219000.0,
+          "ratio": 3.46,
+          "risk_pct": -15.7,
+          "reward_pct": 54.2
+        },
+        "price_history_30d": [
+          392500.0,
+          397500.0,
+          370000.0,
+          345000.0,
+          342500.0,
+          378500.0,
+          359500.0,
+          357000.0,
+          385000.0,
+          344000.0,
+          317000.0,
+          317500.0,
+          308500.0,
+          328500.0,
+          298500.0,
+          309000.0,
+          270000.0,
+          249000.0,
+          240000.0,
+          296000.0,
+          292000.0,
+          309000.0,
+          327000.0,
+          336500.0,
+          324500.0,
+          357000.0,
+          368500.0,
+          385500.0,
+          378500.0,
+          404000.0
+        ],
+        "ma_20": 320825.0,
+        "ma_60": 410575.0,
+        "checklist": {
+          "above_ma200": true,
+          "golden_cross_recent": false,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": true
+        },
+        "rank": 3
+      },
+      {
         "ticker": "005380.KS",
         "name": "현대차",
         "market": "KOSPI",
         "sector": "자동차",
         "price": 453000.0,
         "change_pct": 8.2,
-        "score": 63,
+        "score": 59,
         "score_breakdown": {
           "trend": 7,
           "golden_cross": 10,
@@ -279,181 +366,7 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
-        "rank": 3
-      },
-      {
-        "ticker": "039030.KQ",
-        "name": "이오테크닉스",
-        "market": "KOSDAQ",
-        "sector": "반도체장비",
-        "price": 404000.0,
-        "change_pct": 6.7,
-        "score": 60,
-        "score_breakdown": {
-          "trend": 10,
-          "golden_cross": 5,
-          "momentum": 20,
-          "volume": 5,
-          "support": 8,
-          "bollinger": 0
-        },
-        "signals": [
-          "200일선 위",
-          "20일선 우상향 중",
-          "ADX 34 — 추세 강함",
-          "MACD > Signal (상승 추세)",
-          "RSI 60 (건강한 구간)",
-          "MACD 히스토그램 증가 ↑"
-        ],
-        "technicals": {
-          "rsi_14": 59.8,
-          "macd": 194.358,
-          "macd_signal": -16682.6677,
-          "adx": 34.3,
-          "volume_ratio": 1.44,
-          "bb_position": 1.0
-        },
-        "risk_reward": {
-          "entry": 404000.0,
-          "stop_loss": 340676.0,
-          "take_profit": 623000.0,
-          "risk": 63324.0,
-          "reward": 219000.0,
-          "ratio": 3.46,
-          "risk_pct": -15.7,
-          "reward_pct": 54.2
-        },
-        "price_history_30d": [
-          392500.0,
-          397500.0,
-          370000.0,
-          345000.0,
-          342500.0,
-          378500.0,
-          359500.0,
-          357000.0,
-          385000.0,
-          344000.0,
-          317000.0,
-          317500.0,
-          308500.0,
-          328500.0,
-          298500.0,
-          309000.0,
-          270000.0,
-          249000.0,
-          240000.0,
-          296000.0,
-          292000.0,
-          309000.0,
-          327000.0,
-          336500.0,
-          324500.0,
-          357000.0,
-          368500.0,
-          385500.0,
-          378500.0,
-          404000.0
-        ],
-        "ma_20": 320825.0,
-        "ma_60": 410575.0,
-        "checklist": {
-          "above_ma200": true,
-          "golden_cross_recent": false,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": true,
-          "trend_strong": false,
-          "rr_ratio_good": true
-        },
         "rank": 4
-      },
-      {
-        "ticker": "006400.KS",
-        "name": "삼성SDI",
-        "market": "KOSPI",
-        "sector": "2차전지",
-        "price": 516000.0,
-        "change_pct": 6.0,
-        "score": 57,
-        "score_breakdown": {
-          "trend": 10,
-          "golden_cross": 5,
-          "momentum": 15,
-          "volume": 2,
-          "support": 5,
-          "bollinger": 5
-        },
-        "signals": [
-          "200일선 위",
-          "20일선 우상향 중",
-          "ADX 36 — 추세 강함",
-          "MACD > Signal (상승 추세)",
-          "MACD 히스토그램 증가 ↑",
-          "5일 수익률 +12% 강세 📈"
-        ],
-        "technicals": {
-          "rsi_14": 61.9,
-          "macd": 7853.9704,
-          "macd_signal": -7156.8933,
-          "adx": 35.7,
-          "volume_ratio": 1.06,
-          "bb_position": 1
-        },
-        "risk_reward": {
-          "entry": 516000.0,
-          "stop_loss": 452835.0,
-          "take_profit": 707000.0,
-          "risk": 63165.0,
-          "reward": 191000.0,
-          "ratio": 3.02,
-          "risk_pct": -12.2,
-          "reward_pct": 37.0
-        },
-        "price_history_30d": [
-          467500.0,
-          451500.0,
-          445000.0,
-          412000.0,
-          401500.0,
-          434000.0,
-          440000.0,
-          427500.0,
-          454000.0,
-          434500.0,
-          401000.0,
-          416500.0,
-          419000.0,
-          467000.0,
-          428000.0,
-          431000.0,
-          382000.0,
-          364000.0,
-          358500.0,
-          397000.0,
-          389500.0,
-          419500.0,
-          429000.0,
-          427000.0,
-          459000.0,
-          481500.0,
-          459500.0,
-          485500.0,
-          487000.0,
-          516000.0
-        ],
-        "ma_20": 430875.0,
-        "ma_60": 492525.0,
-        "checklist": {
-          "above_ma200": true,
-          "golden_cross_recent": false,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": true,
-          "trend_strong": false,
-          "rr_ratio_good": true
-        },
-        "rank": 5
       },
       {
         "ticker": "009150.KS",
@@ -540,6 +453,93 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
+        "rank": 5
+      },
+      {
+        "ticker": "006400.KS",
+        "name": "삼성SDI",
+        "market": "KOSPI",
+        "sector": "2차전지",
+        "price": 516000.0,
+        "change_pct": 6.0,
+        "score": 54,
+        "score_breakdown": {
+          "trend": 10,
+          "golden_cross": 5,
+          "momentum": 15,
+          "volume": 2,
+          "support": 5,
+          "bollinger": 5
+        },
+        "signals": [
+          "200일선 위",
+          "20일선 우상향 중",
+          "ADX 36 — 추세 강함",
+          "MACD > Signal (상승 추세)",
+          "MACD 히스토그램 증가 ↑",
+          "5일 수익률 +12% 강세 📈"
+        ],
+        "technicals": {
+          "rsi_14": 61.9,
+          "macd": 7853.9704,
+          "macd_signal": -7156.8932,
+          "adx": 35.7,
+          "volume_ratio": 1.06,
+          "bb_position": 1
+        },
+        "risk_reward": {
+          "entry": 516000.0,
+          "stop_loss": 452835.0,
+          "take_profit": 707000.0,
+          "risk": 63165.0,
+          "reward": 191000.0,
+          "ratio": 3.02,
+          "risk_pct": -12.2,
+          "reward_pct": 37.0
+        },
+        "price_history_30d": [
+          467500.0,
+          451500.0,
+          445000.0,
+          412000.0,
+          401500.0,
+          434000.0,
+          440000.0,
+          427500.0,
+          454000.0,
+          434500.0,
+          401000.0,
+          416500.0,
+          419000.0,
+          467000.0,
+          428000.0,
+          431000.0,
+          382000.0,
+          364000.0,
+          358500.0,
+          397000.0,
+          389500.0,
+          419500.0,
+          429000.0,
+          427000.0,
+          459000.0,
+          481500.0,
+          459500.0,
+          485500.0,
+          487000.0,
+          516000.0
+        ],
+        "ma_20": 430875.0,
+        "ma_60": 492525.0,
+        "checklist": {
+          "above_ma200": true,
+          "golden_cross_recent": false,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": true
+        },
         "rank": 6
       },
       {
@@ -549,7 +549,7 @@
         "sector": "여행/리조트",
         "price": 13760.0,
         "change_pct": 7.4,
-        "score": 57,
+        "score": 54,
         "score_breakdown": {
           "trend": 2,
           "golden_cross": 5,
@@ -739,7 +739,7 @@
         "technicals": {
           "rsi_14": 34.4,
           "macd": -1016.8147,
-          "macd_signal": -652.9646,
+          "macd_signal": -652.9645,
           "adx": 26.3,
           "volume_ratio": 2.18,
           "bb_position": 0
@@ -823,7 +823,7 @@
         "technicals": {
           "rsi_14": 40.3,
           "macd": -509.8082,
-          "macd_signal": -507.3482,
+          "macd_signal": -507.3483,
           "adx": 21.3,
           "volume_ratio": 1.01,
           "bb_position": 0.19
