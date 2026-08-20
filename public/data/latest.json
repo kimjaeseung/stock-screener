@@ -1,107 +1,109 @@
 {
-  "updated_at": "2026-08-19 02:59 UTC",
+  "updated_at": "2026-08-20 02:58 UTC",
   "market_summary": {
     "sp500": {
-      "index": 767.45,
-      "change_pct": 2.56
+      "index": 769.06,
+      "change_pct": 2.9
     },
     "nasdaq": {
-      "index": 717.51,
-      "change_pct": 1.2
+      "index": 716.08,
+      "change_pct": 1.52
     },
     "kospi": {
-      "index": 6497.54,
-      "change_pct": -3.71
+      "index": 6858.81,
+      "change_pct": 0.9
     },
     "kosdaq": {
-      "index": 833.67,
-      "change_pct": 11.21
+      "index": 839.5,
+      "change_pct": 11.44
     }
   },
   "screening_results": {
     "kr": [
       {
-        "ticker": "035900.KQ",
-        "name": "JYP Ent",
-        "market": "KOSDAQ",
-        "sector": "엔터",
-        "price": 39350.0,
-        "change_pct": -4.1,
-        "score": 38,
+        "ticker": "035720.KS",
+        "name": "카카오",
+        "market": "KOSPI",
+        "sector": "인터넷",
+        "price": 37400.0,
+        "change_pct": -2.2,
+        "score": 46,
         "score_breakdown": {
-          "trend": 2,
-          "golden_cross": 0,
-          "momentum": 13,
-          "volume": 20,
-          "support": 0,
-          "bollinger": 0
+          "trend": 5,
+          "golden_cross": 10,
+          "momentum": 10,
+          "volume": 0,
+          "support": 3,
+          "bollinger": 1
         },
         "signals": [
-          "ADX 32 — 추세 강함",
-          "RSI 32 — 과매도 탈출 직전 🎯",
-          "스토캐스틱 상향 돌파 (5%)",
-          "거래량 2.2배 급증 📈"
+          "더블바텀 패턴 🔄",
+          "20일선 우상향 중",
+          "ADX 39 — 추세 강함",
+          "20일×60일 골든크로스 ✨",
+          "RSI 48 (건강한 구간)",
+          "20일선 근처 지지"
         ],
         "technicals": {
-          "rsi_14": 31.7,
-          "macd": -1945.9156,
-          "macd_signal": -1669.4664,
-          "adx": 31.7,
-          "volume_ratio": 2.22,
-          "bb_position": 0
+          "rsi_14": 47.8,
+          "macd": 669.3725,
+          "macd_signal": 632.1918,
+          "adx": 39.2,
+          "volume_ratio": 0.58,
+          "bb_position": 0.43
         },
         "risk_reward": {
-          "entry": 39350.0,
-          "stop_loss": 34813.0,
-          "take_profit": 49562.0,
-          "risk": 4537.0,
-          "reward": 10212.0,
-          "ratio": 2.25,
-          "risk_pct": -11.5,
-          "reward_pct": 26.0
+          "entry": 37400.0,
+          "stop_loss": 34650.0,
+          "take_profit": 41527.0,
+          "risk": 2750.0,
+          "reward": 4127.0,
+          "ratio": 1.5,
+          "risk_pct": -7.4,
+          "reward_pct": 11.0
         },
         "price_history_30d": [
-          53900.0,
-          54400.0,
-          52600.0,
-          49450.0,
-          50700.0,
-          49650.0,
-          47750.0,
-          47900.0,
-          46650.0,
-          44600.0,
-          44350.0,
-          43750.0,
-          45650.0,
-          44850.0,
-          47000.0,
-          45000.0,
-          42950.0,
-          42000.0,
-          43200.0,
-          44400.0,
-          46250.0,
-          46100.0,
-          47150.0,
-          46800.0,
-          47350.0,
-          46550.0,
-          46000.0,
-          40850.0,
-          41050.0,
-          39350.0
+          35400.0,
+          34650.0,
+          33650.0,
+          35350.0,
+          34750.0,
+          33850.0,
+          34900.0,
+          35900.0,
+          35050.0,
+          35300.0,
+          35500.0,
+          37150.0,
+          36200.0,
+          37050.0,
+          35650.0,
+          35300.0,
+          36150.0,
+          37400.0,
+          37200.0,
+          37900.0,
+          38150.0,
+          38300.0,
+          39900.0,
+          39550.0,
+          40700.0,
+          39550.0,
+          40100.0,
+          40000.0,
+          38250.0,
+          37400.0
         ],
-        "ma_20": 44530.0,
-        "ma_60": 50511.67,
+        "ma_20": 37870.0,
+        "ma_60": 37656.67,
         "checklist": {
           "above_ma200": false,
-          "golden_cross_recent": false,
-          "volume_surge": true,
+          "golden_cross_recent": true,
+          "volume_surge": false,
           "rsi_healthy": true,
-          "macd_bullish": false,
+          "macd_bullish": true,
           "trend_strong": false,
-          "rr_ratio_good": true
+          "rr_ratio_good": false
         },
         "rank": 1
       },
@@ -110,9 +112,9 @@
         "name": "클래시스",
         "market": "KOSDAQ",
         "sector": "의료기기",
-        "price": 34700.0,
-        "change_pct": -7.5,
-        "score": 33,
+        "price": 33400.0,
+        "change_pct": -3.7,
+        "score": 35,
         "score_breakdown": {
           "trend": 2,
           "golden_cross": 0,
@@ -122,30 +124,30 @@
           "bollinger": 0
         },
         "signals": [
-          "ADX 30 — 추세 강함",
-          "RSI 30 — 과매도 탈출 직전 🎯",
-          "거래량 2.2배 급증 📈"
+          "ADX 35 — 추세 강함",
+          "RSI 29 — 과매도 (반등 가능)",
+          "스토캐스틱 상향 돌파 (12%)",
+          "거래량 3.9배 폭발 🔥"
         ],
         "technicals": {
-          "rsi_14": 30.3,
-          "macd": -1592.0695,
-          "macd_signal": -840.7855,
-          "adx": 30.5,
-          "volume_ratio": 2.24,
+          "rsi_14": 28.6,
+          "macd": -2128.3282,
+          "macd_signal": -1098.2941,
+          "adx": 35.3,
+          "volume_ratio": 3.88,
           "bb_position": 0
         },
         "risk_reward": {
-          "entry": 34700.0,
-          "stop_loss": 28282.0,
-          "take_profit": 49741.0,
-          "risk": 6418.0,
-          "reward": 15041.0,
-          "ratio": 2.34,
-          "risk_pct": -18.5,
-          "reward_pct": 43.3
+          "entry": 33400.0,
+          "stop_loss": 31500.0,
+          "take_profit": 50395.0,
+          "risk": 1900.0,
+          "reward": 16995.0,
+          "ratio": 8.94,
+          "risk_pct": -5.7,
+          "reward_pct": 50.9
         },
         "price_history_30d": [
-          45400.0,
           47750.0,
           47600.0,
           50100.0,
@@ -174,15 +176,16 @@
           43800.0,
           39700.0,
           37500.0,
-          34700.0
+          34700.0,
+          33400.0
         ],
-        "ma_20": 42792.5,
-        "ma_60": 44962.5,
+        "ma_20": 42275.0,
+        "ma_60": 44720.0,
         "checklist": {
           "above_ma200": false,
           "golden_cross_recent": false,
           "volume_surge": true,
-          "rsi_healthy": true,
+          "rsi_healthy": false,
           "macd_bullish": false,
           "trend_strong": false,
           "rr_ratio_good": true
@@ -190,47 +193,218 @@
         "rank": 2
       },
       {
+        "ticker": "000660.KS",
+        "name": "SK하이닉스",
+        "market": "KOSPI",
+        "sector": "반도체",
+        "price": 1500000.0,
+        "change_pct": -9.7,
+        "score": 34,
+        "score_breakdown": {
+          "trend": 7,
+          "golden_cross": 10,
+          "momentum": 13,
+          "volume": 0,
+          "support": 0,
+          "bollinger": 3
+        },
+        "signals": [
+          "200일선 위",
+          "ADX 26 — 추세 강함",
+          "MACD 골든크로스 ✨",
+          "RSI 43 (건강한 구간)",
+          "5일 수익률 +5%",
+          "볼린저 밴드 수축 추세 📉"
+        ],
+        "technicals": {
+          "rsi_14": 42.7,
+          "macd": -119341.8151,
+          "macd_signal": -148569.3066,
+          "adx": 25.5,
+          "volume_ratio": 0.74,
+          "bb_position": 0.36
+        },
+        "risk_reward": {
+          "entry": 1500000.0,
+          "stop_loss": 1246000.0,
+          "take_profit": 1923295.0,
+          "risk": 254000.0,
+          "reward": 423295.0,
+          "ratio": 1.67,
+          "risk_pct": -16.9,
+          "reward_pct": 28.2
+        },
+        "price_history_30d": [
+          2201000.0,
+          2076000.0,
+          2186000.0,
+          2180000.0,
+          1845000.0,
+          1913000.0,
+          2082000.0,
+          1842000.0,
+          1764000.0,
+          1836000.0,
+          1830000.0,
+          1919000.0,
+          1759000.0,
+          1816000.0,
+          1550000.0,
+          1401000.0,
+          1322000.0,
+          1718000.0,
+          1567000.0,
+          1577000.0,
+          1668000.0,
+          1495000.0,
+          1422000.0,
+          1420000.0,
+          1425000.0,
+          1504000.0,
+          1593000.0,
+          1645000.0,
+          1662000.0,
+          1500000.0
+        ],
+        "ma_20": 1589650.0,
+        "ma_60": 2053482.62,
+        "checklist": {
+          "above_ma200": true,
+          "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": false
+        },
+        "rank": 3
+      },
+      {
+        "ticker": "035420.KS",
+        "name": "NAVER",
+        "market": "KOSPI",
+        "sector": "인터넷",
+        "price": 208000.0,
+        "change_pct": -4.1,
+        "score": 28,
+        "score_breakdown": {
+          "trend": 3,
+          "golden_cross": 5,
+          "momentum": 10,
+          "volume": 0,
+          "support": 0,
+          "bollinger": 3
+        },
+        "signals": [
+          "20일선 우상향 중",
+          "MACD > Signal (상승 추세)",
+          "RSI 48 (건강한 구간)",
+          "볼린저 밴드 수축 추세 📉"
+        ],
+        "technicals": {
+          "rsi_14": 47.8,
+          "macd": 3242.3022,
+          "macd_signal": 3117.4686,
+          "adx": 23.8,
+          "volume_ratio": 0.53,
+          "bb_position": 0.35
+        },
+        "risk_reward": {
+          "entry": 208000.0,
+          "stop_loss": 194100.0,
+          "take_profit": 236803.0,
+          "risk": 13900.0,
+          "reward": 28803.0,
+          "ratio": 2.07,
+          "risk_pct": -6.7,
+          "reward_pct": 13.8
+        },
+        "price_history_30d": [
+          197200.0,
+          192700.0,
+          184400.0,
+          191300.0,
+          188000.0,
+          183200.0,
+          189600.0,
+          190000.0,
+          185900.0,
+          193000.0,
+          196900.0,
+          220000.0,
+          207500.0,
+          225000.0,
+          210000.0,
+          201500.0,
+          194700.0,
+          208000.0,
+          207500.0,
+          226500.0,
+          229000.0,
+          226000.0,
+          210000.0,
+          211500.0,
+          214000.0,
+          215500.0,
+          226500.0,
+          228000.0,
+          217000.0,
+          208000.0
+        ],
+        "ma_20": 214155.0,
+        "ma_60": 215648.33,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": false,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": true
+        },
+        "rank": 4
+      },
+      {
         "ticker": "015760.KS",
         "name": "한국전력",
         "market": "KOSPI",
         "sector": "전기",
-        "price": 32600.0,
-        "change_pct": -2.0,
-        "score": 26,
+        "price": 30850.0,
+        "change_pct": -5.4,
+        "score": 28,
         "score_breakdown": {
-          "trend": 0,
+          "trend": 2,
           "golden_cross": 0,
           "momentum": 8,
-          "volume": 5,
-          "support": 5,
+          "volume": 10,
+          "support": 0,
           "bollinger": 5
         },
         "signals": [
-          "RSI 38 — 과매도 탈출 직전 🎯",
+          "ADX 29 — 추세 강함",
+          "RSI 32 — 과매도 탈출 직전 🎯",
           "거래량 트렌드 증가 (5일 > 20일 ×1.1)",
-          "볼린저 하단 반등",
-          "볼린저 스퀴즈 (폭 하위 7%)"
+          "볼린저 스퀴즈 (폭 하위 14%)"
         ],
         "technicals": {
-          "rsi_14": 37.8,
-          "macd": -633.8064,
-          "macd_signal": -532.6399,
-          "adx": 24.5,
-          "volume_ratio": 0.78,
-          "bb_position": 0.06
+          "rsi_14": 32.1,
+          "macd": -863.3342,
+          "macd_signal": -598.7787,
+          "adx": 29.3,
+          "volume_ratio": 1.41,
+          "bb_position": 0
         },
         "risk_reward": {
-          "entry": 32600.0,
-          "stop_loss": 29986.0,
-          "take_profit": 37220.0,
-          "risk": 2614.0,
-          "reward": 4620.0,
-          "ratio": 1.77,
-          "risk_pct": -8.0,
-          "reward_pct": 14.2
+          "entry": 30850.0,
+          "stop_loss": 27998.0,
+          "take_profit": 37586.0,
+          "risk": 2852.0,
+          "reward": 6736.0,
+          "ratio": 2.36,
+          "risk_pct": -9.2,
+          "reward_pct": 21.8
         },
         "price_history_30d": [
-          39150.0,
           38200.0,
           36750.0,
           35200.0,
@@ -259,10 +433,11 @@
           35450.0,
           33100.0,
           33250.0,
-          32600.0
+          32600.0,
+          30850.0
         ],
-        "ma_20": 34580.0,
-        "ma_60": 36560.0,
+        "ma_20": 34437.5,
+        "ma_60": 36417.5,
         "checklist": {
           "above_ma200": false,
           "golden_cross_recent": false,
@@ -270,51 +445,219 @@
           "rsi_healthy": true,
           "macd_bullish": false,
           "trend_strong": false,
+          "rr_ratio_good": true
+        },
+        "rank": 5
+      },
+      {
+        "ticker": "035900.KQ",
+        "name": "JYP Ent",
+        "market": "KOSDAQ",
+        "sector": "엔터",
+        "price": 39950.0,
+        "change_pct": 1.5,
+        "score": 27,
+        "score_breakdown": {
+          "trend": 2,
+          "golden_cross": 0,
+          "momentum": 10,
+          "volume": 5,
+          "support": 5,
+          "bollinger": 0
+        },
+        "signals": [
+          "ADX 36 — 추세 강함",
+          "RSI 34 — 과매도 탈출 직전 🎯",
+          "거래량 트렌드 증가 (5일 > 20일 ×1.1)",
+          "볼린저 하단 반등"
+        ],
+        "technicals": {
+          "rsi_14": 33.9,
+          "macd": -2111.3838,
+          "macd_signal": -1757.8499,
+          "adx": 36.4,
+          "volume_ratio": 0.78,
+          "bb_position": 0.06
+        },
+        "risk_reward": {
+          "entry": 39950.0,
+          "stop_loss": 38150.0,
+          "take_profit": 49765.0,
+          "risk": 1800.0,
+          "reward": 9815.0,
+          "ratio": 5.45,
+          "risk_pct": -4.5,
+          "reward_pct": 24.6
+        },
+        "price_history_30d": [
+          54400.0,
+          52600.0,
+          49450.0,
+          50700.0,
+          49650.0,
+          47750.0,
+          47900.0,
+          46650.0,
+          44600.0,
+          44350.0,
+          43750.0,
+          45650.0,
+          44850.0,
+          47000.0,
+          45000.0,
+          42950.0,
+          42000.0,
+          43200.0,
+          44400.0,
+          46250.0,
+          46100.0,
+          47150.0,
+          46800.0,
+          47350.0,
+          46550.0,
+          46000.0,
+          40850.0,
+          41050.0,
+          39350.0,
+          39950.0
+        ],
+        "ma_20": 44310.0,
+        "ma_60": 50162.5,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": false,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": false,
+          "trend_strong": false,
+          "rr_ratio_good": true
+        },
+        "rank": 6
+      },
+      {
+        "ticker": "259960.KS",
+        "name": "크래프톤",
+        "market": "KOSPI",
+        "sector": "게임",
+        "price": 221500.0,
+        "change_pct": -2.2,
+        "score": 21,
+        "score_breakdown": {
+          "trend": 0,
+          "golden_cross": 10,
+          "momentum": 5,
+          "volume": 0,
+          "support": 0,
+          "bollinger": 5
+        },
+        "signals": [
+          "5일×20일 골든크로스 ✨",
+          "RSI 41 (건강한 구간)",
+          "볼린저 스퀴즈 (폭 하위 13%)"
+        ],
+        "technicals": {
+          "rsi_14": 40.6,
+          "macd": -2302.621,
+          "macd_signal": -663.4392,
+          "adx": 22.8,
+          "volume_ratio": 0.77,
+          "bb_position": 0
+        },
+        "risk_reward": {
+          "entry": 221500.0,
+          "stop_loss": 200120.0,
+          "take_profit": 257182.0,
+          "risk": 21380.0,
+          "reward": 35682.0,
+          "ratio": 1.67,
+          "risk_pct": -9.7,
+          "reward_pct": 16.1
+        },
+        "price_history_30d": [
+          245000.0,
+          245000.0,
+          238500.0,
+          238000.0,
+          238000.0,
+          230000.0,
+          230000.0,
+          240500.0,
+          222500.0,
+          234500.0,
+          231000.0,
+          237500.0,
+          242500.0,
+          248000.0,
+          244000.0,
+          244000.0,
+          259000.0,
+          243000.0,
+          235000.0,
+          238000.0,
+          229000.0,
+          230000.0,
+          241500.0,
+          242000.0,
+          244000.0,
+          235000.0,
+          234500.0,
+          238000.0,
+          226500.0,
+          221500.0
+        ],
+        "ma_20": 238200.0,
+        "ma_60": 238791.67,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": false,
+          "trend_strong": false,
           "rr_ratio_good": false
         },
-        "rank": 3
+        "rank": 7
       },
       {
         "ticker": "003490.KS",
         "name": "대한항공",
         "market": "KOSPI",
         "sector": "항공",
-        "price": 25250.0,
-        "change_pct": -4.0,
-        "score": 25,
+        "price": 25050.0,
+        "change_pct": -0.8,
+        "score": 19,
         "score_breakdown": {
           "trend": 6,
           "golden_cross": 0,
           "momentum": 5,
-          "volume": 2,
-          "support": 0,
-          "bollinger": 5
+          "volume": 0,
+          "support": 5,
+          "bollinger": 0
         },
         "signals": [
           "200일선 위",
-          "RSI 42 (건강한 구간)",
-          "볼린저 스퀴즈 (폭 하위 28%)"
+          "RSI 41 (건강한 구간)",
+          "볼린저 하단 반등"
         ],
         "technicals": {
-          "rsi_14": 42.1,
-          "macd": -115.4888,
-          "macd_signal": -99.0645,
-          "adx": 18.4,
-          "volume_ratio": 1.2,
-          "bb_position": 0.26
+          "rsi_14": 41.0,
+          "macd": -200.5997,
+          "macd_signal": -119.3716,
+          "adx": 21.7,
+          "volume_ratio": 0.82,
+          "bb_position": 0.21
         },
         "risk_reward": {
-          "entry": 25250.0,
+          "entry": 25050.0,
           "stop_loss": 23950.0,
-          "take_profit": 27859.0,
-          "risk": 1300.0,
-          "reward": 2609.0,
-          "ratio": 2.01,
-          "risk_pct": -5.1,
-          "reward_pct": 10.3
+          "take_profit": 27873.0,
+          "risk": 1100.0,
+          "reward": 2823.0,
+          "ratio": 2.57,
+          "risk_pct": -4.4,
+          "reward_pct": 11.3
         },
         "price_history_30d": [
-          28750.0,
           29150.0,
           28150.0,
           26700.0,
@@ -343,10 +686,11 @@
           26500.0,
           26100.0,
           26300.0,
-          25250.0
+          25250.0,
+          25050.0
         ],
-        "ma_20": 26000.0,
-        "ma_60": 26695.0,
+        "ma_20": 25985.0,
+        "ma_60": 26671.67,
         "checklist": {
           "above_ma200": true,
           "golden_cross_recent": false,
@@ -356,7 +700,7 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
-        "rank": 4
+        "rank": 8
       }
     ],
     "us": [
