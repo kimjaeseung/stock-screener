@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-23 03:04 UTC",
+  "updated_at": "2026-08-24 03:05 UTC",
   "market_summary": {
     "sp500": {
       "index": 765.72,
@@ -10,12 +10,12 @@
       "change_pct": 4.27
     },
     "kospi": {
-      "index": 6912.95,
-      "change_pct": -2.59
+      "index": 6760.48,
+      "change_pct": 1.04
     },
     "kosdaq": {
-      "index": 801.94,
-      "change_pct": 1.48
+      "index": 820.44,
+      "change_pct": 9.65
     }
   },
   "screening_results": {
@@ -134,7 +134,7 @@
         "technicals": {
           "rsi_14": 58.1,
           "macd": -331.2676,
-          "macd_signal": -9187.4948,
+          "macd_signal": -9187.4949,
           "adx": 23.4,
           "volume_ratio": 1.26,
           "bb_position": 1
@@ -201,7 +201,7 @@
         "sector": "바이오",
         "price": 245000.0,
         "change_pct": -1.6,
-        "score": 41,
+        "score": 39,
         "score_breakdown": {
           "trend": 3,
           "golden_cross": 10,
@@ -306,8 +306,8 @@
         ],
         "technicals": {
           "rsi_14": 44.1,
-          "macd": 8065.644,
-          "macd_signal": 7901.1854,
+          "macd": 8065.6438,
+          "macd_signal": 7901.1851,
           "adx": 16.7,
           "volume_ratio": 1.93,
           "bb_position": 0.28
@@ -391,8 +391,8 @@
         ],
         "technicals": {
           "rsi_14": 39.4,
-          "macd": -10618.0584,
-          "macd_signal": -11565.7392,
+          "macd": -10618.0585,
+          "macd_signal": -11565.7394,
           "adx": 23.2,
           "volume_ratio": 1.0,
           "bb_position": 0.21
@@ -477,8 +477,8 @@
         ],
         "technicals": {
           "rsi_14": 43.0,
-          "macd": 1078.7621,
-          "macd_signal": 4108.7477,
+          "macd": 1078.762,
+          "macd_signal": 4108.7476,
           "adx": 25.6,
           "volume_ratio": 0.73,
           "bb_position": 0.16
@@ -732,7 +732,7 @@
         "technicals": {
           "rsi_14": 27.3,
           "macd": -2893.0217,
-          "macd_signal": -1682.8349,
+          "macd_signal": -1682.835,
           "adx": 43.7,
           "volume_ratio": 0.78,
           "bb_position": 0.02
