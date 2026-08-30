@@ -1,21 +1,21 @@
 {
-  "updated_at": "2026-08-29 08:44 UTC",
+  "updated_at": "2026-08-30 08:01 UTC",
   "market_summary": {
     "sp500": {
-      "index": 771.1,
-      "change_pct": 3.97
+      "index": 769.35,
+      "change_pct": 2.99
     },
     "nasdaq": {
-      "index": 721.11,
-      "change_pct": 5.49
+      "index": 716.43,
+      "change_pct": 4.13
     },
     "kospi": {
-      "index": 6912.37,
-      "change_pct": 22.06
+      "index": 6788.88,
+      "change_pct": 21.37
     },
     "kosdaq": {
-      "index": 837.65,
-      "change_pct": 26.4
+      "index": 838.41,
+      "change_pct": 30.03
     }
   },
   "screening_results": {
