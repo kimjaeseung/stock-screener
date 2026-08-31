@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-30 08:01 UTC",
+  "updated_at": "2026-08-31 08:18 UTC",
   "market_summary": {
     "sp500": {
       "index": 769.35,
@@ -10,12 +10,12 @@
       "change_pct": 4.13
     },
     "kospi": {
-      "index": 6788.88,
-      "change_pct": 21.37
+      "index": 6820.02,
+      "change_pct": 3.4
     },
     "kosdaq": {
-      "index": 838.41,
-      "change_pct": 30.03
+      "index": 834.29,
+      "change_pct": 15.91
     }
   },
   "screening_results": {
@@ -133,7 +133,7 @@
         ],
         "technicals": {
           "rsi_14": 41.4,
-          "macd": -12252.751,
+          "macd": -12252.7511,
           "macd_signal": -11940.184,
           "adx": 31.0,
           "volume_ratio": 1.01,
@@ -219,8 +219,8 @@
         ],
         "technicals": {
           "rsi_14": 45.8,
-          "macd": 28598.9623,
-          "macd_signal": 35644.4138,
+          "macd": 28598.9625,
+          "macd_signal": 35644.4141,
           "adx": 26.7,
           "volume_ratio": 2.2,
           "bb_position": 0.21
@@ -306,8 +306,8 @@
         ],
         "technicals": {
           "rsi_14": 38.2,
-          "macd": -7998.3671,
-          "macd_signal": -2585.6123,
+          "macd": -7998.3673,
+          "macd_signal": -2585.6125,
           "adx": 25.6,
           "volume_ratio": 1.08,
           "bb_position": 0
@@ -477,7 +477,7 @@
         "technicals": {
           "rsi_14": 44.1,
           "macd": -689.8668,
-          "macd_signal": -785.4688,
+          "macd_signal": -785.4687,
           "adx": 31.9,
           "volume_ratio": 1.07,
           "bb_position": 0.3
@@ -538,99 +538,13 @@
         "rank": 6
       },
       {
-        "ticker": "009540.KS",
-        "name": "HD한국조선해양",
-        "market": "KOSPI",
-        "sector": "조선",
-        "price": 354500.0,
-        "change_pct": -1.7,
-        "score": 29,
-        "score_breakdown": {
-          "trend": 3,
-          "golden_cross": 10,
-          "momentum": 5,
-          "volume": 0,
-          "support": 5,
-          "bollinger": 5
-        },
-        "signals": [
-          "20일선 우상향 중",
-          "20일×60일 골든크로스 ✨",
-          "RSI 45 (건강한 구간)",
-          "볼린저 하단 반등",
-          "볼린저 스퀴즈 (폭 하위 4%)"
-        ],
-        "technicals": {
-          "rsi_14": 45.3,
-          "macd": -2172.1255,
-          "macd_signal": 441.7877,
-          "adx": 24.3,
-          "volume_ratio": 0.8,
-          "bb_position": 0.19
-        },
-        "risk_reward": {
-          "entry": 354500.0,
-          "stop_loss": 322791.0,
-          "take_profit": 406036.0,
-          "risk": 31709.0,
-          "reward": 51536.0,
-          "ratio": 1.63,
-          "risk_pct": -8.9,
-          "reward_pct": 14.5
-        },
-        "price_history_30d": [
-          348218.59,
-          334447.22,
-          332479.91,
-          347726.75,
-          374777.62,
-          365924.62,
-          372318.47,
-          348218.59,
-          329528.88,
-          362481.78,
-          378220.47,
-          362481.78,
-          367891.97,
-          389532.66,
-          393467.34,
-          391991.84,
-          397402.0,
-          391500.0,
-          380500.0,
-          371500.0,
-          386000.0,
-          374500.0,
-          367000.0,
-          360500.0,
-          348500.0,
-          353500.0,
-          362500.0,
-          360500.0,
-          360500.0,
-          354500.0
-        ],
-        "ma_20": 372624.4,
-        "ma_60": 365534.76,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": true,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": false,
-          "trend_strong": false,
-          "rr_ratio_good": false
-        },
-        "rank": 7
-      },
-      {
         "ticker": "000270.KS",
         "name": "기아",
         "market": "KOSPI",
         "sector": "자동차",
         "price": 128000.0,
         "change_pct": 1.5,
-        "score": 28,
+        "score": 30,
         "score_breakdown": {
           "trend": 3,
           "golden_cross": 0,
@@ -706,6 +620,92 @@
           "macd_bullish": false,
           "trend_strong": false,
           "rr_ratio_good": true
+        },
+        "rank": 7
+      },
+      {
+        "ticker": "009540.KS",
+        "name": "HD한국조선해양",
+        "market": "KOSPI",
+        "sector": "조선",
+        "price": 354500.0,
+        "change_pct": -1.7,
+        "score": 29,
+        "score_breakdown": {
+          "trend": 3,
+          "golden_cross": 10,
+          "momentum": 5,
+          "volume": 0,
+          "support": 5,
+          "bollinger": 5
+        },
+        "signals": [
+          "20일선 우상향 중",
+          "20일×60일 골든크로스 ✨",
+          "RSI 45 (건강한 구간)",
+          "볼린저 하단 반등",
+          "볼린저 스퀴즈 (폭 하위 4%)"
+        ],
+        "technicals": {
+          "rsi_14": 45.3,
+          "macd": -2172.1256,
+          "macd_signal": 441.7876,
+          "adx": 24.3,
+          "volume_ratio": 0.8,
+          "bb_position": 0.19
+        },
+        "risk_reward": {
+          "entry": 354500.0,
+          "stop_loss": 322791.0,
+          "take_profit": 406036.0,
+          "risk": 31709.0,
+          "reward": 51536.0,
+          "ratio": 1.63,
+          "risk_pct": -8.9,
+          "reward_pct": 14.5
+        },
+        "price_history_30d": [
+          348218.59,
+          334447.22,
+          332479.91,
+          347726.75,
+          374777.62,
+          365924.62,
+          372318.47,
+          348218.59,
+          329528.88,
+          362481.78,
+          378220.47,
+          362481.78,
+          367891.97,
+          389532.66,
+          393467.34,
+          391991.84,
+          397402.0,
+          391500.0,
+          380500.0,
+          371500.0,
+          386000.0,
+          374500.0,
+          367000.0,
+          360500.0,
+          348500.0,
+          353500.0,
+          362500.0,
+          360500.0,
+          360500.0,
+          354500.0
+        ],
+        "ma_20": 372624.4,
+        "ma_60": 365534.76,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": false,
+          "trend_strong": false,
+          "rr_ratio_good": false
         },
         "rank": 8
       },
