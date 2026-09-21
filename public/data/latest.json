@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-20 07:33 UTC",
+  "updated_at": "2026-09-21 07:45 UTC",
   "market_summary": {
     "sp500": {
       "index": 761.69,
@@ -10,12 +10,12 @@
       "change_pct": 1.48
     },
     "kospi": {
-      "index": 6894.23,
-      "change_pct": -0.27
+      "index": 7007.72,
+      "change_pct": 4.64
     },
     "kosdaq": {
-      "index": 827.12,
-      "change_pct": 3.14
+      "index": 836.27,
+      "change_pct": 2.82
     }
   },
   "screening_results": {
@@ -27,7 +27,7 @@
         "sector": "반도체",
         "price": 38650.0,
         "change_pct": 2.8,
-        "score": 64,
+        "score": 61,
         "score_breakdown": {
           "trend": 5,
           "golden_cross": 10,
@@ -133,8 +133,8 @@
         ],
         "technicals": {
           "rsi_14": 48.1,
-          "macd": 4472.2936,
-          "macd_signal": 6560.5401,
+          "macd": 4472.2935,
+          "macd_signal": 6560.54,
           "adx": 28.7,
           "volume_ratio": 1.57,
           "bb_position": 0.26
@@ -201,7 +201,7 @@
         "sector": "화학",
         "price": 267000.0,
         "change_pct": -0.4,
-        "score": 44,
+        "score": 42,
         "score_breakdown": {
           "trend": 3,
           "golden_cross": 10,
@@ -221,7 +221,7 @@
         "technicals": {
           "rsi_14": 46.6,
           "macd": -210.9553,
-          "macd_signal": 1073.8967,
+          "macd_signal": 1073.8968,
           "adx": 11.9,
           "volume_ratio": 0.88,
           "bb_position": 0.24
@@ -395,7 +395,7 @@
         "technicals": {
           "rsi_14": 38.4,
           "macd": -3632.032,
-          "macd_signal": -1735.4181,
+          "macd_signal": -1735.418,
           "adx": 25.1,
           "volume_ratio": 1.86,
           "bb_position": 0.04
@@ -456,93 +456,6 @@
         "rank": 5
       },
       {
-        "ticker": "003550.KS",
-        "name": "LG",
-        "market": "KOSPI",
-        "sector": "지주",
-        "price": 111900.0,
-        "change_pct": 0.1,
-        "score": 35,
-        "score_breakdown": {
-          "trend": 13,
-          "golden_cross": 0,
-          "momentum": 5,
-          "volume": 0,
-          "support": 5,
-          "bollinger": 5
-        },
-        "signals": [
-          "중장기 정배열 (20>60>120)",
-          "200일선 위",
-          "20일선 우상향 중",
-          "RSI 48 (건강한 구간)",
-          "볼린저 하단 반등",
-          "볼린저 스퀴즈 (폭 하위 20%)"
-        ],
-        "technicals": {
-          "rsi_14": 47.9,
-          "macd": 1096.0946,
-          "macd_signal": 2317.2868,
-          "adx": 22.4,
-          "volume_ratio": 0.9,
-          "bb_position": 0.22
-        },
-        "risk_reward": {
-          "entry": 111900.0,
-          "stop_loss": 106597.0,
-          "take_profit": 123443.0,
-          "risk": 5303.0,
-          "reward": 11543.0,
-          "ratio": 2.18,
-          "risk_pct": -4.7,
-          "reward_pct": 10.3
-        },
-        "price_history_30d": [
-          107192.36,
-          106696.55,
-          107390.68,
-          108679.77,
-          112745.34,
-          118992.44,
-          111753.73,
-          109274.73,
-          109473.05,
-          106795.72,
-          112547.02,
-          111654.57,
-          113439.46,
-          113538.62,
-          115323.51,
-          118397.48,
-          119289.92,
-          117505.04,
-          117306.71,
-          120083.2,
-          123454.66,
-          117901.68,
-          118100.0,
-          118000.0,
-          112500.0,
-          113200.0,
-          114300.0,
-          112200.0,
-          111800.0,
-          111900.0
-        ],
-        "ma_20": 115622.09,
-        "ma_60": 106151.54,
-        "checklist": {
-          "above_ma200": true,
-          "golden_cross_recent": false,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": false,
-          "trend_strong": false,
-          "rr_ratio_good": true
-        },
-        "rank": 6
-      },
-      {
         "ticker": "068270.KS",
         "name": "셀트리온",
         "market": "KOSPI",
@@ -568,7 +481,7 @@
         "technicals": {
           "rsi_14": 40.2,
           "macd": -2874.5257,
-          "macd_signal": -1910.9956,
+          "macd_signal": -1910.9957,
           "adx": 42.7,
           "volume_ratio": 1.88,
           "bb_position": 0.23
@@ -626,6 +539,93 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
+        "rank": 6
+      },
+      {
+        "ticker": "003550.KS",
+        "name": "LG",
+        "market": "KOSPI",
+        "sector": "지주",
+        "price": 111900.0,
+        "change_pct": 0.1,
+        "score": 33,
+        "score_breakdown": {
+          "trend": 13,
+          "golden_cross": 0,
+          "momentum": 5,
+          "volume": 0,
+          "support": 5,
+          "bollinger": 5
+        },
+        "signals": [
+          "중장기 정배열 (20>60>120)",
+          "200일선 위",
+          "20일선 우상향 중",
+          "RSI 48 (건강한 구간)",
+          "볼린저 하단 반등",
+          "볼린저 스퀴즈 (폭 하위 20%)"
+        ],
+        "technicals": {
+          "rsi_14": 47.9,
+          "macd": 1096.0946,
+          "macd_signal": 2317.2869,
+          "adx": 22.4,
+          "volume_ratio": 0.9,
+          "bb_position": 0.22
+        },
+        "risk_reward": {
+          "entry": 111900.0,
+          "stop_loss": 106597.0,
+          "take_profit": 123443.0,
+          "risk": 5303.0,
+          "reward": 11543.0,
+          "ratio": 2.18,
+          "risk_pct": -4.7,
+          "reward_pct": 10.3
+        },
+        "price_history_30d": [
+          107192.36,
+          106696.55,
+          107390.68,
+          108679.77,
+          112745.34,
+          118992.44,
+          111753.73,
+          109274.73,
+          109473.05,
+          106795.72,
+          112547.02,
+          111654.57,
+          113439.46,
+          113538.62,
+          115323.51,
+          118397.48,
+          119289.92,
+          117505.04,
+          117306.71,
+          120083.2,
+          123454.66,
+          117901.68,
+          118100.0,
+          118000.0,
+          112500.0,
+          113200.0,
+          114300.0,
+          112200.0,
+          111800.0,
+          111900.0
+        ],
+        "ma_20": 115622.09,
+        "ma_60": 106151.54,
+        "checklist": {
+          "above_ma200": true,
+          "golden_cross_recent": false,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": false,
+          "trend_strong": false,
+          "rr_ratio_good": true
+        },
         "rank": 7
       },
       {
@@ -653,7 +653,7 @@
         "technicals": {
           "rsi_14": 43.9,
           "macd": -5245.4137,
-          "macd_signal": -4349.8813,
+          "macd_signal": -4349.8812,
           "adx": 19.3,
           "volume_ratio": 1.12,
           "bb_position": 0.17
@@ -737,8 +737,8 @@
         ],
         "technicals": {
           "rsi_14": 36.3,
-          "macd": -6884.018,
-          "macd_signal": -6028.4149,
+          "macd": -6884.0179,
+          "macd_signal": -6028.4148,
           "adx": 24.4,
           "volume_ratio": 1.53,
           "bb_position": 0.15
@@ -821,7 +821,7 @@
         ],
         "technicals": {
           "rsi_14": 35.6,
-          "macd": -1915.2897,
+          "macd": -1915.2896,
           "macd_signal": -2304.5392,
           "adx": 18.1,
           "volume_ratio": 1.3,
