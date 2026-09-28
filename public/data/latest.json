@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-09-27 07:46 UTC",
+  "updated_at": "2026-09-28 08:24 UTC",
   "market_summary": {
     "sp500": {
       "index": 771.35,
@@ -10,12 +10,12 @@
       "change_pct": 3.35
     },
     "kospi": {
-      "index": 7080.92,
-      "change_pct": 4.01
+      "index": 6889.74,
+      "change_pct": -0.33
     },
     "kosdaq": {
-      "index": 844.48,
-      "change_pct": 2.13
+      "index": 846.58,
+      "change_pct": 1.07
     }
   },
   "screening_results": {
@@ -27,7 +27,7 @@
         "sector": "반도체",
         "price": 285500.0,
         "change_pct": 3.3,
-        "score": 64,
+        "score": 67,
         "score_breakdown": {
           "trend": 9,
           "golden_cross": 10,
@@ -134,7 +134,7 @@
         "technicals": {
           "rsi_14": 72.3,
           "macd": 1985.1922,
-          "macd_signal": 689.3123,
+          "macd_signal": 689.3122,
           "adx": 38.8,
           "volume_ratio": 0.97,
           "bb_position": 1
@@ -221,7 +221,7 @@
         "technicals": {
           "rsi_14": 58.5,
           "macd": 16308.7721,
-          "macd_signal": 3490.4102,
+          "macd_signal": 3490.4103,
           "adx": 24.5,
           "volume_ratio": 0.82,
           "bb_position": 1
@@ -394,7 +394,7 @@
         "technicals": {
           "rsi_14": 43.2,
           "macd": -1605.8124,
-          "macd_signal": -1213.566,
+          "macd_signal": -1213.5659,
           "adx": 14.0,
           "volume_ratio": 0.55,
           "bb_position": 0.24
@@ -478,8 +478,8 @@
         ],
         "technicals": {
           "rsi_14": 37.4,
-          "macd": -4456.1844,
-          "macd_signal": -2932.3169,
+          "macd": -4456.1848,
+          "macd_signal": -2932.3175,
           "adx": 26.5,
           "volume_ratio": 1.79,
           "bb_position": 0.06
@@ -546,7 +546,7 @@
         "sector": "2차전지",
         "price": 521000.0,
         "change_pct": -1.5,
-        "score": 29,
+        "score": 31,
         "score_breakdown": {
           "trend": 8,
           "golden_cross": 0,
@@ -651,7 +651,7 @@
         "technicals": {
           "rsi_14": 34.0,
           "macd": -1752.203,
-          "macd_signal": -2057.8847,
+          "macd_signal": -2057.8846,
           "adx": 20.8,
           "volume_ratio": 0.3,
           "bb_position": 0.15
