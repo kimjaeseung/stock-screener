@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-11 08:27 UTC",
+  "updated_at": "2026-10-12 08:48 UTC",
   "market_summary": {
     "sp500": {
       "index": 778.57,
@@ -10,12 +10,12 @@
       "change_pct": 5.2
     },
     "kospi": {
-      "index": 6625.93,
-      "change_pct": -5.28
+      "index": 6384.24,
+      "change_pct": -8.2
     },
     "kosdaq": {
-      "index": 892.27,
-      "change_pct": 8.52
+      "index": 849.19,
+      "change_pct": 4.6
     }
   },
   "screening_results": {
@@ -27,7 +27,7 @@
         "sector": "엔터",
         "price": 39550.0,
         "change_pct": 2.6,
-        "score": 73,
+        "score": 76,
         "score_breakdown": {
           "trend": 2,
           "golden_cross": 5,
@@ -132,8 +132,8 @@
         ],
         "technicals": {
           "rsi_14": 34.1,
-          "macd": -8168.9989,
-          "macd_signal": -8114.3268,
+          "macd": -8168.9988,
+          "macd_signal": -8114.3266,
           "adx": 21.9,
           "volume_ratio": 2.11,
           "bb_position": 0.03
@@ -367,99 +367,13 @@
         "rank": 4
       },
       {
-        "ticker": "012330.KS",
-        "name": "현대모비스",
-        "market": "KOSPI",
-        "sector": "자동차부품",
-        "price": 359000.0,
-        "change_pct": -3.9,
-        "score": 43,
-        "score_breakdown": {
-          "trend": 2,
-          "golden_cross": 10,
-          "momentum": 8,
-          "volume": 15,
-          "support": 0,
-          "bollinger": 5
-        },
-        "signals": [
-          "ADX 37 — 추세 강함",
-          "MACD 골든크로스 ✨",
-          "RSI 29 — 과매도 (반등 가능)",
-          "거래량 1.8배 증가",
-          "볼린저 스퀴즈 (폭 하위 11%)"
-        ],
-        "technicals": {
-          "rsi_14": 29.2,
-          "macd": -20832.8324,
-          "macd_signal": -23189.0621,
-          "adx": 36.7,
-          "volume_ratio": 1.79,
-          "bb_position": 0.14
-        },
-        "risk_reward": {
-          "entry": 359000.0,
-          "stop_loss": 333015.0,
-          "take_profit": 425022.0,
-          "risk": 25985.0,
-          "reward": 66022.0,
-          "ratio": 2.54,
-          "risk_pct": -7.2,
-          "reward_pct": 18.4
-        },
-        "price_history_30d": [
-          498000.0,
-          464000.0,
-          451500.0,
-          450500.0,
-          453500.0,
-          443500.0,
-          415500.0,
-          423500.0,
-          422000.0,
-          432000.0,
-          415000.0,
-          417500.0,
-          415500.0,
-          415500.0,
-          400000.0,
-          394500.0,
-          383000.0,
-          381000.0,
-          379000.0,
-          373000.0,
-          372500.0,
-          367500.0,
-          373000.0,
-          367000.0,
-          367000.0,
-          382000.0,
-          383500.0,
-          380000.0,
-          373500.0,
-          359000.0
-        ],
-        "ma_20": 384950.0,
-        "ma_60": 447458.56,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": true,
-          "volume_surge": false,
-          "rsi_healthy": false,
-          "macd_bullish": true,
-          "trend_strong": false,
-          "rr_ratio_good": true
-        },
-        "rank": 5
-      },
-      {
         "ticker": "000660.KS",
         "name": "SK하이닉스",
         "market": "KOSPI",
         "sector": "반도체",
         "price": 1681000.0,
         "change_pct": -2.4,
-        "score": 41,
+        "score": 43,
         "score_breakdown": {
           "trend": 8,
           "golden_cross": 10,
@@ -478,8 +392,8 @@
         ],
         "technicals": {
           "rsi_14": 43.7,
-          "macd": 7125.872,
-          "macd_signal": 20212.9978,
+          "macd": 7125.8721,
+          "macd_signal": 20212.998,
           "adx": 18.2,
           "volume_ratio": 1.01,
           "bb_position": 0.04
@@ -537,6 +451,92 @@
           "trend_strong": false,
           "rr_ratio_good": false
         },
+        "rank": 5
+      },
+      {
+        "ticker": "012330.KS",
+        "name": "현대모비스",
+        "market": "KOSPI",
+        "sector": "자동차부품",
+        "price": 359000.0,
+        "change_pct": -3.9,
+        "score": 43,
+        "score_breakdown": {
+          "trend": 2,
+          "golden_cross": 10,
+          "momentum": 8,
+          "volume": 15,
+          "support": 0,
+          "bollinger": 5
+        },
+        "signals": [
+          "ADX 37 — 추세 강함",
+          "MACD 골든크로스 ✨",
+          "RSI 29 — 과매도 (반등 가능)",
+          "거래량 1.8배 증가",
+          "볼린저 스퀴즈 (폭 하위 11%)"
+        ],
+        "technicals": {
+          "rsi_14": 29.2,
+          "macd": -20832.8323,
+          "macd_signal": -23189.062,
+          "adx": 36.7,
+          "volume_ratio": 1.79,
+          "bb_position": 0.14
+        },
+        "risk_reward": {
+          "entry": 359000.0,
+          "stop_loss": 333015.0,
+          "take_profit": 425022.0,
+          "risk": 25985.0,
+          "reward": 66022.0,
+          "ratio": 2.54,
+          "risk_pct": -7.2,
+          "reward_pct": 18.4
+        },
+        "price_history_30d": [
+          498000.0,
+          464000.0,
+          451500.0,
+          450500.0,
+          453500.0,
+          443500.0,
+          415500.0,
+          423500.0,
+          422000.0,
+          432000.0,
+          415000.0,
+          417500.0,
+          415500.0,
+          415500.0,
+          400000.0,
+          394500.0,
+          383000.0,
+          381000.0,
+          379000.0,
+          373000.0,
+          372500.0,
+          367500.0,
+          373000.0,
+          367000.0,
+          367000.0,
+          382000.0,
+          383500.0,
+          380000.0,
+          373500.0,
+          359000.0
+        ],
+        "ma_20": 384950.0,
+        "ma_60": 447458.56,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": false,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": true
+        },
         "rank": 6
       },
       {
@@ -546,7 +546,7 @@
         "sector": "반도체",
         "price": 262000.0,
         "change_pct": -2.4,
-        "score": 39,
+        "score": 41,
         "score_breakdown": {
           "trend": 8,
           "golden_cross": 10,
@@ -625,6 +625,91 @@
           "rr_ratio_good": false
         },
         "rank": 7
+      },
+      {
+        "ticker": "079550.KQ",
+        "name": "LIG넥스원",
+        "market": "KOSPI",
+        "sector": "방산",
+        "price": 616000.0,
+        "change_pct": -6.5,
+        "score": 39,
+        "score_breakdown": {
+          "trend": 3,
+          "golden_cross": 0,
+          "momentum": 8,
+          "volume": 20,
+          "support": 0,
+          "bollinger": 5
+        },
+        "signals": [
+          "20일선 우상향 중",
+          "RSI 39 — 과매도 탈출 직전 🎯",
+          "거래량 2.8배 급증 📈",
+          "볼린저 스퀴즈 (폭 하위 10%)"
+        ],
+        "technicals": {
+          "rsi_14": 38.7,
+          "macd": -9768.1118,
+          "macd_signal": -5691.936,
+          "adx": 24.5,
+          "volume_ratio": 2.84,
+          "bb_position": 0
+        },
+        "risk_reward": {
+          "entry": 616000.0,
+          "stop_loss": 530674.0,
+          "take_profit": 762372.0,
+          "risk": 85326.0,
+          "reward": 146372.0,
+          "ratio": 1.72,
+          "risk_pct": -13.9,
+          "reward_pct": 23.8
+        },
+        "price_history_30d": [
+          718000.0,
+          710000.0,
+          745000.0,
+          734000.0,
+          694000.0,
+          685000.0,
+          655000.0,
+          665000.0,
+          652000.0,
+          659000.0,
+          666000.0,
+          670000.0,
+          680000.0,
+          678000.0,
+          705000.0,
+          671000.0,
+          666000.0,
+          708000.0,
+          744000.0,
+          725000.0,
+          704000.0,
+          692000.0,
+          693000.0,
+          678000.0,
+          682000.0,
+          724000.0,
+          762000.0,
+          703000.0,
+          659000.0,
+          616000.0
+        ],
+        "ma_20": 691300.0,
+        "ma_60": 713783.33,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": false,
+          "volume_surge": true,
+          "rsi_healthy": true,
+          "macd_bullish": false,
+          "trend_strong": false,
+          "rr_ratio_good": false
+        },
+        "rank": 8
       },
       {
         "ticker": "018260.KS",
@@ -710,91 +795,6 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
-        "rank": 8
-      },
-      {
-        "ticker": "079550.KQ",
-        "name": "LIG넥스원",
-        "market": "KOSPI",
-        "sector": "방산",
-        "price": 616000.0,
-        "change_pct": -6.5,
-        "score": 37,
-        "score_breakdown": {
-          "trend": 3,
-          "golden_cross": 0,
-          "momentum": 8,
-          "volume": 20,
-          "support": 0,
-          "bollinger": 5
-        },
-        "signals": [
-          "20일선 우상향 중",
-          "RSI 39 — 과매도 탈출 직전 🎯",
-          "거래량 2.8배 급증 📈",
-          "볼린저 스퀴즈 (폭 하위 10%)"
-        ],
-        "technicals": {
-          "rsi_14": 38.7,
-          "macd": -9768.1119,
-          "macd_signal": -5691.9362,
-          "adx": 24.5,
-          "volume_ratio": 2.84,
-          "bb_position": 0
-        },
-        "risk_reward": {
-          "entry": 616000.0,
-          "stop_loss": 530674.0,
-          "take_profit": 762372.0,
-          "risk": 85326.0,
-          "reward": 146372.0,
-          "ratio": 1.72,
-          "risk_pct": -13.9,
-          "reward_pct": 23.8
-        },
-        "price_history_30d": [
-          718000.0,
-          710000.0,
-          745000.0,
-          734000.0,
-          694000.0,
-          685000.0,
-          655000.0,
-          665000.0,
-          652000.0,
-          659000.0,
-          666000.0,
-          670000.0,
-          680000.0,
-          678000.0,
-          705000.0,
-          671000.0,
-          666000.0,
-          708000.0,
-          744000.0,
-          725000.0,
-          704000.0,
-          692000.0,
-          693000.0,
-          678000.0,
-          682000.0,
-          724000.0,
-          762000.0,
-          703000.0,
-          659000.0,
-          616000.0
-        ],
-        "ma_20": 691300.0,
-        "ma_60": 713783.33,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": false,
-          "volume_surge": true,
-          "rsi_healthy": true,
-          "macd_bullish": false,
-          "trend_strong": false,
-          "rr_ratio_good": false
-        },
         "rank": 9
       },
       {
@@ -820,8 +820,8 @@
         ],
         "technicals": {
           "rsi_14": 33.2,
-          "macd": -25478.5751,
-          "macd_signal": -11985.468,
+          "macd": -25478.5748,
+          "macd_signal": -11985.4674,
           "adx": 19.9,
           "volume_ratio": 2.51,
           "bb_position": 0
