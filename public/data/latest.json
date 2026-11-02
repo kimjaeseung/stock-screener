@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-01 08:53 UTC",
+  "updated_at": "2026-11-02 09:00 UTC",
   "market_summary": {
     "sp500": {
       "index": 755.72,
@@ -10,12 +10,12 @@
       "change_pct": -7.88
     },
     "kospi": {
-      "index": 5730.74,
-      "change_pct": -16.19
+      "index": 5859.08,
+      "change_pct": -15.95
     },
     "kosdaq": {
-      "index": 724.38,
-      "change_pct": -15.37
+      "index": 734.36,
+      "change_pct": -17.88
     }
   },
   "screening_results": {
@@ -46,8 +46,8 @@
         ],
         "technicals": {
           "rsi_14": 42.3,
-          "macd": 184.1315,
-          "macd_signal": 6527.4323,
+          "macd": 184.1316,
+          "macd_signal": 6527.4324,
           "adx": 28.4,
           "volume_ratio": 0.92,
           "bb_position": 0.1
@@ -220,8 +220,8 @@
         ],
         "technicals": {
           "rsi_14": 44.2,
-          "macd": -2065.3889,
-          "macd_signal": -3334.675,
+          "macd": -2065.389,
+          "macd_signal": -3334.6752,
           "adx": 29.0,
           "volume_ratio": 0.75,
           "bb_position": 0.39
@@ -282,13 +282,183 @@
         "rank": 3
       },
       {
+        "ticker": "012330.KS",
+        "name": "현대모비스",
+        "market": "KOSPI",
+        "sector": "자동차부품",
+        "price": 334000.0,
+        "change_pct": -5.4,
+        "score": 42,
+        "score_breakdown": {
+          "trend": 0,
+          "golden_cross": 10,
+          "momentum": 13,
+          "volume": 0,
+          "support": 5,
+          "bollinger": 5
+        },
+        "signals": [
+          "MACD 골든크로스 ✨",
+          "RSI 39 — 과매도 탈출 직전 🎯",
+          "볼린저 하단 반등",
+          "볼린저 스퀴즈 (폭 하위 13%)"
+        ],
+        "technicals": {
+          "rsi_14": 38.6,
+          "macd": -15792.3264,
+          "macd_signal": -18271.5317,
+          "adx": 20.9,
+          "volume_ratio": 0.8,
+          "bb_position": 0.23
+        },
+        "risk_reward": {
+          "entry": 334000.0,
+          "stop_loss": 317500.0,
+          "take_profit": 390656.0,
+          "risk": 16500.0,
+          "reward": 56656.0,
+          "ratio": 3.43,
+          "risk_pct": -4.9,
+          "reward_pct": 17.0
+        },
+        "price_history_30d": [
+          394500.0,
+          383000.0,
+          381000.0,
+          379000.0,
+          373000.0,
+          372500.0,
+          367500.0,
+          373000.0,
+          367000.0,
+          367000.0,
+          382000.0,
+          383500.0,
+          380000.0,
+          373500.0,
+          359000.0,
+          354500.0,
+          348500.0,
+          358500.0,
+          337500.0,
+          352500.0,
+          365500.0,
+          348000.0,
+          346000.0,
+          337000.0,
+          328500.0,
+          326000.0,
+          332500.0,
+          352000.0,
+          353000.0,
+          334000.0
+        ],
+        "ma_20": 352600.0,
+        "ma_60": 414818.93,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": true
+        },
+        "rank": 4
+      },
+      {
+        "ticker": "035420.KS",
+        "name": "NAVER",
+        "market": "KOSPI",
+        "sector": "인터넷",
+        "price": 172300.0,
+        "change_pct": -1.5,
+        "score": 40,
+        "score_breakdown": {
+          "trend": 0,
+          "golden_cross": 10,
+          "momentum": 13,
+          "volume": 7,
+          "support": 0,
+          "bollinger": 5
+        },
+        "signals": [
+          "MACD 골든크로스 ✨",
+          "RSI 34 — 과매도 탈출 직전 🎯",
+          "거래량 트렌드 증가 (5일 > 20일 ×1.1)",
+          "볼린저 스퀴즈 (폭 하위 16%)"
+        ],
+        "technicals": {
+          "rsi_14": 34.5,
+          "macd": -6559.4036,
+          "macd_signal": -6949.2619,
+          "adx": 20.3,
+          "volume_ratio": 1.02,
+          "bb_position": 0.18
+        },
+        "risk_reward": {
+          "entry": 172300.0,
+          "stop_loss": 160013.0,
+          "take_profit": 194399.0,
+          "risk": 12287.0,
+          "reward": 22099.0,
+          "ratio": 1.8,
+          "risk_pct": -7.1,
+          "reward_pct": 12.8
+        },
+        "price_history_30d": [
+          206000.0,
+          201500.0,
+          199000.0,
+          197700.0,
+          197900.0,
+          201000.0,
+          194700.0,
+          197700.0,
+          194800.0,
+          193700.0,
+          191200.0,
+          192200.0,
+          191100.0,
+          189000.0,
+          183800.0,
+          180500.0,
+          178000.0,
+          179400.0,
+          173600.0,
+          180000.0,
+          182900.0,
+          178000.0,
+          179500.0,
+          176400.0,
+          173600.0,
+          174200.0,
+          174300.0,
+          178000.0,
+          174900.0,
+          172300.0
+        ],
+        "ma_20": 180145.0,
+        "ma_60": 201198.33,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": false
+        },
+        "rank": 5
+      },
+      {
         "ticker": "003550.KS",
         "name": "LG",
         "market": "KOSPI",
         "sector": "지주",
         "price": 96200.0,
         "change_pct": -3.3,
-        "score": 42,
+        "score": 40,
         "score_breakdown": {
           "trend": 2,
           "golden_cross": 0,
@@ -364,176 +534,6 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
-        "rank": 4
-      },
-      {
-        "ticker": "012330.KS",
-        "name": "현대모비스",
-        "market": "KOSPI",
-        "sector": "자동차부품",
-        "price": 334000.0,
-        "change_pct": -5.4,
-        "score": 42,
-        "score_breakdown": {
-          "trend": 0,
-          "golden_cross": 10,
-          "momentum": 13,
-          "volume": 0,
-          "support": 5,
-          "bollinger": 5
-        },
-        "signals": [
-          "MACD 골든크로스 ✨",
-          "RSI 39 — 과매도 탈출 직전 🎯",
-          "볼린저 하단 반등",
-          "볼린저 스퀴즈 (폭 하위 13%)"
-        ],
-        "technicals": {
-          "rsi_14": 38.6,
-          "macd": -15792.3265,
-          "macd_signal": -18271.5317,
-          "adx": 20.9,
-          "volume_ratio": 0.8,
-          "bb_position": 0.23
-        },
-        "risk_reward": {
-          "entry": 334000.0,
-          "stop_loss": 317500.0,
-          "take_profit": 390656.0,
-          "risk": 16500.0,
-          "reward": 56656.0,
-          "ratio": 3.43,
-          "risk_pct": -4.9,
-          "reward_pct": 17.0
-        },
-        "price_history_30d": [
-          394500.0,
-          383000.0,
-          381000.0,
-          379000.0,
-          373000.0,
-          372500.0,
-          367500.0,
-          373000.0,
-          367000.0,
-          367000.0,
-          382000.0,
-          383500.0,
-          380000.0,
-          373500.0,
-          359000.0,
-          354500.0,
-          348500.0,
-          358500.0,
-          337500.0,
-          352500.0,
-          365500.0,
-          348000.0,
-          346000.0,
-          337000.0,
-          328500.0,
-          326000.0,
-          332500.0,
-          352000.0,
-          353000.0,
-          334000.0
-        ],
-        "ma_20": 352600.0,
-        "ma_60": 414818.93,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": true,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": true,
-          "trend_strong": false,
-          "rr_ratio_good": true
-        },
-        "rank": 5
-      },
-      {
-        "ticker": "035420.KS",
-        "name": "NAVER",
-        "market": "KOSPI",
-        "sector": "인터넷",
-        "price": 172300.0,
-        "change_pct": -1.5,
-        "score": 40,
-        "score_breakdown": {
-          "trend": 0,
-          "golden_cross": 10,
-          "momentum": 13,
-          "volume": 7,
-          "support": 0,
-          "bollinger": 5
-        },
-        "signals": [
-          "MACD 골든크로스 ✨",
-          "RSI 34 — 과매도 탈출 직전 🎯",
-          "거래량 트렌드 증가 (5일 > 20일 ×1.1)",
-          "볼린저 스퀴즈 (폭 하위 16%)"
-        ],
-        "technicals": {
-          "rsi_14": 34.5,
-          "macd": -6559.4035,
-          "macd_signal": -6949.2617,
-          "adx": 20.3,
-          "volume_ratio": 1.02,
-          "bb_position": 0.18
-        },
-        "risk_reward": {
-          "entry": 172300.0,
-          "stop_loss": 160013.0,
-          "take_profit": 194399.0,
-          "risk": 12287.0,
-          "reward": 22099.0,
-          "ratio": 1.8,
-          "risk_pct": -7.1,
-          "reward_pct": 12.8
-        },
-        "price_history_30d": [
-          206000.0,
-          201500.0,
-          199000.0,
-          197700.0,
-          197900.0,
-          201000.0,
-          194700.0,
-          197700.0,
-          194800.0,
-          193700.0,
-          191200.0,
-          192200.0,
-          191100.0,
-          189000.0,
-          183800.0,
-          180500.0,
-          178000.0,
-          179400.0,
-          173600.0,
-          180000.0,
-          182900.0,
-          178000.0,
-          179500.0,
-          176400.0,
-          173600.0,
-          174200.0,
-          174300.0,
-          178000.0,
-          174900.0,
-          172300.0
-        ],
-        "ma_20": 180145.0,
-        "ma_60": 201198.33,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": true,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": true,
-          "trend_strong": false,
-          "rr_ratio_good": false
-        },
         "rank": 6
       },
       {
@@ -562,8 +562,8 @@
         ],
         "technicals": {
           "rsi_14": 45.5,
-          "macd": -80692.7532,
-          "macd_signal": -100785.4353,
+          "macd": -80692.7536,
+          "macd_signal": -100785.4359,
           "adx": 37.2,
           "volume_ratio": 1.08,
           "bb_position": 0.45
@@ -648,7 +648,7 @@
         "technicals": {
           "rsi_14": 27.8,
           "macd": -4234.4772,
-          "macd_signal": -3936.8606,
+          "macd_signal": -3936.8607,
           "adx": 26.0,
           "volume_ratio": 2.82,
           "bb_position": 0
@@ -730,12 +730,12 @@
           "스토캐스틱 상향 돌파 (14%)",
           "볼린저 하단 반등",
           "볼린저 스퀴즈 (폭 하위 16%)",
-          "상대강도 시장 대비 +10%"
+          "상대강도 시장 대비 +9%"
         ],
         "technicals": {
           "rsi_14": 33.8,
-          "macd": -6431.1597,
-          "macd_signal": -6046.7005,
+          "macd": -6431.1598,
+          "macd_signal": -6046.7006,
           "adx": 29.6,
           "volume_ratio": 0.88,
           "bb_position": 0.15
@@ -819,8 +819,8 @@
         ],
         "technicals": {
           "rsi_14": 28.1,
-          "macd": -73115.0754,
-          "macd_signal": -64711.4833,
+          "macd": -73115.0757,
+          "macd_signal": -64711.4838,
           "adx": 35.2,
           "volume_ratio": 2.42,
           "bb_position": 0.09
