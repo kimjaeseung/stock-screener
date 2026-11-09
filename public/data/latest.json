@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-08 08:43 UTC",
+  "updated_at": "2026-11-09 09:22 UTC",
   "market_summary": {
     "sp500": {
       "index": 735.29,
@@ -10,12 +10,12 @@
       "change_pct": -12.67
     },
     "kospi": {
-      "index": 5059.69,
-      "change_pct": -23.64
+      "index": 5018.85,
+      "change_pct": -21.39
     },
     "kosdaq": {
-      "index": 644.27,
-      "change_pct": -27.79
+      "index": 638.97,
+      "change_pct": -24.76
     }
   },
   "screening_results": {
@@ -46,7 +46,7 @@
         ],
         "technicals": {
           "rsi_14": 57.4,
-          "macd": -3581.4007,
+          "macd": -3581.4006,
           "macd_signal": -5772.7456,
           "adx": 22.5,
           "volume_ratio": 3.02,
@@ -195,93 +195,6 @@
         "rank": 2
       },
       {
-        "ticker": "105560.KS",
-        "name": "KB금융",
-        "market": "KOSPI",
-        "sector": "금융",
-        "price": 151000.0,
-        "change_pct": -3.8,
-        "score": 59,
-        "score_breakdown": {
-          "trend": 3,
-          "golden_cross": 10,
-          "momentum": 10,
-          "volume": 15,
-          "support": 5,
-          "bollinger": 3
-        },
-        "signals": [
-          "ADX 28 — 추세 강함",
-          "MACD 골든크로스 ✨",
-          "RSI 40 (건강한 구간)",
-          "거래량 1.8배 증가",
-          "볼린저 하단 반등",
-          "볼린저 밴드 수축 추세 📉"
-        ],
-        "technicals": {
-          "rsi_14": 40.1,
-          "macd": -3876.9272,
-          "macd_signal": -4116.3801,
-          "adx": 28.3,
-          "volume_ratio": 1.75,
-          "bb_position": 0.23
-        },
-        "risk_reward": {
-          "entry": 151000.0,
-          "stop_loss": 145100.0,
-          "take_profit": 167181.0,
-          "risk": 5900.0,
-          "reward": 16181.0,
-          "ratio": 2.74,
-          "risk_pct": -3.9,
-          "reward_pct": 10.7
-        },
-        "price_history_30d": [
-          175700.0,
-          173200.0,
-          174200.0,
-          173500.0,
-          168800.0,
-          166000.0,
-          167400.0,
-          166900.0,
-          168500.0,
-          162800.0,
-          162800.0,
-          162400.0,
-          159200.0,
-          156700.0,
-          160000.0,
-          162700.0,
-          160900.0,
-          160600.0,
-          158200.0,
-          153000.0,
-          147200.0,
-          147600.0,
-          154000.0,
-          156800.0,
-          155500.0,
-          153400.0,
-          151400.0,
-          151500.0,
-          157000.0,
-          151000.0
-        ],
-        "ma_20": 156095.0,
-        "ma_60": 165948.33,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": true,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": true,
-          "trend_strong": false,
-          "rr_ratio_good": true
-        },
-        "rank": 3
-      },
-      {
         "ticker": "011200.KS",
         "name": "HMM",
         "market": "KOSPI",
@@ -366,6 +279,93 @@
           "trend_strong": true,
           "rr_ratio_good": false
         },
+        "rank": 3
+      },
+      {
+        "ticker": "105560.KS",
+        "name": "KB금융",
+        "market": "KOSPI",
+        "sector": "금융",
+        "price": 151000.0,
+        "change_pct": -3.8,
+        "score": 56,
+        "score_breakdown": {
+          "trend": 3,
+          "golden_cross": 10,
+          "momentum": 10,
+          "volume": 15,
+          "support": 5,
+          "bollinger": 3
+        },
+        "signals": [
+          "ADX 28 — 추세 강함",
+          "MACD 골든크로스 ✨",
+          "RSI 40 (건강한 구간)",
+          "거래량 1.8배 증가",
+          "볼린저 하단 반등",
+          "볼린저 밴드 수축 추세 📉"
+        ],
+        "technicals": {
+          "rsi_14": 40.1,
+          "macd": -3876.9272,
+          "macd_signal": -4116.3801,
+          "adx": 28.3,
+          "volume_ratio": 1.75,
+          "bb_position": 0.23
+        },
+        "risk_reward": {
+          "entry": 151000.0,
+          "stop_loss": 145100.0,
+          "take_profit": 167181.0,
+          "risk": 5900.0,
+          "reward": 16181.0,
+          "ratio": 2.74,
+          "risk_pct": -3.9,
+          "reward_pct": 10.7
+        },
+        "price_history_30d": [
+          175700.0,
+          173200.0,
+          174200.0,
+          173500.0,
+          168800.0,
+          166000.0,
+          167400.0,
+          166900.0,
+          168500.0,
+          162800.0,
+          162800.0,
+          162400.0,
+          159200.0,
+          156700.0,
+          160000.0,
+          162700.0,
+          160900.0,
+          160600.0,
+          158200.0,
+          153000.0,
+          147200.0,
+          147600.0,
+          154000.0,
+          156800.0,
+          155500.0,
+          153400.0,
+          151400.0,
+          151500.0,
+          157000.0,
+          151000.0
+        ],
+        "ma_20": 156095.0,
+        "ma_60": 165948.33,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": true
+        },
         "rank": 4
       },
       {
@@ -394,8 +394,8 @@
         ],
         "technicals": {
           "rsi_14": 32.9,
-          "macd": -84642.6363,
-          "macd_signal": -81441.2122,
+          "macd": -84642.6364,
+          "macd_signal": -81441.2124,
           "adx": 28.9,
           "volume_ratio": 2.07,
           "bb_position": 0.03
@@ -462,7 +462,7 @@
         "sector": "의료기기",
         "price": 25850.0,
         "change_pct": -0.8,
-        "score": 54,
+        "score": 51,
         "score_breakdown": {
           "trend": 2,
           "golden_cross": 10,
@@ -543,13 +543,100 @@
         "rank": 6
       },
       {
+        "ticker": "000810.KS",
+        "name": "삼성화재",
+        "market": "KOSPI",
+        "sector": "보험",
+        "price": 604000.0,
+        "change_pct": -7.4,
+        "score": 49,
+        "score_breakdown": {
+          "trend": 11,
+          "golden_cross": 5,
+          "momentum": 10,
+          "volume": 10,
+          "support": 0,
+          "bollinger": 0
+        },
+        "signals": [
+          "200일선 위",
+          "20일선 우상향 중",
+          "ADX 33 — 추세 강함",
+          "MACD > Signal (상승 추세)",
+          "RSI 42 (건강한 구간)",
+          "거래량 1.9배 증가"
+        ],
+        "technicals": {
+          "rsi_14": 41.9,
+          "macd": 2409.0887,
+          "macd_signal": -717.4687,
+          "adx": 33.1,
+          "volume_ratio": 1.88,
+          "bb_position": 0.37
+        },
+        "risk_reward": {
+          "entry": 604000.0,
+          "stop_loss": 568000.0,
+          "take_profit": 676627.0,
+          "risk": 36000.0,
+          "reward": 72627.0,
+          "ratio": 2.02,
+          "risk_pct": -6.0,
+          "reward_pct": 12.0
+        },
+        "price_history_30d": [
+          655000.0,
+          648000.0,
+          661000.0,
+          653000.0,
+          633000.0,
+          626000.0,
+          626000.0,
+          635000.0,
+          629000.0,
+          612000.0,
+          622000.0,
+          612000.0,
+          582000.0,
+          580000.0,
+          586000.0,
+          607000.0,
+          602000.0,
+          601000.0,
+          608000.0,
+          602000.0,
+          595000.0,
+          597000.0,
+          637000.0,
+          651000.0,
+          659000.0,
+          651000.0,
+          651000.0,
+          653000.0,
+          652000.0,
+          604000.0
+        ],
+        "ma_20": 617600.0,
+        "ma_60": 638550.0,
+        "checklist": {
+          "above_ma200": true,
+          "golden_cross_recent": false,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": true
+        },
+        "rank": 7
+      },
+      {
         "ticker": "005380.KS",
         "name": "현대차",
         "market": "KOSPI",
         "sector": "자동차",
         "price": 279500.0,
         "change_pct": -4.8,
-        "score": 49,
+        "score": 46,
         "score_breakdown": {
           "trend": 2,
           "golden_cross": 10,
@@ -563,8 +650,7 @@
           "MACD 골든크로스 ✨",
           "RSI 35 — 과매도 탈출 직전 🎯",
           "볼린저 하단 반등",
-          "볼린저 스퀴즈 (폭 하위 1%)",
-          "상대강도 시장 대비 +10%"
+          "볼린저 스퀴즈 (폭 하위 1%)"
         ],
         "technicals": {
           "rsi_14": 35.0,
@@ -627,180 +713,7 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
-        "rank": 7
-      },
-      {
-        "ticker": "000810.KS",
-        "name": "삼성화재",
-        "market": "KOSPI",
-        "sector": "보험",
-        "price": 604000.0,
-        "change_pct": -7.4,
-        "score": 49,
-        "score_breakdown": {
-          "trend": 11,
-          "golden_cross": 5,
-          "momentum": 10,
-          "volume": 10,
-          "support": 0,
-          "bollinger": 0
-        },
-        "signals": [
-          "200일선 위",
-          "20일선 우상향 중",
-          "ADX 33 — 추세 강함",
-          "MACD > Signal (상승 추세)",
-          "RSI 42 (건강한 구간)",
-          "거래량 1.9배 증가"
-        ],
-        "technicals": {
-          "rsi_14": 41.9,
-          "macd": 2409.0889,
-          "macd_signal": -717.4685,
-          "adx": 33.1,
-          "volume_ratio": 1.88,
-          "bb_position": 0.37
-        },
-        "risk_reward": {
-          "entry": 604000.0,
-          "stop_loss": 568000.0,
-          "take_profit": 676627.0,
-          "risk": 36000.0,
-          "reward": 72627.0,
-          "ratio": 2.02,
-          "risk_pct": -6.0,
-          "reward_pct": 12.0
-        },
-        "price_history_30d": [
-          655000.0,
-          648000.0,
-          661000.0,
-          653000.0,
-          633000.0,
-          626000.0,
-          626000.0,
-          635000.0,
-          629000.0,
-          612000.0,
-          622000.0,
-          612000.0,
-          582000.0,
-          580000.0,
-          586000.0,
-          607000.0,
-          602000.0,
-          601000.0,
-          608000.0,
-          602000.0,
-          595000.0,
-          597000.0,
-          637000.0,
-          651000.0,
-          659000.0,
-          651000.0,
-          651000.0,
-          653000.0,
-          652000.0,
-          604000.0
-        ],
-        "ma_20": 617600.0,
-        "ma_60": 638550.0,
-        "checklist": {
-          "above_ma200": true,
-          "golden_cross_recent": false,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": true,
-          "trend_strong": false,
-          "rr_ratio_good": true
-        },
         "rank": 8
-      },
-      {
-        "ticker": "028260.KS",
-        "name": "삼성물산",
-        "market": "KOSPI",
-        "sector": "건설",
-        "price": 273500.0,
-        "change_pct": -5.9,
-        "score": 45,
-        "score_breakdown": {
-          "trend": 0,
-          "golden_cross": 5,
-          "momentum": 13,
-          "volume": 5,
-          "support": 5,
-          "bollinger": 5
-        },
-        "signals": [
-          "MACD > Signal (상승 추세)",
-          "RSI 35 — 과매도 탈출 직전 🎯",
-          "볼린저 하단 반등",
-          "볼린저 스퀴즈 (폭 하위 19%)",
-          "상대강도 시장 대비 +10%"
-        ],
-        "technicals": {
-          "rsi_14": 34.6,
-          "macd": -9795.241,
-          "macd_signal": -10482.4394,
-          "adx": 24.6,
-          "volume_ratio": 1.49,
-          "bb_position": 0.14
-        },
-        "risk_reward": {
-          "entry": 273500.0,
-          "stop_loss": 260000.0,
-          "take_profit": 332327.0,
-          "risk": 13500.0,
-          "reward": 58827.0,
-          "ratio": 4.36,
-          "risk_pct": -4.9,
-          "reward_pct": 21.5
-        },
-        "price_history_30d": [
-          367000.0,
-          367000.0,
-          345500.0,
-          345000.0,
-          341500.0,
-          347000.0,
-          346000.0,
-          342000.0,
-          336000.0,
-          317500.0,
-          314500.0,
-          300000.0,
-          291500.0,
-          267500.0,
-          286500.0,
-          285000.0,
-          275000.0,
-          290000.0,
-          288500.0,
-          288000.0,
-          292000.0,
-          301000.0,
-          324500.0,
-          323500.0,
-          312000.0,
-          316500.0,
-          309500.0,
-          309000.0,
-          290500.0,
-          273500.0
-        ],
-        "ma_20": 296925.0,
-        "ma_60": 340341.67,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": false,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": true,
-          "trend_strong": false,
-          "rr_ratio_good": true
-        },
-        "rank": 9
       },
       {
         "ticker": "055550.KS",
@@ -824,7 +737,7 @@
           "RSI 35 — 과매도 탈출 직전 🎯",
           "MACD 히스토그램 증가 ↑",
           "볼린저 밴드 수축 추세 📉",
-          "상대강도 시장 대비 +12%"
+          "상대강도 시장 대비 +9%"
         ],
         "technicals": {
           "rsi_14": 35.2,
@@ -881,6 +794,91 @@
         "checklist": {
           "above_ma200": false,
           "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": true
+        },
+        "rank": 9
+      },
+      {
+        "ticker": "028260.KS",
+        "name": "삼성물산",
+        "market": "KOSPI",
+        "sector": "건설",
+        "price": 273500.0,
+        "change_pct": -5.9,
+        "score": 42,
+        "score_breakdown": {
+          "trend": 0,
+          "golden_cross": 5,
+          "momentum": 13,
+          "volume": 5,
+          "support": 5,
+          "bollinger": 5
+        },
+        "signals": [
+          "MACD > Signal (상승 추세)",
+          "RSI 35 — 과매도 탈출 직전 🎯",
+          "볼린저 하단 반등",
+          "볼린저 스퀴즈 (폭 하위 19%)"
+        ],
+        "technicals": {
+          "rsi_14": 34.6,
+          "macd": -9795.2411,
+          "macd_signal": -10482.4395,
+          "adx": 24.6,
+          "volume_ratio": 1.49,
+          "bb_position": 0.14
+        },
+        "risk_reward": {
+          "entry": 273500.0,
+          "stop_loss": 260000.0,
+          "take_profit": 332327.0,
+          "risk": 13500.0,
+          "reward": 58827.0,
+          "ratio": 4.36,
+          "risk_pct": -4.9,
+          "reward_pct": 21.5
+        },
+        "price_history_30d": [
+          367000.0,
+          367000.0,
+          345500.0,
+          345000.0,
+          341500.0,
+          347000.0,
+          346000.0,
+          342000.0,
+          336000.0,
+          317500.0,
+          314500.0,
+          300000.0,
+          291500.0,
+          267500.0,
+          286500.0,
+          285000.0,
+          275000.0,
+          290000.0,
+          288500.0,
+          288000.0,
+          292000.0,
+          301000.0,
+          324500.0,
+          323500.0,
+          312000.0,
+          316500.0,
+          309500.0,
+          309000.0,
+          290500.0,
+          273500.0
+        ],
+        "ma_20": 296925.0,
+        "ma_60": 340341.67,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": false,
           "volume_surge": false,
           "rsi_healthy": true,
           "macd_bullish": true,
