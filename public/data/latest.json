@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-15 08:55 UTC",
+  "updated_at": "2026-11-16 09:08 UTC",
   "market_summary": {
     "sp500": {
       "index": 754.37,
@@ -10,12 +10,12 @@
       "change_pct": -4.21
     },
     "kospi": {
-      "index": 5290.53,
-      "change_pct": -6.66
+      "index": 5100.5,
+      "change_pct": -11.57
     },
     "kosdaq": {
-      "index": 699.66,
-      "change_pct": -11.97
+      "index": 665.65,
+      "change_pct": -17.71
     }
   },
   "screening_results": {
@@ -46,8 +46,8 @@
         ],
         "technicals": {
           "rsi_14": 44.0,
-          "macd": -27667.8368,
-          "macd_signal": -28407.9258,
+          "macd": -27667.8367,
+          "macd_signal": -28407.9256,
           "adx": 35.3,
           "volume_ratio": 1.59,
           "bb_position": 0.38
@@ -114,7 +114,7 @@
         "sector": "인터넷",
         "price": 172500.0,
         "change_pct": -5.1,
-        "score": 47,
+        "score": 49,
         "score_breakdown": {
           "trend": 5,
           "golden_cross": 5,
@@ -134,7 +134,7 @@
         "technicals": {
           "rsi_14": 41.4,
           "macd": -1291.2306,
-          "macd_signal": -2619.6934,
+          "macd_signal": -2619.6933,
           "adx": 29.1,
           "volume_ratio": 1.93,
           "bb_position": 0.27
@@ -195,6 +195,93 @@
         "rank": 2
       },
       {
+        "ticker": "028260.KS",
+        "name": "삼성물산",
+        "market": "KOSPI",
+        "sector": "건설",
+        "price": 285000.0,
+        "change_pct": 0.2,
+        "score": 42,
+        "score_breakdown": {
+          "trend": 0,
+          "golden_cross": 10,
+          "momentum": 14,
+          "volume": 0,
+          "support": 5,
+          "bollinger": 5
+        },
+        "signals": [
+          "MACD 골든크로스 ✨",
+          "RSI 42 (건강한 구간)",
+          "MACD 히스토그램 증가 ↑",
+          "볼린저 하단 반등",
+          "볼린저 스퀴즈 (폭 하위 21%)",
+          "상대강도 시장 대비 +11%"
+        ],
+        "technicals": {
+          "rsi_14": 41.6,
+          "macd": -11202.3482,
+          "macd_signal": -11240.6508,
+          "adx": 23.9,
+          "volume_ratio": 0.68,
+          "bb_position": 0.36
+        },
+        "risk_reward": {
+          "entry": 285000.0,
+          "stop_loss": 260000.0,
+          "take_profit": 329559.0,
+          "risk": 25000.0,
+          "reward": 44559.0,
+          "ratio": 1.78,
+          "risk_pct": -8.8,
+          "reward_pct": 15.6
+        },
+        "price_history_30d": [
+          347000.0,
+          346000.0,
+          342000.0,
+          336000.0,
+          317500.0,
+          314500.0,
+          300000.0,
+          291500.0,
+          267500.0,
+          286500.0,
+          285000.0,
+          275000.0,
+          290000.0,
+          288500.0,
+          288000.0,
+          292000.0,
+          301000.0,
+          324500.0,
+          323500.0,
+          312000.0,
+          316500.0,
+          309500.0,
+          309000.0,
+          290500.0,
+          273500.0,
+          269500.0,
+          279000.0,
+          283000.0,
+          284500.0,
+          285000.0
+        ],
+        "ma_20": 293975.0,
+        "ma_60": 334158.33,
+        "checklist": {
+          "above_ma200": false,
+          "golden_cross_recent": true,
+          "volume_surge": false,
+          "rsi_healthy": true,
+          "macd_bullish": true,
+          "trend_strong": false,
+          "rr_ratio_good": false
+        },
+        "rank": 3
+      },
+      {
         "ticker": "336260.KQ",
         "name": "두산퓨얼셀",
         "market": "KOSDAQ",
@@ -220,7 +307,7 @@
         ],
         "technicals": {
           "rsi_14": 39.7,
-          "macd": -3079.7538,
+          "macd": -3079.7537,
           "macd_signal": -3426.339,
           "adx": 22.0,
           "volume_ratio": 0.58,
@@ -279,7 +366,7 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
-        "rank": 3
+        "rank": 4
       },
       {
         "ticker": "067310.KQ",
@@ -366,7 +453,7 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
-        "rank": 4
+        "rank": 5
       },
       {
         "ticker": "079550.KQ",
@@ -394,8 +481,8 @@
         ],
         "technicals": {
           "rsi_14": 33.5,
-          "macd": -68769.7207,
-          "macd_signal": -70497.8688,
+          "macd": -68769.7208,
+          "macd_signal": -70497.8689,
           "adx": 44.5,
           "volume_ratio": 0.68,
           "bb_position": 0.26
@@ -453,92 +540,6 @@
           "trend_strong": false,
           "rr_ratio_good": true
         },
-        "rank": 5
-      },
-      {
-        "ticker": "028260.KS",
-        "name": "삼성물산",
-        "market": "KOSPI",
-        "sector": "건설",
-        "price": 285000.0,
-        "change_pct": 0.2,
-        "score": 39,
-        "score_breakdown": {
-          "trend": 0,
-          "golden_cross": 10,
-          "momentum": 14,
-          "volume": 0,
-          "support": 5,
-          "bollinger": 5
-        },
-        "signals": [
-          "MACD 골든크로스 ✨",
-          "RSI 42 (건강한 구간)",
-          "MACD 히스토그램 증가 ↑",
-          "볼린저 하단 반등",
-          "볼린저 스퀴즈 (폭 하위 21%)"
-        ],
-        "technicals": {
-          "rsi_14": 41.6,
-          "macd": -11202.3482,
-          "macd_signal": -11240.6509,
-          "adx": 23.9,
-          "volume_ratio": 0.68,
-          "bb_position": 0.36
-        },
-        "risk_reward": {
-          "entry": 285000.0,
-          "stop_loss": 260000.0,
-          "take_profit": 329559.0,
-          "risk": 25000.0,
-          "reward": 44559.0,
-          "ratio": 1.78,
-          "risk_pct": -8.8,
-          "reward_pct": 15.6
-        },
-        "price_history_30d": [
-          347000.0,
-          346000.0,
-          342000.0,
-          336000.0,
-          317500.0,
-          314500.0,
-          300000.0,
-          291500.0,
-          267500.0,
-          286500.0,
-          285000.0,
-          275000.0,
-          290000.0,
-          288500.0,
-          288000.0,
-          292000.0,
-          301000.0,
-          324500.0,
-          323500.0,
-          312000.0,
-          316500.0,
-          309500.0,
-          309000.0,
-          290500.0,
-          273500.0,
-          269500.0,
-          279000.0,
-          283000.0,
-          284500.0,
-          285000.0
-        ],
-        "ma_20": 293975.0,
-        "ma_60": 334158.33,
-        "checklist": {
-          "above_ma200": false,
-          "golden_cross_recent": true,
-          "volume_surge": false,
-          "rsi_healthy": true,
-          "macd_bullish": true,
-          "trend_strong": false,
-          "rr_ratio_good": false
-        },
         "rank": 6
       },
       {
@@ -548,7 +549,7 @@
         "sector": "해운",
         "price": 21450.0,
         "change_pct": 3.6,
-        "score": 36,
+        "score": 38,
         "score_breakdown": {
           "trend": 15,
           "golden_cross": 0,
@@ -635,7 +636,7 @@
         "sector": "반도체",
         "price": 1216000.0,
         "change_pct": -3.0,
-        "score": 35,
+        "score": 37,
         "score_breakdown": {
           "trend": 0,
           "golden_cross": 10,
@@ -739,8 +740,8 @@
         ],
         "technicals": {
           "rsi_14": 30.8,
-          "macd": -31192.3342,
-          "macd_signal": -34991.4721,
+          "macd": -31192.3344,
+          "macd_signal": -34991.4725,
           "adx": 42.4,
           "volume_ratio": 1.04,
           "bb_position": 0.33
